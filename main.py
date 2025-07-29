@@ -210,12 +210,17 @@ with open("./output/" + outslug + "_log.txt", "wt") as file_log:
                 try:
                     # extract text page by page since that's not too memory-intensive
                     for page_layout in extract_pages(full_path):
-                        for text_container in page_layout:
+                        for text_container in page_layout:                    
                             if isinstance(text_container, LTTextContainer):
                                 text: str = text_container.get_text()
 
-                                matches: re.Match = regex_all.search(text)
-                                add_matches(matches, full_path)
+                                """ Workaround for PDFs with messed-up text embeddings that only
+                                    consist of very short character sequences """
+                                if len(text) < 10:
+                                    continue
+                                else:
+                                    matches: re.Match = regex_all.search(text)
+                                    add_matches(matches, full_path)
 
                     num_files_checked += 1
                 except pdfminer.psexceptions.PSEOF:
