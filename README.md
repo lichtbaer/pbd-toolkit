@@ -1,3 +1,5 @@
+*(If you're looking for an English README, check out the file [README_en.md in the docs/ sub-directory](./docs/README_en.md))*
+
 Bei dem *pbD-Toolkit* handelt es sich um ein Tool, das der Hessische Beauftragte für Datenschutz und Informationsfreiheit (HBDI) programmiert hat, um große Datenmenge zu durchsuchen. Das Tool soll dabei Hinweise dafür suchen, ob in diesen Datenmengen personenbezogene Daten enthalten sein könnten. Ein Beispiel für große Datenmengen, die der HBDI damit durchsucht, sind Daten-Leaks, die etwa im sogenannten Darknet veröffentlicht werden.
 
 Der HBDI teilt dieses Tool mit der Öffentlichkeit, damit es auch von anderen Stellen genutzt und vielleicht sogar weiterentwickelt werden kann.
