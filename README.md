@@ -16,6 +16,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 * Abhängigkeiten installieren: `pip install -r requirements.txt`
+* Für die Verwendung KI-gestützer Verfahren sollte das verwendete Modell vorab heruntergeladen werden. Es wird vorausgesetzt, dass ein HuggingFace-Account registriert wurde und die Authentifizierung erfolgt ist (`pip install huggingface_hub[cli]`, `hf auth login`). Sodann Download des Models via: `hf download urchade/gliner_medium-v2.1`
 
 Verwendung
 ==========
@@ -23,30 +24,45 @@ Verwendung
 Das Toolkit wird über die Konsole mittels des Befehls `python main.py` gestartet. Der
 Kommandozeilenparameter `--path` muss in jedem Fall an das Toolkit übergeben werden. Er enthält
 den Pfad zu dem Stammverzeichnis, in dem und unterhalb von dem die Suche nach personenbezogenen
-Daten gestartet wird. Es gibt einen weiteren, optional Parameter `--name`, der sich nur auf
-die Benennung der Ausgabedateien auswirkt.
+Daten gestartet wird.
 
-Beispiel für einen vollständigen Aufruf: `python main.py --path /var/data-leak/ --name "Großes Datenleck"`
+Mindestens einer der Parameter `--ner`/`--regex` muss gesetzt sein. `--regex` aktiviert die Suche mittels regulärer Ausdrücke, `--ner` aktiviert die Suche mittels eines KI-basierten Named Entity Recognition-Verfahrens.
+
+Ein weiterer, optionaler Parameter `--name`, wirkt sich auf
+die Benennung der Ausgabedateien aus.
+
+Der optionale Parameter `--whitelist` enthält den Pfad zu einer Textdatei, die pro Zeile eine Zeichenkette enthält, die als Ausschlusskriterium für potentielle Treffer herangezogen wird. Steht in einer Zeile etwa die Zeichenkette "info@", so werden in der findings.csv keinerlei E-Mail-Adressen ausgegeben, welche diese Zeichenkette beinhalten. Das kann dazu genutzt werden, um falsch-positive Ergebnisse auszuschließen, z. B. bei solchen E-Mail-Adressen, die bekanntermaßen nicht personenbezogen sind.
+
+Der optionale Parameter `--stop-count` kann benutzt werden, um die Analyse nach einer bestimmten Anzahl von Dateien abzubrechen, z. B. zu Erprobungszwecken.
+
+Beispiel für einen vollständigen Aufruf: `python main.py --path /var/data-leak/ --name "Großes Datenleck" --ner --regex --whitelist stopwords.txt --stop-count 200`
 
 Funktionsumfang
 ===============
 
 Das Toolkit kann derzeit folgende Zeichenketten erkennen:
-* Deutsche Rentenversicherungsnummern
-* IBAN (Fokus auf bei deutschen Bankkonten übliche Formate)
-* E-Mail-Adressen (übliche Formate)
-* IPv4-Adressen
-* bestimmte Signalwörter: "Abmahnung", "Bewerbung", "Zeugnis", "Entwicklungsbericht", "Gutachten", "Krankmeldung"
+* Suche mittels regulärer Ausdrücke:
+  * Deutsche Rentenversicherungsnummern
+  * IBAN (Fokus auf bei deutschen Bankkonten übliche Formate)
+  * E-Mail-Adressen (übliche Formate)
+  * IPv4-Adressen
+  * bestimmte Signalwörter: "Abmahnung", "Bewerbung", "Zeugnis", "Entwicklungsbericht", "Gutachten", "Krankmeldung"
+  * Private PGP-Schlüssel
+* Suche mittels KI-basierter Named Entity Recognition:
+  * Namen von Personen
+  * Orte
+  * Gesundheitsdaten (experimentell - schlechte Ergebnisqualität)
+  * Passwörter (experimentell - schlechte Ergebnisqualität)
 
-Im derzeitigen Stadium wird **keine** Aussage dazu getroffen, ob es sich dabei mit einer bestimmten
-Wahrscheinlichkeit um personenbezogene Daten handelt. Es erfolgt keine semantische Betrachtung der
-gefundenen Zeichenketten oder ihres Kontexts.
+Im derzeitigen Stadium wird eine Aussage dazu, ob es sich dabei mit einer bestimmten
+Wahrscheinlichkeit um personenbezogene Daten handelt, nur von der KI-basierten Suchmethode unterstützt. 
 
 Derzeit wird eine Suche in folgenden Dateiformaten unterstützt, wobei die Auswahl von Dateien ausschließlich
 aufgrund ihrer Dateiendung erfolgt:
 * .pdf
 * .docx
 * .html
+* .txt (auch Dateien ohne Dateiendung, wenn der Mime Type "text/plain" erkannt wird)
 
 Bei jeder Ausführung werden im Unterverzeichnis output/ zwei Dateien erzeugt:
 * [Zeitstempel]_log.txt: Enthält Informationen zur Ausführung wie z. B. Zeitpunkt, gefundene
@@ -57,6 +73,7 @@ Bei jeder Ausführung werden im Unterverzeichnis output/ zwei Dateien erzeugt:
   * *match*: Die gefundene Zeichenkette
   * *file*: Der Pfad zu der Datei, in der die Zeichenkette gefunden wurde
   * *type*: Der Typ von Zeichenkette, die gefunden wurde (s. o.)
+  * *ner_score*: Bei der KI-basierten Suchmethode: Aussagekraft der Erkennung (Selbstbewertung des Modells)
 
 Fragen/Kritik/Anregungen/Patches
 ================================
@@ -67,7 +84,8 @@ Beauftragten für Datenschutz und Informationsfreiheit.
 ToDo/Pläne
 ==========
 
-* Semantische Betrachtung von Funden, z. B. mittels LLM
+* i18n
+* Unterstützung für Krankenversicherungsnummern (reguläre Ausdrücke)
 * Unterstützung weiterer Dateiformate
 * Unterstützung von PDF-Dateien ohne Texteinbettungen mittels OCR
 * Unterstützung von DOCX-Dateien ausweiten auf Text in Header, Footer und in Tabellen

@@ -2,65 +2,19 @@ import argparse
 import re
 import os
 import csv
-import zipfile
 import docx
 import docx.opc
 import docx.opc.exceptions
 import docx.text
 import docx.text.paragraph
-import pdfminer
 from pdfminer.layout import LTTextContainer
 from pdfminer.high_level import extract_pages
 import datetime
-from enum import StrEnum
 from bs4 import BeautifulSoup
+from gliner import GLiNER
+import mimetypes
+from matches import PiiMatchContainer
 
-""" Class for holding a singular found PII match.
-"""
-class PiiMatch:
-    text: str
-    file: str
-
-    class PiiMatchType(StrEnum):
-        REGEX_RVNR = "RegEx: Rentenversicherungsnummer"
-        REGEX_IBAN = "RegEx: IBAN"
-        REGEX_EMAIL = "RegEx: E-Mail-Adresse"
-        REGEX_IPV4 = "RegEx: IPv4-Adresse"
-        REGEX_WORDS = "RegEx: spezielle Wörter"
-
-    type: PiiMatchType
-
-    def __init__(self, text: str, file: str, type: PiiMatchType):
-        self.text = text
-        self.file = file
-        self.type = type
-
-
-""" Class for holding all PII matches found. The aim is to provide helpful functions for processing
-    these matches, for example outputting them in groups by different criteria.
-
-    This functionality isn't actually used at the moment. """
-class PiiMatchContainer:
-    pii_matches: list[PiiMatch] | None
-
-    def __init__(self):
-        self.pii_matches = []
-
-    def by_file(self) -> dict[str, list[PiiMatch]]:
-        files: list[str] = []
-        files = [pm.file for pm in self.pii_matches if pm.file not in files]
-        files_to_pms: dict[str, list[PiiMatch]] = {}
-
-        for pm in self.pii_matches:
-            if pm.file not in files_to_pms.keys():
-                files_to_pms[pm.file] = [pm]
-            else:
-                files_to_pms[pm.file].append(pm)
-
-        return files_to_pms
-
-    def by_text() -> dict[str, list[PiiMatch]]:
-        pass
 
 """ Used to count how many files per extension have been found. This does *not* only count supported/qualified
     extensions but all of the ones contained in the root directory searched.
@@ -129,41 +83,35 @@ rxstr_ipv4: str = r"\b(?:(?:25[0-5]|(?:2[0-4]|1\d|[1-9]|)\d)\.?\b){4}\b"
 """ Regular expression for special words that frequently appear in the context of
     personally-identifiable information """
 rxstr_words: str = r"\b(?:Abmahnung|Bewerbung|Zeugnis|Entwicklungsbericht|Gutachten|Krankmeldung)\b"
+rxstr_pgpprv: str = r"(?:BEGIN PGP PRIVATE KEY)"
 
 # concatenate all regex strings so that we can scan each document just once instead of once per regex
-rxstr_all: str = "(" + rxstr_rvnr + ")|(" + rxstr_iban + ")|(" + rxstr_mail + ")|(" + rxstr_ipv4 + ")|(" + rxstr_words + ")"
+rxstr_all: str = "(" + rxstr_rvnr + ")|(" + rxstr_iban + ")|(" + rxstr_mail + ")|(" + rxstr_ipv4 + ")|(" + rxstr_words + ")|(" + rxstr_pgpprv + ")"
 regex_all: re.Pattern = re.compile(rxstr_all)
 
 pmc: PiiMatchContainer = PiiMatchContainer()
 
-""" Helper function for adding matches to the matches container.
-    Since we use a concatenated regex that contains multiple types of checks (e. g. bank account, email all in one)
-    for efficiency reasons, we now have to figure out exactly which type of match it actually is."""
-def add_matches(matches: re.Match | None, path: str) -> None:
-    if matches is not None:
-        type: PiiMatch.PiiMatchType | None = None
-
-        if matches.groups()[0] is not None:
-            type = PiiMatch.PiiMatchType.REGEX_RVNR
-        elif matches.groups()[1] is not None:
-            type = PiiMatch.PiiMatchType.REGEX_IBAN
-        elif matches.groups()[2] is not None:
-            type = PiiMatch.PiiMatchType.REGEX_EMAIL
-        elif matches.groups()[3] is not None:
-            type = PiiMatch.PiiMatchType.REGEX_IPV4
-        elif matches.groups()[4] is not None:
-            type = PiiMatch.PiiMatchType.REGEX_WORDS
-
-        pm: PiiMatch = PiiMatch(text=matches.group(), file=path, type=type)
-        pmc.pii_matches.append(pm)
+# Used to list all entities for AI-based NER
+ner_labels: list[str] = []
 
 parser = argparse.ArgumentParser(prog="HBDI-pbD-Toolkit")
 parser.add_argument("--path", action="store", help="Stammpfad, der mit allen Unterverzeichnissen auf pbD überprüft werden soll")
 parser.add_argument("--outname", action="store", help="optionaler Parameter, die hier angegebene Zeichenkette wird zur Benennung der erzeugten Output-Dateien verwendet")
+parser.add_argument("--whitelist", action="store", help="Relativer Pfad zu einer Textdatei, die pro Zeile eine Zeichenkette enthält, die als Ausschluss potentieller Treffer verwendet wird")
+parser.add_argument("--stop-count", action="store", type=int, help="Analyse nach N Dateien abbrechen")
+parser.add_argument("--regex", action="store_true", help="Falls gesetzt, so werden reguläre Ausdrücke zur Analyse genutzt")
+parser.add_argument("--ner", action="store_true", help="Falls gesetzt, so werden KI-gestützte Named Entity Recognition-Funktionalitäten zur Analyse genutzt")
 args = parser.parse_args()
 
-if args.path is None:
+if not args.path:
     exit("--path-Parameter kann nicht leer sein")
+
+if not args.ner and not args.regex:
+    exit("RegEx- und/oder NER-Analyse müssen aktiviert sein")
+
+if args.ner == True:
+    model: GLiNER = GLiNER.from_pretrained("urchade/gliner_medium-v2.1")
+    ner_labels = ["Person's Name", "Location", "Health Data", "Password"]
 
 # construct name for output files. Default is date/time, optionally with the value from args.outname
 outslug: str = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
@@ -171,11 +119,31 @@ outslug: str = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
 if args.outname is not None:
     outslug += " " + args.outname
 
+if args.whitelist and os.path.isfile(args.whitelist):
+    with open(args.whitelist, "r") as file:
+        pmc.whitelist = file.read().splitlines()
+
+time_start: datetime.datetime = datetime.datetime.now()
+time_end: datetime.datetime
+time_diff: datetime.timedelta
+
 # log all significant operations and findings
 with open("./output/" + outslug + "_log.txt", "wt") as file_log:
-    file_log.write("RegEx-Analyse\n")
+    file_log.write("Analyse\n")
     file_log.write("====================\n\n")
-    file_log.write("Analyse gestartet um {}\n\n\n".format(datetime.datetime.now()))
+    file_log.write("Analyse gestartet um {}\n\n".format(time_start))
+
+    if args.regex == True:
+        file_log.write("RegEx-Suche ist aktiv.\n")
+    else:
+        file_log.write("RegEx-Suche ist *nicht* aktiv.\n")
+
+    if args.ner == True:
+        file_log.write("KI-gestützte NER ist aktiv.\n")
+    else:
+        file_log.write("KI-gestützte NER ist *nicht* aktiv.\n")
+    
+    file_log.write("\n\n")
 
     # if the file isn't flushed it would show up empty when opened during an ongoing analysis
     file_log.flush()
@@ -219,18 +187,17 @@ with open("./output/" + outslug + "_log.txt", "wt") as file_log:
                                 if len(text) < 10:
                                     continue
                                 else:
-                                    matches: re.Match = regex_all.search(text)
-                                    add_matches(matches, full_path)
+                                    if args.regex == True:
+                                        matches: re.Match = regex_all.search(text)
+                                        pmc.add_matches_regex(matches, full_path)
+
+                                    if args.ner == True:
+                                        entities = model.predict_entities(text, ner_labels, threshold=0.5)
+                                        pmc.add_matches_ner(entities, full_path)
 
                     num_files_checked += 1
-                except pdfminer.psexceptions.PSEOF:
-                    add_error("PDF Unexpected EOF", full_path)
-                except pdfminer.pdfparser.PDFSyntaxError:
-                    add_error("PDF Malformed PDF", full_path)
-                except pdfminer.pdfdocument.PDFPasswordIncorrect:
-                    add_error("PDF Password Protected", full_path)
-                except Exception:
-                    add_error("PDF Misc Exception", full_path)
+                except Exception as excpt:
+                    add_error(str(excpt), full_path)
             elif ext == ".docx":
                 """ For DOCX files, we extract text using python-docx. Currently, this only takes a document's
                     paragraphs into account, with no regard for elements that aren't paragraphs (headers, footers, tables)."""
@@ -243,15 +210,18 @@ with open("./output/" + outslug + "_log.txt", "wt") as file_log:
                     paragraph: docx.text.paragraph
                     for paragraph in doc.paragraphs:
                         text += paragraph.text
-                        matches: re.Match = regex_all.search(text)
+                        
+                        if args.regex == True:
+                            matches: re.Match = regex_all.search(text)
+                            pmc.add_matches_regex(matches, full_path)
 
-                        add_matches(matches, full_path)
+                        if args.ner == True:
+                            entities = model.predict_entities(text, ner_labels, threshold=0.5)
+                            pmc.add_matches_ner(entities, full_path)
                 except docx.opc.exceptions.PackageNotFoundError:
                     add_error("DOCX Empty Or Protected", full_path)
-                except KeyError:
-                    add_error("DOCX Corrupt Or Bad Data Structure", full_path)
-                except zipfile.BadZipFile:
-                    add_error("DOCX Bad Zip File", full_path)
+                except Exception as excpt:
+                    add_error(str(excpt), full_path)
             elif ext == ".html":
                 """ For HTML files, we use BeautifulSoup4 to extract the text without markup. """
                 with open(full_path) as doc:
@@ -260,12 +230,38 @@ with open("./output/" + outslug + "_log.txt", "wt") as file_log:
                         num_files_checked += 1
 
                         text: str = soup.get_text()
-                        matches: re.Match = regex_all.search(text)
+                        
+                        if args.regex == True:
+                            matches: re.Match = regex_all.search(text)
+                            pmc.add_matches_regex(matches, full_path)
 
-                        add_matches(matches, full_path)
+                        if args.ner == True:
+                            entities = model.predict_entities(text, ner_labels, threshold=0.5)
+                            pmc.add_matches_ner(entities, full_path)
                     except UnicodeDecodeError:
                         add_error("HTML Unicode Decode Error", full_path)
+            elif (ext == ".txt" or ext == "") and mimetypes.guess_type(full_path) == "text/plain":
+                with open(full_path) as doc:
+                    try:
+                        text: str = doc.read()
+                        
+                        if args.regex == True:
+                            matches: re.Match = regex_all.search(text)
+                            pmc.add_matches_regex(matches, full_path)
 
+                        if args.ner == True:
+                            entities = model.predict_entities(text, ner_labels, threshold=0.5)
+                            pmc.add_matches_ner(entities, full_path)
+                    except Exception as excpt:
+                        add_error(str(excpt), full_path)
+
+            if args.stop_count and num_files_all == args.stop_count:
+                break
+        if args.stop_count and num_files_all == args.stop_count:
+            break
+
+    time_end = datetime.datetime.now()
+    time_diff = time_end - time_start
 
     """ Output all results. """
     file_log.write("Statistiken\n")
@@ -291,11 +287,12 @@ with open("./output/" + outslug + "_log.txt", "wt") as file_log:
             file_log.write("\t\t{}\n".format(f.encode("utf-8", "replace")))
 
     file_log.write("\n\n")
-    file_log.write("Analyse abgeschlossen um {}\n".format(datetime.datetime.now()))
+    file_log.write("Analyse abgeschlossen um {}\n".format(time_end))
+    file_log.write("Analyse-Performance: {} analysierte Dateien pro Sekunde\n".format(num_files_checked / time_diff.seconds))
 
 with open("./output/" + outslug + "_findings.csv", "w") as csvfile:
     csvwriter = csv.writer(csvfile)
-    csvwriter.writerow(["match", "file", "type"])
+    csvwriter.writerow(["match", "file", "type", "ner_score"])
 
     for pm in pmc.pii_matches:
-        csvwriter.writerow([pm.text, pm.file, pm.type.value])
+        csvwriter.writerow([pm.text, pm.file, pm.type.value, pm.ner_score])
