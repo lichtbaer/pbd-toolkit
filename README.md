@@ -16,7 +16,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 * Abhängigkeiten installieren: `pip install -r requirements.txt`
-* Für die Verwendung KI-gestützer Verfahren sollte das verwendete Modell vorab heruntergeladen werden. Es wird vorausgesetzt, dass ein HuggingFace-Account registriert wurde und die Authentifizierung erfolgt ist (`pip install huggingface_hub[cli]`, `hf auth login`). Sodann Download des Models via: `hf download urchade/gliner_medium-v2.1`
+* Für die Verwendung KI-gestützer Verfahren sollte das verwendete Modell vorab heruntergeladen werden. Es wird vorausgesetzt, dass ein HuggingFace-Account registriert wurde und die Authentifizierung erfolgt ist (`pip install "huggingface_hub[cli]"`, `hf auth login`). Sodann Download des Models via: `hf download urchade/gliner_medium-v2.1`
 
 Verwendung
 ==========

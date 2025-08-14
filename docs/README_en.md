@@ -17,7 +17,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 * Install the requirements: `pip install -r requirements.txt`
-* For using AI-based methods, it is recommended to download the model used ahead of analysis. Assuming that a HuggingFace has been registered and authenticated against (`pip install huggingface_hub[cli]`, `hf auth login`), the model can be downloaded via: `hf download urchade/gliner_medium-v2.1`
+* For using AI-based methods, it is recommended to download the model used ahead of analysis. Assuming that a HuggingFace has been registered and authenticated against (`pip install "huggingface_hub[cli]"`, `hf auth login`), the model can be downloaded via: `hf download urchade/gliner_medium-v2.1`
 
 Usage
 ==========

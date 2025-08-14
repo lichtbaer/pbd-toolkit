@@ -1,6 +1,6 @@
 from enum import StrEnum
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 """ Class for holding a singular found PII match.
@@ -37,9 +37,9 @@ class PiiMatch:
     An __init__ method is implied by the @dataclass decorator. """
 @dataclass
 class PiiMatchContainer:
-    pii_matches: list[PiiMatch] = []
+    pii_matches: list[PiiMatch] = field(default_factory=list)
     # Whitelist used for excluding strings from being identified as PII
-    whitelist: list[str] = []
+    whitelist: list[str] = field(default_factory=list)
 
     """ Helper function for adding matches to the matches container. This generic, internal method is
         called by the other methods intended for public use, its aim is to reduce redundancy. """
