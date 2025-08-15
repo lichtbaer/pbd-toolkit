@@ -26,13 +26,13 @@ The toolkit is run from the command line using `python main.py`. The command lin
 
 At least one of the parameters `--ner`/`--regex` must be set. `--regex` activates the search using regular expressions, while `--ner` activates the search using an AI-based Named Entity Recognition method.
 
-An additional, optional command line argument `--name` can be used to be included in the naming of output files.
+An additional, optional command line argument `--outname` can be used to be included in the naming of output files.
 
 The optional parameter `--whitelist` gives the path to a text file containing one string per line used for excluding potential matches. For example, if a line contains the string "info@", then the findings.csv will not show any email addresses containing that string. This can be used to exclude known false positives, such as email addresses that would not be considered personally identifiable.
 
 The optional parameter `--stop-count` can be used to stop analyses after a specific number of files, e. g. for testing purposes.
 
-An example for a complete command line call would be: `python main.py --path /var/data-leak/ --name "Big Data Leak" --ner --regex --whitelist stopwords.txt --stop-count 200`
+An example for a complete command line call would be: `python main.py --path /var/data-leak/ --outname "Big Data Leak" --ner --regex --whitelist stopwords.txt --stop-count 200`
 
 Features
 ===============

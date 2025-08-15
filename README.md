@@ -28,14 +28,14 @@ Daten gestartet wird.
 
 Mindestens einer der Parameter `--ner`/`--regex` muss gesetzt sein. `--regex` aktiviert die Suche mittels regulärer Ausdrücke, `--ner` aktiviert die Suche mittels eines KI-basierten Named Entity Recognition-Verfahrens.
 
-Ein weiterer, optionaler Parameter `--name`, wirkt sich auf
+Ein weiterer, optionaler Parameter `--outname`, wirkt sich auf
 die Benennung der Ausgabedateien aus.
 
 Der optionale Parameter `--whitelist` enthält den Pfad zu einer Textdatei, die pro Zeile eine Zeichenkette enthält, die als Ausschlusskriterium für potentielle Treffer herangezogen wird. Steht in einer Zeile etwa die Zeichenkette "info@", so werden in der findings.csv keinerlei E-Mail-Adressen ausgegeben, welche diese Zeichenkette beinhalten. Das kann dazu genutzt werden, um falsch-positive Ergebnisse auszuschließen, z. B. bei solchen E-Mail-Adressen, die bekanntermaßen nicht personenbezogen sind.
 
 Der optionale Parameter `--stop-count` kann benutzt werden, um die Analyse nach einer bestimmten Anzahl von Dateien abzubrechen, z. B. zu Erprobungszwecken.
 
-Beispiel für einen vollständigen Aufruf: `python main.py --path /var/data-leak/ --name "Großes Datenleck" --ner --regex --whitelist stopwords.txt --stop-count 200`
+Beispiel für einen vollständigen Aufruf: `python main.py --path /var/data-leak/ --outname "Großes Datenleck" --ner --regex --whitelist stopwords.txt --stop-count 200`
 
 Funktionsumfang
 ===============
