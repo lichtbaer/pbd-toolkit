@@ -2,7 +2,7 @@
 
 The *pbD-Toolkit*[^1] was programmed by the Hessian Commissioner for Data Protection and Freedom of Information (HBDI) to facilitate searching large amounts of data. Its search features help identify indicators for the presence of personally identifiable data within. An example for data that the HBDI might want to search in would be a leaked data dump that might be made public on the so-called darknet.
 
-The HBDI has decided t o share this tool with the public so that others may use it or contribute to its development.
+The HBDI has decided to share this tool with the public so that others may use it or contribute to its development.
 
 Within the HBDI's organization, the tool is maintained by sub-department 3.2 (technical data protection audits). You can find the contact persons by looking up the HBDI's organization chart linked on [this page](https://datenschutz.hessen.de/ueber-uns/aufgaben-und-organisation). Press representatives can find their respective points of contact on [this page](https://datenschutz.hessen.de/presse-0). These pages might only be available in German.
 
@@ -63,7 +63,7 @@ Currently, the following file formats will be searched (as identified by the fil
 
 On every run, two files will be created in the output/ sub-directory:
 * [TIMESTAMP]_log.txt: Information about the tool's execution, such as the time and date of execution, file extensions found and possible errors encountered (e. g. files which could not be opened)
-* [TIMESTAMP]_findings.csv: All results found during the tool's execution. This CSV file consists of the following three columns::
+* [TIMESTAMP]_findings.csv: All results found during the tool's execution. This CSV file consists of the following four columns:
   * *match*: The string found
   * *file*: The path to the file in which the string was found
   * *type*: The type of string found (see above))
@@ -77,7 +77,7 @@ Feel free to submit any of these via openCode or direct them to the HBDI's sub-d
 ToDo/Plans
 ==========
 
-* i18n
+* More useful output
 * Support for identifying health insurance IDs (regex-based)
 * Support for more file types
 * Support for PDF files within embedded text (using OCR)

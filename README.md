@@ -71,7 +71,7 @@ Bei jeder Ausführung werden im Unterverzeichnis output/ zwei Dateien erzeugt:
   Dateiendungen und Fehler/Auffälligkeiten bei der Ausführung (z. B. Dateien, die nicht gelesen
   werden konnten)
 * [Zeitstempel]_findings.csv: Enthält alle Funde von Zeichenketten aus diesem Durchlauf. Die
-  CSV-Datei besteht aus drei Spalten:
+  CSV-Datei besteht aus vier Spalten:
   * *match*: Die gefundene Zeichenkette
   * *file*: Der Pfad zu der Datei, in der die Zeichenkette gefunden wurde
   * *type*: Der Typ von Zeichenkette, die gefunden wurde (s. o.)
@@ -86,7 +86,7 @@ Beauftragten für Datenschutz und Informationsfreiheit.
 ToDo/Pläne
 ==========
 
-* i18n
+* Nützlichere Ausgabe
 * Unterstützung für Krankenversicherungsnummern (reguläre Ausdrücke)
 * Unterstützung weiterer Dateiformate
 * Unterstützung von PDF-Dateien ohne Texteinbettungen mittels OCR
