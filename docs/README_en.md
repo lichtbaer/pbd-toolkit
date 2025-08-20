@@ -32,7 +32,9 @@ The optional parameter `--whitelist` gives the path to a text file containing on
 
 The optional parameter `--stop-count` can be used to stop analyses after a specific number of files, e. g. for testing purposes.
 
-An example for a complete command line call would be: `python main.py --path /var/data-leak/ --outname "Big Data Leak" --ner --regex --whitelist stopwords.txt --stop-count 200`
+The program's language can be set via the environment variable `LANGUAGE` which accepts "de" and "en", "de" being the default.
+
+An example for a complete command line call would be: `LANGUAGE=en python main.py --path /var/data-leak/ --outname "Big Data Leak" --ner --regex --whitelist stopwords.txt --stop-count 200`
 
 Features
 ===============

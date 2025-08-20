@@ -14,7 +14,17 @@ from bs4 import BeautifulSoup
 from gliner import GLiNER
 import mimetypes
 from matches import PiiMatchContainer
+import gettext
 
+lstr: str = "de"
+lenv = os.environ["LANGUAGE"]
+
+if lenv in ["de", "en"]:
+    lstr = lenv
+
+lang = gettext.translation("base", localedir="locales", languages=[lstr])
+lang.install()
+_ = lang.gettext
 
 """ Used to count how many files per extension have been found. This does *not* only count supported/qualified
     extensions but all of the ones contained in the root directory searched.
@@ -94,20 +104,20 @@ pmc: PiiMatchContainer = PiiMatchContainer()
 # Used to list all entities for AI-based NER
 ner_labels: list[str] = []
 
-parser = argparse.ArgumentParser(prog="HBDI-pbD-Toolkit")
-parser.add_argument("--path", action="store", help="Stammpfad, der mit allen Unterverzeichnissen auf pbD überprüft werden soll")
-parser.add_argument("--outname", action="store", help="optionaler Parameter, die hier angegebene Zeichenkette wird zur Benennung der erzeugten Output-Dateien verwendet")
-parser.add_argument("--whitelist", action="store", help="Relativer Pfad zu einer Textdatei, die pro Zeile eine Zeichenkette enthält, die als Ausschluss potentieller Treffer verwendet wird")
-parser.add_argument("--stop-count", action="store", type=int, help="Analyse nach N Dateien abbrechen")
-parser.add_argument("--regex", action="store_true", help="Falls gesetzt, so werden reguläre Ausdrücke zur Analyse genutzt")
-parser.add_argument("--ner", action="store_true", help="Falls gesetzt, so werden KI-gestützte Named Entity Recognition-Funktionalitäten zur Analyse genutzt")
+parser = argparse.ArgumentParser(prog=_("HBDI PII Toolkit"))
+parser.add_argument("--path", action="store", help=_("Root directory under which to recursively search for PII"))
+parser.add_argument("--outname", action="store", help=_("Optional parameter; string which to include in the file name of all output files"))
+parser.add_argument("--whitelist", action="store", help=_("Optional parameter; relative path to a text file containing one string per line. These strings will be matched against potential findings to exclude them from the output."))
+parser.add_argument("--stop-count", action="store", type=int, help=_("Optional parameter; stop analysis after N files"))
+parser.add_argument("--regex", action="store_true", help=_("Use regular expressions for analysis"))
+parser.add_argument("--ner", action="store_true", help=_("Use AI-based Named Entity Recognition for analysis"))
 args = parser.parse_args()
 
 if not args.path:
-    exit("--path-Parameter kann nicht leer sein")
+    exit(_("--path parameter cannot be empty"))
 
 if not args.ner and not args.regex:
-    exit("RegEx- und/oder NER-Analyse müssen aktiviert sein")
+    exit(_("Regex- and/or NER-based analysis must be turned on."))
 
 if args.ner == True:
     model: GLiNER = GLiNER.from_pretrained("urchade/gliner_medium-v2.1")
@@ -129,19 +139,19 @@ time_diff: datetime.timedelta
 
 # log all significant operations and findings
 with open("./output/" + outslug + "_log.txt", "wt") as file_log:
-    file_log.write("Analyse\n")
+    file_log.write(_("Analysis\n"))
     file_log.write("====================\n\n")
-    file_log.write("Analyse gestartet um {}\n\n".format(time_start))
+    file_log.write(_("Analysis started at {}\n\n").format(time_start))
 
     if args.regex == True:
-        file_log.write("RegEx-Suche ist aktiv.\n")
+        file_log.write(_("Regex-based search is active.\n"))
     else:
-        file_log.write("RegEx-Suche ist *nicht* aktiv.\n")
+        file_log.write(_("Regex-based search is *not* active.\n"))
 
     if args.ner == True:
-        file_log.write("KI-gestützte NER ist aktiv.\n")
+        file_log.write(_("AI-based search is active.\n"))
     else:
-        file_log.write("KI-gestützte NER ist *nicht* aktiv.\n")
+        file_log.write(_("AI-based search is *not* active.\n"))
     
     file_log.write("\n\n")
 
@@ -264,22 +274,22 @@ with open("./output/" + outslug + "_log.txt", "wt") as file_log:
     time_diff = time_end - time_start
 
     """ Output all results. """
-    file_log.write("Statistiken\n")
+    file_log.write(_("Statistics\n"))
     file_log.write("----------\n\n")
-    file_log.write("Folgende Dateiendungen wurden gefunden:\n")
+    file_log.write(_("The following file extensions have been found:\n"))
     [file_log.write("{:>10}: {:>10} Dateien\n".format(k, v)) for k, v in sorted(exts_found.items(), key=lambda item: item[1], reverse=True)]
-    file_log.write("GESAMT: {} Dateien.\nQUALIFIZIERT: {} Dateien (unterstützte Dateiendungen)\n\n\n".format(num_files_all, num_files_checked))
+    file_log.write(_("TOTAL: {} files.\nQUALIFIED: {} files (supported file extension)\n\n\n").format(num_files_all, num_files_checked))
 
-    file_log.write("Funde\n")
+    file_log.write(_("Findings\n"))
     file_log.write("--------\n\n")
     """for k, v in pmc.by_file().items():
             file_log.write("\t{}\n".format(k))
             for f in v:
                 file_log.write("\t\t{}\n".format(f.text))
     file_log.write("\n\n")"""
-    file_log.write("--> siehe *_findings.csv\n\n\n")
+    file_log.write(_("--> see *_findings.csv\n\n\n"))
 
-    file_log.write("Fehler\n")
+    file_log.write(_("Errors\n"))
     file_log.write("------\n\n")
     for k, v in errors.items():
         file_log.write("\t{}\n".format(k))
@@ -287,8 +297,8 @@ with open("./output/" + outslug + "_log.txt", "wt") as file_log:
             file_log.write("\t\t{}\n".format(f.encode("utf-8", "replace")))
 
     file_log.write("\n\n")
-    file_log.write("Analyse abgeschlossen um {}\n".format(time_end))
-    file_log.write("Analyse-Performance: {} analysierte Dateien pro Sekunde\n".format(num_files_checked / time_diff.seconds))
+    file_log.write(_("Analysis finished at {}\n").format(time_end))
+    file_log.write(_("Performance of analysis: {} analyzed files per second\n").format(round(num_files_checked / max(time_diff.seconds, 1), 2)))
 
 with open("./output/" + outslug + "_findings.csv", "w") as csvfile:
     csvwriter = csv.writer(csvfile)

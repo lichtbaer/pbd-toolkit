@@ -1,0 +1,129 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"POT-Creation-Date: 2025-08-20 14:03+0200\n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Poedit 3.2.2\n"
+"X-Poedit-Basepath: ../..\n"
+"X-Poedit-SearchPath-0: main.py\n"
+"X-Poedit-SearchPath-1: matches.py\n"
+
+#: main.py:111
+msgid "--path parameter cannot be empty"
+msgstr ""
+
+#: main.py:114
+msgid "Regex- and/or NER-based analysis must be turned on."
+msgstr ""
+
+#: main.py:136
+msgid "Analysis\n"
+msgstr ""
+
+#: main.py:138
+msgid ""
+"Analysis started at {}\n"
+"\n"
+msgstr ""
+
+#: main.py:141
+msgid "Regex-based search is active.\n"
+msgstr ""
+
+#: main.py:143
+msgid "Regex-based search is *not* active.\n"
+msgstr ""
+
+#: main.py:146
+msgid "AI-based search is active.\n"
+msgstr ""
+
+#: main.py:148
+msgid "AI-based search is *not* active.\n"
+msgstr ""
+
+#: main.py:271
+msgid "Statistics\n"
+msgstr ""
+
+#: main.py:273
+msgid "The following file extensions have been found:\n"
+msgstr ""
+
+#: main.py:275
+msgid ""
+"TOTAL: {} files.\n"
+"QUALIFIED: {} files (supported file extension)\n"
+"\n"
+"\n"
+msgstr ""
+
+#: main.py:277
+msgid "Findings\n"
+msgstr ""
+
+#: main.py:284
+msgid ""
+"--> see *_findings.csv\n"
+"\n"
+"\n"
+msgstr ""
+
+#: main.py:286
+msgid "Errors\n"
+msgstr ""
+
+#: main.py:294
+msgid "Analysis finished at {}\n"
+msgstr ""
+
+#: main.py:295
+msgid "Performance of analysis: {} analyzed files per second\n"
+msgstr ""
+
+#: matches.py:21
+msgid "Regex: Pension Insurance Fond ID"
+msgstr ""
+
+#: matches.py:22
+msgid "Regex: IBAN"
+msgstr ""
+
+#: matches.py:23
+msgid "Regex: Email address"
+msgstr ""
+
+#: matches.py:24
+msgid "Regex: IPv4 address"
+msgstr ""
+
+#: matches.py:25
+msgid "Regex: Signal words"
+msgstr ""
+
+#: matches.py:26
+msgid "Regex: private pgp key"
+msgstr ""
+
+#: matches.py:27
+msgid "AI-NER: Person"
+msgstr ""
+
+#: matches.py:28
+msgid "AI-NER: Location"
+msgstr ""
+
+#: matches.py:29
+msgid "AI-NER: Health Data (experimental)"
+msgstr ""
+
+#: matches.py:30
+msgid "AI-NER: Passwords (experimental)"
+msgstr ""

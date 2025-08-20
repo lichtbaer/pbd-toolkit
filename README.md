@@ -35,6 +35,8 @@ Der optionale Parameter `--whitelist` enthält den Pfad zu einer Textdatei, die 
 
 Der optionale Parameter `--stop-count` kann benutzt werden, um die Analyse nach einer bestimmten Anzahl von Dateien abzubrechen, z. B. zu Erprobungszwecken.
 
+Die Sprache des Programms kann über die Umgebungsvariable `LANGUAGE` beeinflusst werden, welche die Werte "de" und "en" akzeptiert. Der Standardwert ist "de".
+
 Beispiel für einen vollständigen Aufruf: `python main.py --path /var/data-leak/ --outname "Großes Datenleck" --ner --regex --whitelist stopwords.txt --stop-count 200`
 
 Funktionsumfang

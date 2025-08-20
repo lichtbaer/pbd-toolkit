@@ -1,0 +1,178 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"POT-Creation-Date: 2025-08-20 14:56+0200\n"
+"PO-Revision-Date: 2025-08-20 14:56+0200\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Poedit 3.2.2\n"
+"X-Poedit-Basepath: ../../..\n"
+"X-Poedit-SearchPath-0: main.py\n"
+"X-Poedit-SearchPath-1: matches.py\n"
+
+#: main.py:107
+msgid "HBDI PII Toolkit"
+msgstr "HBDI-pbD-Toolkit"
+
+#: main.py:108
+msgid "Root directory under which to recursively search for PII"
+msgstr ""
+"Stammpfad, der mit allen Unterverzeichnissen auf pbD überprüft werden soll"
+
+#: main.py:109
+msgid ""
+"Optional parameter; string which to include in the file name of all output "
+"files"
+msgstr ""
+"optionaler Parameter, die hier angegebene Zeichenkette wird zur Benennung "
+"der erzeugten Output-Dateien verwendet"
+
+#: main.py:110
+msgid ""
+"Optional parameter; relative path to a text file containing one string per "
+"line. These strings will be matched against potential findings to exclude "
+"them from the output."
+msgstr ""
+"Relativer Pfad zu einer Textdatei, die pro Zeile eine Zeichenkette enthält, "
+"die als Ausschluss potentieller Treffer verwendet wird"
+
+#: main.py:111
+msgid "Optional parameter; stop analysis after N files"
+msgstr "Analyse nach N Dateien abbrechen"
+
+#: main.py:112
+msgid "Use regular expressions for analysis"
+msgstr "Falls gesetzt, so werden reguläre Ausdrücke zur Analyse genutzt"
+
+#: main.py:113
+msgid "Use AI-based Named Entity Recognition for analysis"
+msgstr ""
+"Falls gesetzt, so werden KI-gestützte Named Entity Recognition-"
+"Funktionalitäten zur Analyse genutzt"
+
+#: main.py:117
+msgid "--path parameter cannot be empty"
+msgstr "--path-Parameter kann nicht leer sein"
+
+#: main.py:120
+msgid "Regex- and/or NER-based analysis must be turned on."
+msgstr "RegEx- und/oder NER-Analyse müssen aktiviert sein."
+
+#: main.py:142
+msgid "Analysis\n"
+msgstr "Analyse\n"
+
+#: main.py:144
+msgid ""
+"Analysis started at {}\n"
+"\n"
+msgstr ""
+"Analyse gestartet um {}\n"
+"\n"
+
+#: main.py:147
+msgid "Regex-based search is active.\n"
+msgstr "RegEx-Suche ist aktiv.\n"
+
+#: main.py:149
+msgid "Regex-based search is *not* active.\n"
+msgstr "RegEx-Suche ist *nicht* aktiv.\n"
+
+#: main.py:152
+msgid "AI-based search is active.\n"
+msgstr "KI-gestützte NER ist aktiv.\n"
+
+#: main.py:154
+msgid "AI-based search is *not* active.\n"
+msgstr "KI-gestützte NER ist *nicht* aktiv.\n"
+
+#: main.py:277
+msgid "Statistics\n"
+msgstr "Statistiken\n"
+
+#: main.py:279
+msgid "The following file extensions have been found:\n"
+msgstr "Folgende Dateiendungen wurden gefunden:\n"
+
+#: main.py:281
+msgid ""
+"TOTAL: {} files.\n"
+"QUALIFIED: {} files (supported file extension)\n"
+"\n"
+"\n"
+msgstr ""
+"GESAMT: {} Dateien.\n"
+"QUALIFIZIERT: {} Dateien (unterstützte Dateiendungen)\n"
+"\n"
+"\n"
+
+#: main.py:283
+msgid "Findings\n"
+msgstr "Funde\n"
+
+#: main.py:290
+msgid ""
+"--> see *_findings.csv\n"
+"\n"
+"\n"
+msgstr ""
+"--> siehe *_findings.csv\n"
+"\n"
+"\n"
+
+#: main.py:292
+msgid "Errors\n"
+msgstr "Fehler\n"
+
+#: main.py:300
+msgid "Analysis finished at {}\n"
+msgstr "Analyse abgeschlossen um {}\n"
+
+#: main.py:301
+msgid "Performance of analysis: {} analyzed files per second\n"
+msgstr "Analyse-Performance: {} analysierte Dateien pro Sekunde\n"
+
+#: matches.py:28
+msgid "Regex: Pension Insurance Fond ID"
+msgstr "RegEx: Rentenversicherungsnummer"
+
+#: matches.py:29
+msgid "Regex: IBAN"
+msgstr "RegEx: IBAN"
+
+#: matches.py:30
+msgid "Regex: Email address"
+msgstr "RegEx: E-Mail-Adresse"
+
+#: matches.py:31
+msgid "Regex: IPv4 address"
+msgstr "RegEx: IPv4-Adresse"
+
+#: matches.py:32
+msgid "Regex: Signal words"
+msgstr "RegEx: spezielle Wörter"
+
+#: matches.py:33
+msgid "Regex: private pgp key"
+msgstr "RegEx: Privater PGP-Schlüssel"
+
+#: matches.py:34
+msgid "AI-NER: Person"
+msgstr "KI-NER: Person"
+
+#: matches.py:35
+msgid "AI-NER: Location"
+msgstr "KI-NER: Ort"
+
+#: matches.py:36
+msgid "AI-NER: Health Data (experimental)"
+msgstr "KI-NER: Gesundheitsdaten (experimentell)"
+
+#: matches.py:37
+msgid "AI-NER: Passwords (experimental)"
+msgstr "KI-NER: Passwörter (experimentell)"

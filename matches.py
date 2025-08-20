@@ -1,7 +1,18 @@
 from enum import StrEnum
 import re
 from dataclasses import dataclass, field
+import gettext
+import os
 
+lstr: str = "de"
+lenv = os.environ["LANGUAGE"]
+
+if lenv in ["de", "en"]:
+    lstr = lenv
+
+lang = gettext.translation("base", localedir="locales", languages=[lstr])
+lang.install()
+_ = lang.gettext
 
 """ Class for holding a singular found PII match.
 
@@ -14,16 +25,16 @@ class PiiMatch:
     file: str
 
     class PiiMatchType(StrEnum):
-        REGEX_RVNR = "RegEx: Rentenversicherungsnummer"
-        REGEX_IBAN = "RegEx: IBAN"
-        REGEX_EMAIL = "RegEx: E-Mail-Adresse"
-        REGEX_IPV4 = "RegEx: IPv4-Adresse"
-        REGEX_WORDS = "RegEx: spezielle Wörter"
-        REGEX_PGPPRV = "RegEx: privater PGP-Schlüssel"
-        NER_PERSON = "KI-NER: Person"
-        NER_LOCATION = "KI-NER: Ort"
-        NER_HEALTH = "KI-NER: Gesundheitsdaten (exp.)"
-        NER_PASSWORD = "KI-NER: Passwörter (exp.)"
+        REGEX_RVNR = _("Regex: Pension Insurance Fond ID")
+        REGEX_IBAN = _("Regex: IBAN")
+        REGEX_EMAIL = _("Regex: Email address")
+        REGEX_IPV4 = _("Regex: IPv4 address")
+        REGEX_WORDS = _("Regex: Signal words")
+        REGEX_PGPPRV = _("Regex: private pgp key")
+        NER_PERSON = _("AI-NER: Person")
+        NER_LOCATION = _("AI-NER: Location")
+        NER_HEALTH = _("AI-NER: Health Data (experimental)")
+        NER_PASSWORD = _("AI-NER: Passwords (experimental)")
 
     # The type of PII found. Only types explicitly supported by this application are valid.
     type: PiiMatchType
