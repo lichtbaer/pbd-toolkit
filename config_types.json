@@ -1,0 +1,59 @@
+{
+    "regex": [
+        {
+            "label": "REGEX_RVNR",
+            "value": "Regex: Pension Insurance Fond ID",
+            "regex_compiled_pos": 0,
+            "expression": "\\b[0-8][0-9][0-3][0-9][0-1][0-9]{3}[A-Z][0-9]{3}\\b"
+        },
+        {
+            "label": "REGEX_IBAN",
+            "value": "Regex: IBAN",
+            "regex_compiled_pos": 1,
+            "expression": "\\b[A-Z]{2}[0-9]{2}(?:[ ]?[0-9]{4}){4}(?:[ ]?[0-9]{1,2})?\\b"
+        },
+        {
+            "label": "REGEX_EMAIL",
+            "value": "Regex: Email address",
+            "regex_compiled_pos": 2,
+            "expression": "\\b[\\w\\-\\.]+@(?:[\\w+\\-]+\\.)+\\w{2,10}\\b"
+        },
+        {
+            "label": "REGEX_IPV4",
+            "value": "Regex: IPv4 address",
+            "regex_compiled_pos": 3,
+            "expression": "\\b(?:(?:25[0-5]|(?:2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}\\b"
+        },
+        {
+            "label": "REGEX_WORDS",
+            "value": "Regex: Signal words",
+            "regex_compiled_pos": 4,
+            "expression": "\b(?:Abmahnung|Bewerbung|Zeugnis|Entwicklungsbericht|Gutachten|Krankmeldung)\b"
+        },
+        {
+            "label": "REGEX_PGPPRV",
+            "value": "Regex: private pgp key",
+            "regex_compiled_pos": 5,
+            "expression": "(?:BEGIN PGP PRIVATE KEY)"
+        }
+    ],
+    "ai-ner": [
+        {
+            "label": "NER_PERSON",
+            "value": "AI-NER: Person",
+            "term": "Person's Name"
+        },{
+            "label": "NER_LOCATION",
+            "value": "AI-NER: Location",
+            "term": "Location"
+        },{
+            "label": "NER_HEALTH",
+            "value": "AI-NER: Health Data (experimental)",
+            "term": "Health Data"
+        },{
+            "label": "NER_PASSWORD",
+            "value": "AI-NER: Passwords (experimental)",
+            "term": "Password"
+        }
+    ]
+}

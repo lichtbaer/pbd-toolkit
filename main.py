@@ -15,6 +15,7 @@ from gliner import GLiNER
 import mimetypes
 from matches import PiiMatchContainer
 import gettext
+import json
 
 lstr: str = "de"
 lenv = os.environ["LANGUAGE"]
@@ -46,57 +47,17 @@ def add_error(msg: str, path: str) -> None:
         errors[msg].append(path)
 
 # All regular expressions used for analysis.
-""" Regular expression for German Rentenversicherungsnummern (public pension insurance identity number).
-    It consists of:
-      * Word boundary
-      * Two digits identifying the insurance provider, zero-padded (value range of [02, 89])
-      * Day of birth of the insured person, zero-padded (value range of [01, 31])
-      * Month of birth of the insured person, zero-padded (value range of [01, 12])
-      * Year of birth of the insured person, last two digits (value range of [00, 99])
-      * First letter of the insured person's first name (value range of [A, Z])
-      * Two digits identifying the insured person's gender, zero-padded (value range of [00, 99])
-      * One digit for integrity checking (value range of [0, 9])
-      * Word boundary
-    Example: 15070649C103 """
-rxstr_rvnr: str = r"\b[0-8][0-9][0-3][0-9][0-1][0-9]{3}[A-Z][0-9]{3}\b"
-""" Regular expression for IBAN banking account numbers. This is somewhat specific (but not absolutely exclusive)
-    for German banking accounts.
-    Consists of:
-      * Word boundary
-      * Two letters identifying the country
-      * Two digits for integrity checking
-      * Four sets of four digits which may optionally be separated by spaces from each other
-        and other elements
-      * One or two digits
-      * Word boundary
-    Example: DE11 2003 8978 4565 1232 00"""
-rxstr_iban: str = r"\b[A-Z]{2}[0-9]{2}(?:[ ]?[0-9]{4}){4}(?:[ ]?[0-9]{1,2})?\b"
-""" Regular expression for email addresses. Doesn't conform to the RFC and thus doesn't cover every single
-    possible valid address but is intended as a "good enough" solution.
-    Consists of:
-      * Word boundary
-      * A non-zero amount of word characters or dashes (-) or dots (.)
-      * An at character (@)
-      * A non-zero amount of word characters or dashes or dots which ends with one dot
-      * Two to ten word characters
-      * Word boundary
-    Example: test@example.com """
-rxstr_mail: str = r"\b[\w\-\.]+@(?:[\w+\-]+\.)+\w{2,10}\b"
-""" Regular expression for IPv4 addresses
-    Consists of:
-      * Word boundary
-      * Four groups of one to three digits in the range of [0, 255] which may optionally
-        be zero-padded to three digits
-      * Word boundary
-    Example: 123.123.123.123 """
-rxstr_ipv4: str = r"\b(?:(?:25[0-5]|(?:2[0-4]|1\d|[1-9]|)\d)\.?\b){4}\b"
-""" Regular expression for special words that frequently appear in the context of
-    personally-identifiable information """
-rxstr_words: str = r"\b(?:Abmahnung|Bewerbung|Zeugnis|Entwicklungsbericht|Gutachten|Krankmeldung)\b"
-rxstr_pgpprv: str = r"(?:BEGIN PGP PRIVATE KEY)"
+with open("config_types.json") as f:
+    config = json.load(f)
+
+regex = config["regex"]
+regex_supported = []
+
+for entry in regex:
+    regex_supported.append(r"{}".format(entry["expression"]))
 
 # concatenate all regex strings so that we can scan each document just once instead of once per regex
-rxstr_all: str = "(" + rxstr_rvnr + ")|(" + rxstr_iban + ")|(" + rxstr_mail + ")|(" + rxstr_ipv4 + ")|(" + rxstr_words + ")|(" + rxstr_pgpprv + ")"
+rxstr_all: str = "(" + ")|(".join(regex_supported) + ")"
 regex_all: re.Pattern = re.compile(rxstr_all)
 
 pmc: PiiMatchContainer = PiiMatchContainer()
@@ -121,7 +82,17 @@ if not args.ner and not args.regex:
 
 if args.ner == True:
     model: GLiNER = GLiNER.from_pretrained("urchade/gliner_medium-v2.1")
-    ner_labels = ["Person's Name", "Location", "Health Data", "Password"]
+
+
+    #ner_labels = ["Person's Name", "Location", "Health Data", "Password"]
+    import json
+    with open("config_types.json") as f:
+        config = json.load(f)
+
+
+    ner_labels = [c["term"] for c in config["ai-ner"]]
+
+
 
 # construct name for output files. Default is date/time, optionally with the value from args.outname
 outslug: str = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
@@ -152,7 +123,7 @@ with open("./output/" + outslug + "_log.txt", "wt") as file_log:
         file_log.write(_("AI-based search is active.\n"))
     else:
         file_log.write(_("AI-based search is *not* active.\n"))
-    
+
     file_log.write("\n\n")
 
     # if the file isn't flushed it would show up empty when opened during an ongoing analysis
@@ -188,7 +159,7 @@ with open("./output/" + outslug + "_log.txt", "wt") as file_log:
                 try:
                     # extract text page by page since that's not too memory-intensive
                     for page_layout in extract_pages(full_path):
-                        for text_container in page_layout:                    
+                        for text_container in page_layout:
                             if isinstance(text_container, LTTextContainer):
                                 text: str = text_container.get_text()
 
@@ -220,7 +191,7 @@ with open("./output/" + outslug + "_log.txt", "wt") as file_log:
                     paragraph: docx.text.paragraph
                     for paragraph in doc.paragraphs:
                         text += paragraph.text
-                        
+
                         if args.regex == True:
                             matches: re.Match = regex_all.search(text)
                             pmc.add_matches_regex(matches, full_path)
@@ -240,7 +211,7 @@ with open("./output/" + outslug + "_log.txt", "wt") as file_log:
                         num_files_checked += 1
 
                         text: str = soup.get_text()
-                        
+
                         if args.regex == True:
                             matches: re.Match = regex_all.search(text)
                             pmc.add_matches_regex(matches, full_path)
@@ -254,7 +225,7 @@ with open("./output/" + outslug + "_log.txt", "wt") as file_log:
                 with open(full_path) as doc:
                     try:
                         text: str = doc.read()
-                        
+
                         if args.regex == True:
                             matches: re.Match = regex_all.search(text)
                             pmc.add_matches_regex(matches, full_path)
@@ -305,4 +276,7 @@ with open("./output/" + outslug + "_findings.csv", "w") as csvfile:
     csvwriter.writerow(["match", "file", "type", "ner_score"])
 
     for pm in pmc.pii_matches:
-        csvwriter.writerow([pm.text, pm.file, pm.type.value, pm.ner_score])
+        csvwriter.writerow([pm.text, pm.file, pm.type, pm.ner_score])
+
+import report
+report.report(pmc)
