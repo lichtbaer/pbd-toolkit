@@ -18,7 +18,7 @@ import gettext
 import json
 
 lstr: str = "de"
-lenv = os.environ["LANGUAGE"]
+lenv = ((os.environ["LANG"]).split('_'))[0]
 
 if lenv in ["de", "en"]:
     lstr = lenv
