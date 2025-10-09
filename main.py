@@ -17,13 +17,10 @@ from matches import PiiMatchContainer
 import gettext
 import json
 
-lstr: str = "de"
-lenv = os.environ["LANGUAGE"]
+lstr: str = os.environ.get("LANGUAGE")
+lenv = lstr if lstr and lstr in ["de", "en"] else "de"
 
-if lenv in ["de", "en"]:
-    lstr = lenv
-
-lang = gettext.translation("base", localedir="locales", languages=[lstr])
+lang = gettext.translation("base", localedir="locales", languages=[lenv])
 lang.install()
 _ = lang.gettext
 

@@ -5,16 +5,6 @@ import gettext
 import os
 import json
 
-lstr: str = "de"
-lenv = os.environ["LANGUAGE"]
-
-if lenv in ["de", "en"]:
-    lstr = lenv
-
-lang = gettext.translation("base", localedir="locales", languages=[lstr])
-lang.install()
-_ = lang.gettext
-
 # configure support match types
 with open("config_types.json") as f:
     config = json.load(f)
