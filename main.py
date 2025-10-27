@@ -16,6 +16,7 @@ import mimetypes
 from matches import PiiMatchContainer
 import gettext
 import json
+import logging
 
 lstr: str = os.environ.get("LANGUAGE")
 lenv = lstr if lstr and lstr in ["de", "en"] else "de"
@@ -23,6 +24,7 @@ lenv = lstr if lstr and lstr in ["de", "en"] else "de"
 lang = gettext.translation("base", localedir="locales", languages=[lenv])
 lang.install()
 _ = lang.gettext
+
 
 """ Used to count how many files per extension have been found. This does *not* only count supported/qualified
     extensions but all of the ones contained in the root directory searched.
@@ -105,168 +107,167 @@ time_start: datetime.datetime = datetime.datetime.now()
 time_end: datetime.datetime
 time_diff: datetime.timedelta
 
-# log all significant operations and findings
-with open("./output/" + outslug + "_log.txt", "wt") as file_log:
-    file_log.write(_("Analysis\n"))
-    file_log.write("====================\n\n")
-    file_log.write(_("Analysis started at {}\n\n").format(time_start))
 
-    if args.regex == True:
-        file_log.write(_("Regex-based search is active.\n"))
-    else:
-        file_log.write(_("Regex-based search is *not* active.\n"))
+logger = logging.getLogger(__name__)
+logging.basicConfig(filename="./output/" + outslug + "_log.txt", format="%(message)s", encoding="utf-8", level=logging.INFO)
 
-    if args.ner == True:
-        file_log.write(_("AI-based search is active.\n"))
-    else:
-        file_log.write(_("AI-based search is *not* active.\n"))
+logger.info(_("Analysis"))
+logger.info("====================\n")
+logger.info(_("Analysis started at {}\n").format(time_start))
 
-    file_log.write("\n\n")
+if args.regex == True:
+    logger.info(_("Regex-based search is active."))
+else:
+    logger.info(_("Regex-based search is *not* active."))
 
-    # if the file isn't flushed it would show up empty when opened during an ongoing analysis
-    file_log.flush()
+if args.ner == True:
+    logger.info(_("AI-based search is active."))
+else:
+    logger.info(_("AI-based search is *not* active."))
 
-    # Number of files found during analysis
-    num_files_all: int = 0
-    # Number of files actually analyzed (supported file extension)
-    num_files_checked: int = 0
+logger.info("\n")
 
-    # walk all files and subdirs of the root path
-    for root, dirs, files in os.walk(args.path):
-        for filename in files:
-            num_files_all += 1
+# Number of files found during analysis
+num_files_all: int = 0
+# Number of files actually analyzed (supported file extension)
+num_files_checked: int = 0
 
-            full_path: str = os.path.join(root, filename)
-            ext: str = os.path.splitext(full_path)[1].lower()
+# walk all files and subdirs of the root path
+for root, dirs, files in os.walk(args.path):
+    for filename in files:
+        num_files_all += 1
 
-            # keep count of how many files have been found per extension
-            if ext not in exts_found.keys():
-                exts_found[ext] = 1
-            else:
-                exts_found[ext] += 1
+        full_path: str = os.path.join(root, filename)
+        ext: str = os.path.splitext(full_path)[1].lower()
 
-            print(str(num_files_all) + " " + full_path)
+        # keep count of how many files have been found per extension
+        if ext not in exts_found.keys():
+            exts_found[ext] = 1
+        else:
+            exts_found[ext] += 1
 
-            # handle all file extensions that we want to support
-            """ For PDF files, text is extracted from all pages using the pdfminer.six library.
-                This currently only works for PDF files which have actual text embeddings. If a file
-                contains images (for example from scanning a document without applying OCR), then
-                no text will be extracted."""
-            if ext == ".pdf":
+        print(str(num_files_all) + " " + full_path)
+
+        # handle all file extensions that we want to support
+        """ For PDF files, text is extracted from all pages using the pdfminer.six library.
+            This currently only works for PDF files which have actual text embeddings. If a file
+            contains images (for example from scanning a document without applying OCR), then
+            no text will be extracted."""
+        if ext == ".pdf":
+            try:
+                # extract text page by page since that's not too memory-intensive
+                for page_layout in extract_pages(full_path):
+                    for text_container in page_layout:
+                        if isinstance(text_container, LTTextContainer):
+                            text: str = text_container.get_text()
+
+                            """ Workaround for PDFs with messed-up text embeddings that only
+                                consist of very short character sequences """
+                            if len(text) < 10:
+                                continue
+                            else:
+                                if args.regex == True:
+                                    matches: re.Match = regex_all.search(text)
+                                    pmc.add_matches_regex(matches, full_path)
+
+                                if args.ner == True:
+                                    entities = model.predict_entities(text, ner_labels, threshold=0.5)
+                                    pmc.add_matches_ner(entities, full_path)
+
+                num_files_checked += 1
+            except Exception as excpt:
+                add_error(str(excpt), full_path)
+        elif ext == ".docx":
+            """ For DOCX files, we extract text using python-docx. Currently, this only takes a document's
+                paragraphs into account, with no regard for elements that aren't paragraphs (headers, footers, tables)."""
+            try:
+                doc: docx.Document = docx.Document(full_path)
+                num_files_checked += 1
+
+                text: str = ""
+
+                paragraph: docx.text.paragraph
+                for paragraph in doc.paragraphs:
+                    text += paragraph.text
+
+                    if args.regex == True:
+                        matches: re.Match = regex_all.search(text)
+                        pmc.add_matches_regex(matches, full_path)
+
+                    if args.ner == True:
+                        entities = model.predict_entities(text, ner_labels, threshold=0.5)
+                        pmc.add_matches_ner(entities, full_path)
+            except docx.opc.exceptions.PackageNotFoundError:
+                add_error("DOCX Empty Or Protected", full_path)
+            except Exception as excpt:
+                add_error(str(excpt), full_path)
+        elif ext == ".html":
+            """ For HTML files, we use BeautifulSoup4 to extract the text without markup. """
+            with open(full_path) as doc:
                 try:
-                    # extract text page by page since that's not too memory-intensive
-                    for page_layout in extract_pages(full_path):
-                        for text_container in page_layout:
-                            if isinstance(text_container, LTTextContainer):
-                                text: str = text_container.get_text()
-
-                                """ Workaround for PDFs with messed-up text embeddings that only
-                                    consist of very short character sequences """
-                                if len(text) < 10:
-                                    continue
-                                else:
-                                    if args.regex == True:
-                                        matches: re.Match = regex_all.search(text)
-                                        pmc.add_matches_regex(matches, full_path)
-
-                                    if args.ner == True:
-                                        entities = model.predict_entities(text, ner_labels, threshold=0.5)
-                                        pmc.add_matches_ner(entities, full_path)
-
+                    soup: BeautifulSoup = BeautifulSoup(doc, "html.parser")
                     num_files_checked += 1
+
+                    text: str = soup.get_text()
+
+                    if args.regex == True:
+                        matches: re.Match = regex_all.search(text)
+                        pmc.add_matches_regex(matches, full_path)
+
+                    if args.ner == True:
+                        entities = model.predict_entities(text, ner_labels, threshold=0.5)
+                        pmc.add_matches_ner(entities, full_path)
+                except UnicodeDecodeError:
+                    add_error("HTML Unicode Decode Error", full_path)
+        elif (ext == ".txt" or ext == "") and mimetypes.guess_type(full_path) == "text/plain":
+            with open(full_path) as doc:
+                try:
+                    text: str = doc.read()
+
+                    if args.regex == True:
+                        matches: re.Match = regex_all.search(text)
+                        pmc.add_matches_regex(matches, full_path)
+
+                    if args.ner == True:
+                        entities = model.predict_entities(text, ner_labels, threshold=0.5)
+                        pmc.add_matches_ner(entities, full_path)
                 except Exception as excpt:
                     add_error(str(excpt), full_path)
-            elif ext == ".docx":
-                """ For DOCX files, we extract text using python-docx. Currently, this only takes a document's
-                    paragraphs into account, with no regard for elements that aren't paragraphs (headers, footers, tables)."""
-                try:
-                    doc: docx.Document = docx.Document(full_path)
-                    num_files_checked += 1
 
-                    text: str = ""
-
-                    paragraph: docx.text.paragraph
-                    for paragraph in doc.paragraphs:
-                        text += paragraph.text
-
-                        if args.regex == True:
-                            matches: re.Match = regex_all.search(text)
-                            pmc.add_matches_regex(matches, full_path)
-
-                        if args.ner == True:
-                            entities = model.predict_entities(text, ner_labels, threshold=0.5)
-                            pmc.add_matches_ner(entities, full_path)
-                except docx.opc.exceptions.PackageNotFoundError:
-                    add_error("DOCX Empty Or Protected", full_path)
-                except Exception as excpt:
-                    add_error(str(excpt), full_path)
-            elif ext == ".html":
-                """ For HTML files, we use BeautifulSoup4 to extract the text without markup. """
-                with open(full_path) as doc:
-                    try:
-                        soup: BeautifulSoup = BeautifulSoup(doc, "html.parser")
-                        num_files_checked += 1
-
-                        text: str = soup.get_text()
-
-                        if args.regex == True:
-                            matches: re.Match = regex_all.search(text)
-                            pmc.add_matches_regex(matches, full_path)
-
-                        if args.ner == True:
-                            entities = model.predict_entities(text, ner_labels, threshold=0.5)
-                            pmc.add_matches_ner(entities, full_path)
-                    except UnicodeDecodeError:
-                        add_error("HTML Unicode Decode Error", full_path)
-            elif (ext == ".txt" or ext == "") and mimetypes.guess_type(full_path) == "text/plain":
-                with open(full_path) as doc:
-                    try:
-                        text: str = doc.read()
-
-                        if args.regex == True:
-                            matches: re.Match = regex_all.search(text)
-                            pmc.add_matches_regex(matches, full_path)
-
-                        if args.ner == True:
-                            entities = model.predict_entities(text, ner_labels, threshold=0.5)
-                            pmc.add_matches_ner(entities, full_path)
-                    except Exception as excpt:
-                        add_error(str(excpt), full_path)
-
-            if args.stop_count and num_files_all == args.stop_count:
-                break
         if args.stop_count and num_files_all == args.stop_count:
             break
+    if args.stop_count and num_files_all == args.stop_count:
+        break
 
-    time_end = datetime.datetime.now()
-    time_diff = time_end - time_start
+time_end = datetime.datetime.now()
+time_diff = time_end - time_start
 
-    """ Output all results. """
-    file_log.write(_("Statistics\n"))
-    file_log.write("----------\n\n")
-    file_log.write(_("The following file extensions have been found:\n"))
-    [file_log.write("{:>10}: {:>10} Dateien\n".format(k, v)) for k, v in sorted(exts_found.items(), key=lambda item: item[1], reverse=True)]
-    file_log.write(_("TOTAL: {} files.\nQUALIFIED: {} files (supported file extension)\n\n\n").format(num_files_all, num_files_checked))
+""" Output all results. """
+logger.info(_("Statistics"))
+logger.info("----------\n")
+logger.info(_("The following file extensions have been found:"))
+[logger.info("{:>10}: {:>10} Dateien".format(k, v)) for k, v in sorted(exts_found.items(), key=lambda item: item[1], reverse=True)]
+logger.info(_("TOTAL: {} files.\nQUALIFIED: {} files (supported file extension)\n\n").format(num_files_all, num_files_checked))
 
-    file_log.write(_("Findings\n"))
-    file_log.write("--------\n\n")
-    """for k, v in pmc.by_file().items():
-            file_log.write("\t{}\n".format(k))
-            for f in v:
-                file_log.write("\t\t{}\n".format(f.text))
-    file_log.write("\n\n")"""
-    file_log.write(_("--> see *_findings.csv\n\n\n"))
-
-    file_log.write(_("Errors\n"))
-    file_log.write("------\n\n")
-    for k, v in errors.items():
-        file_log.write("\t{}\n".format(k))
+logger.info(_("Findings"))
+logger.info("--------\n")
+"""for k, v in pmc.by_file().items():
+        logger.info("\t{}".format(k))
         for f in v:
-            file_log.write("\t\t{}\n".format(f.encode("utf-8", "replace")))
+            logger.info("\t\t{}".format(f.text))
+logger.info("\n")"""
+logger.info(_("--> see *_findings.csv\n\n"))
 
-    file_log.write("\n\n")
-    file_log.write(_("Analysis finished at {}\n").format(time_end))
-    file_log.write(_("Performance of analysis: {} analyzed files per second\n").format(round(num_files_checked / max(time_diff.seconds, 1), 2)))
+logger.info(_("Errors"))
+logger.info("------\n")
+for k, v in errors.items():
+    logger.info("\t{}".format(k))
+    for f in v:
+        logger.info("\t\t{}".format(f.encode("utf-8", "replace")))
+
+logger.info("\n")
+logger.info(_("Analysis finished at {}").format(time_end))
+logger.info(_("Performance of analysis: {} analyzed files per second").format(round(num_files_checked / max(time_diff.seconds, 1), 2)))
 
 with open("./output/" + outslug + "_findings.csv", "w") as csvfile:
     csvwriter = csv.writer(csvfile)
@@ -274,6 +275,3 @@ with open("./output/" + outslug + "_findings.csv", "w") as csvfile:
 
     for pm in pmc.pii_matches:
         csvwriter.writerow([pm.text, pm.file, pm.type, pm.ner_score])
-
-import report
-report.report(pmc)
