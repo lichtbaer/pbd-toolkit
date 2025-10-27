@@ -1,22 +1,23 @@
 import argparse
-import re
+import datetime
+import gettext
+import json
+import logging
+import mimetypes
 import os
-import csv
+import re
+
 import docx
 import docx.opc
 import docx.opc.exceptions
 import docx.text
 import docx.text.paragraph
-from pdfminer.layout import LTTextContainer
-from pdfminer.high_level import extract_pages
-import datetime
+import setup
 from bs4 import BeautifulSoup
 from gliner import GLiNER
-import mimetypes
 from matches import PiiMatchContainer
-import gettext
-import json
-import logging
+from pdfminer.high_level import extract_pages
+from pdfminer.layout import LTTextContainer
 
 lstr: str = os.environ.get("LANGUAGE")
 lenv = lstr if lstr and lstr in ["de", "en"] else "de"
@@ -82,15 +83,11 @@ if not args.ner and not args.regex:
 if args.ner == True:
     model: GLiNER = GLiNER.from_pretrained("urchade/gliner_medium-v2.1")
 
-
-    #ner_labels = ["Person's Name", "Location", "Health Data", "Password"]
     import json
     with open("config_types.json") as f:
         config = json.load(f)
 
-
     ner_labels = [c["term"] for c in config["ai-ner"]]
-
 
 
 # construct name for output files. Default is date/time, optionally with the value from args.outname
@@ -107,9 +104,10 @@ time_start: datetime.datetime = datetime.datetime.now()
 time_end: datetime.datetime
 time_diff: datetime.timedelta
 
-
 logger = logging.getLogger(__name__)
 logging.basicConfig(filename="./output/" + outslug + "_log.txt", format="%(message)s", encoding="utf-8", level=logging.INFO)
+
+setup.setup(outslug=outslug)
 
 logger.info(_("Analysis"))
 logger.info("====================\n")
@@ -251,11 +249,6 @@ logger.info(_("TOTAL: {} files.\nQUALIFIED: {} files (supported file extension)\
 
 logger.info(_("Findings"))
 logger.info("--------\n")
-"""for k, v in pmc.by_file().items():
-        logger.info("\t{}".format(k))
-        for f in v:
-            logger.info("\t\t{}".format(f.text))
-logger.info("\n")"""
 logger.info(_("--> see *_findings.csv\n\n"))
 
 logger.info(_("Errors"))
@@ -268,10 +261,3 @@ for k, v in errors.items():
 logger.info("\n")
 logger.info(_("Analysis finished at {}").format(time_end))
 logger.info(_("Performance of analysis: {} analyzed files per second").format(round(num_files_checked / max(time_diff.seconds, 1), 2)))
-
-with open("./output/" + outslug + "_findings.csv", "w") as csvfile:
-    csvwriter = csv.writer(csvfile)
-    csvwriter.writerow(["match", "file", "type", "ner_score"])
-
-    for pm in pmc.pii_matches:
-        csvwriter.writerow([pm.text, pm.file, pm.type, pm.ner_score])

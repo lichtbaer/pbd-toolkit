@@ -1,6 +1,7 @@
 import re
 from dataclasses import dataclass, field
 import json
+import globals
 
 # configure support match types
 with open("config_types.json") as f:
@@ -76,6 +77,7 @@ class PiiMatchContainer:
             if whitelisted == False:
                 pm: PiiMatch = PiiMatch(text=text, file=file, type=type, ner_score=ner_score)
                 self.pii_matches.append(pm)
+                globals.csvwriter.writerow([pm.text, pm.file, pm.type, pm.ner_score])
 
     """ Helper function for adding regex-based matches to the matches container. """
     def add_matches_regex(self, matches: re.Match | None, path: str) -> None:
