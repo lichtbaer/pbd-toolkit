@@ -1,8 +1,6 @@
-import argparse
 import datetime
 import gettext
 import json
-import logging
 import mimetypes
 import os
 import re
@@ -15,6 +13,7 @@ import docx.text.paragraph
 import setup
 from bs4 import BeautifulSoup
 from gliner import GLiNER
+import globals
 from matches import PiiMatchContainer
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LTTextContainer
@@ -65,22 +64,16 @@ pmc: PiiMatchContainer = PiiMatchContainer()
 # Used to list all entities for AI-based NER
 ner_labels: list[str] = []
 
-parser = argparse.ArgumentParser(prog=_("HBDI PII Toolkit"))
-parser.add_argument("--path", action="store", help=_("Root directory under which to recursively search for PII"))
-parser.add_argument("--outname", action="store", help=_("Optional parameter; string which to include in the file name of all output files"))
-parser.add_argument("--whitelist", action="store", help=_("Optional parameter; relative path to a text file containing one string per line. These strings will be matched against potential findings to exclude them from the output."))
-parser.add_argument("--stop-count", action="store", type=int, help=_("Optional parameter; stop analysis after N files"))
-parser.add_argument("--regex", action="store_true", help=_("Use regular expressions for analysis"))
-parser.add_argument("--ner", action="store_true", help=_("Use AI-based Named Entity Recognition for analysis"))
-args = parser.parse_args()
+# TODO: move more stuff to globals
+setup.setup()
 
-if not args.path:
+if not globals.args.path:
     exit(_("--path parameter cannot be empty"))
 
-if not args.ner and not args.regex:
+if not globals.args.ner and not globals.args.regex:
     exit(_("Regex- and/or NER-based analysis must be turned on."))
 
-if args.ner == True:
+if globals.args.ner == True:
     model: GLiNER = GLiNER.from_pretrained("urchade/gliner_medium-v2.1")
 
     import json
@@ -89,41 +82,29 @@ if args.ner == True:
 
     ner_labels = [c["term"] for c in config["ai-ner"]]
 
-
-# construct name for output files. Default is date/time, optionally with the value from args.outname
-outslug: str = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
-
-if args.outname is not None:
-    outslug += " " + args.outname
-
-if args.whitelist and os.path.isfile(args.whitelist):
-    with open(args.whitelist, "r") as file:
+if globals.args.whitelist and os.path.isfile(globals.args.whitelist):
+    with open(globals.args.whitelist, "r") as file:
         pmc.whitelist = file.read().splitlines()
 
 time_start: datetime.datetime = datetime.datetime.now()
 time_end: datetime.datetime
 time_diff: datetime.timedelta
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(filename="./output/" + outslug + "_log.txt", format="%(message)s", encoding="utf-8", level=logging.INFO)
+globals.logger.info(_("Analysis"))
+globals.logger.info("====================\n")
+globals.logger.info(_("Analysis started at {}\n").format(time_start))
 
-setup.setup(outslug=outslug)
-
-logger.info(_("Analysis"))
-logger.info("====================\n")
-logger.info(_("Analysis started at {}\n").format(time_start))
-
-if args.regex == True:
-    logger.info(_("Regex-based search is active."))
+if globals.args.regex == True:
+    globals.logger.info(_("Regex-based search is active."))
 else:
-    logger.info(_("Regex-based search is *not* active."))
+    globals.logger.info(_("Regex-based search is *not* active."))
 
-if args.ner == True:
-    logger.info(_("AI-based search is active."))
+if globals.args.ner == True:
+    globals.logger.info(_("AI-based search is active."))
 else:
-    logger.info(_("AI-based search is *not* active."))
+    globals.logger.info(_("AI-based search is *not* active."))
 
-logger.info("\n")
+globals.logger.info("\n")
 
 # Number of files found during analysis
 num_files_all: int = 0
@@ -131,7 +112,7 @@ num_files_all: int = 0
 num_files_checked: int = 0
 
 # walk all files and subdirs of the root path
-for root, dirs, files in os.walk(args.path):
+for root, dirs, files in os.walk(globals.args.path):
     for filename in files:
         num_files_all += 1
 
@@ -164,11 +145,11 @@ for root, dirs, files in os.walk(args.path):
                             if len(text) < 10:
                                 continue
                             else:
-                                if args.regex == True:
+                                if globals.args.regex == True:
                                     matches: re.Match = regex_all.search(text)
                                     pmc.add_matches_regex(matches, full_path)
 
-                                if args.ner == True:
+                                if globals.args.ner == True:
                                     entities = model.predict_entities(text, ner_labels, threshold=0.5)
                                     pmc.add_matches_ner(entities, full_path)
 
@@ -188,11 +169,11 @@ for root, dirs, files in os.walk(args.path):
                 for paragraph in doc.paragraphs:
                     text += paragraph.text
 
-                    if args.regex == True:
+                    if globals.args.regex == True:
                         matches: re.Match = regex_all.search(text)
                         pmc.add_matches_regex(matches, full_path)
 
-                    if args.ner == True:
+                    if globals.args.ner == True:
                         entities = model.predict_entities(text, ner_labels, threshold=0.5)
                         pmc.add_matches_ner(entities, full_path)
             except docx.opc.exceptions.PackageNotFoundError:
@@ -208,11 +189,11 @@ for root, dirs, files in os.walk(args.path):
 
                     text: str = soup.get_text()
 
-                    if args.regex == True:
+                    if globals.args.regex == True:
                         matches: re.Match = regex_all.search(text)
                         pmc.add_matches_regex(matches, full_path)
 
-                    if args.ner == True:
+                    if globals.args.ner == True:
                         entities = model.predict_entities(text, ner_labels, threshold=0.5)
                         pmc.add_matches_ner(entities, full_path)
                 except UnicodeDecodeError:
@@ -222,42 +203,42 @@ for root, dirs, files in os.walk(args.path):
                 try:
                     text: str = doc.read()
 
-                    if args.regex == True:
+                    if globals.args.regex == True:
                         matches: re.Match = regex_all.search(text)
                         pmc.add_matches_regex(matches, full_path)
 
-                    if args.ner == True:
+                    if globals.args.ner == True:
                         entities = model.predict_entities(text, ner_labels, threshold=0.5)
                         pmc.add_matches_ner(entities, full_path)
                 except Exception as excpt:
                     add_error(str(excpt), full_path)
 
-        if args.stop_count and num_files_all == args.stop_count:
+        if globals.args.stop_count and num_files_all == globals.args.stop_count:
             break
-    if args.stop_count and num_files_all == args.stop_count:
+    if globals.args.stop_count and num_files_all == globals.args.stop_count:
         break
 
 time_end = datetime.datetime.now()
 time_diff = time_end - time_start
 
 """ Output all results. """
-logger.info(_("Statistics"))
-logger.info("----------\n")
-logger.info(_("The following file extensions have been found:"))
-[logger.info("{:>10}: {:>10} Dateien".format(k, v)) for k, v in sorted(exts_found.items(), key=lambda item: item[1], reverse=True)]
-logger.info(_("TOTAL: {} files.\nQUALIFIED: {} files (supported file extension)\n\n").format(num_files_all, num_files_checked))
+globals.logger.info(_("Statistics"))
+globals.logger.info("----------\n")
+globals.logger.info(_("The following file extensions have been found:"))
+[globals.logger.info("{:>10}: {:>10} Dateien".format(k, v)) for k, v in sorted(exts_found.items(), key=lambda item: item[1], reverse=True)]
+globals.logger.info(_("TOTAL: {} files.\nQUALIFIED: {} files (supported file extension)\n\n").format(num_files_all, num_files_checked))
 
-logger.info(_("Findings"))
-logger.info("--------\n")
-logger.info(_("--> see *_findings.csv\n\n"))
+globals.logger.info(_("Findings"))
+globals.logger.info("--------\n")
+globals.logger.info(_("--> see *_findings.csv\n\n"))
 
-logger.info(_("Errors"))
-logger.info("------\n")
+globals.logger.info(_("Errors"))
+globals.logger.info("------\n")
 for k, v in errors.items():
-    logger.info("\t{}".format(k))
+    globals.logger.info("\t{}".format(k))
     for f in v:
-        logger.info("\t\t{}".format(f.encode("utf-8", "replace")))
+        globals.logger.info("\t\t{}".format(f.encode("utf-8", "replace")))
 
-logger.info("\n")
-logger.info(_("Analysis finished at {}").format(time_end))
-logger.info(_("Performance of analysis: {} analyzed files per second").format(round(num_files_checked / max(time_diff.seconds, 1), 2)))
+globals.logger.info("\n")
+globals.logger.info(_("Analysis finished at {}").format(time_end))
+globals.logger.info(_("Performance of analysis: {} analyzed files per second").format(round(num_files_checked / max(time_diff.seconds, 1), 2)))
