@@ -1,19 +1,20 @@
-import argparse
-import re
+import datetime
+import json
+import mimetypes
 import os
-import csv
+import re
+
 import docx
 import docx.opc
 import docx.opc.exceptions
 import docx.text
 import docx.text.paragraph
-from pdfminer.layout import LTTextContainer
-from pdfminer.high_level import extract_pages
-import datetime
+import setup
 from bs4 import BeautifulSoup
 from gliner import GLiNER
-import mimetypes
+import globals
 from matches import PiiMatchContainer
+<<<<<<< HEAD
 import gettext
 import json
 
@@ -23,6 +24,10 @@ lenv = lstr if lstr and lstr in ["de", "en"] else "de"
 lang = gettext.translation("base", localedir="locales", languages=[lenv])
 lang.install()
 _ = lang.gettext
+=======
+from pdfminer.high_level import extract_pages
+from pdfminer.layout import LTTextContainer
+>>>>>>> master
 
 """ Used to count how many files per extension have been found. This does *not* only count supported/qualified
     extensions but all of the ones contained in the root directory searched.
@@ -62,23 +67,18 @@ pmc: PiiMatchContainer = PiiMatchContainer()
 # Used to list all entities for AI-based NER
 ner_labels: list[str] = []
 
-parser = argparse.ArgumentParser(prog=_("HBDI PII Toolkit"))
-parser.add_argument("--path", action="store", help=_("Root directory under which to recursively search for PII"))
-parser.add_argument("--outname", action="store", help=_("Optional parameter; string which to include in the file name of all output files"))
-parser.add_argument("--whitelist", action="store", help=_("Optional parameter; relative path to a text file containing one string per line. These strings will be matched against potential findings to exclude them from the output."))
-parser.add_argument("--stop-count", action="store", type=int, help=_("Optional parameter; stop analysis after N files"))
-parser.add_argument("--regex", action="store_true", help=_("Use regular expressions for analysis"))
-parser.add_argument("--ner", action="store_true", help=_("Use AI-based Named Entity Recognition for analysis"))
-args = parser.parse_args()
+# TODO: move more stuff to globals
+setup.setup()
 
-if not args.path:
-    exit(_("--path parameter cannot be empty"))
+if not globals.args.path:
+    exit(globals._("--path parameter cannot be empty"))
 
-if not args.ner and not args.regex:
-    exit(_("Regex- and/or NER-based analysis must be turned on."))
+if not globals.args.ner and not globals.args.regex:
+    exit(globals._("Regex- and/or NER-based analysis must be turned on."))
 
-if args.ner == True:
+if globals.args.ner == True:
     model: GLiNER = GLiNER.from_pretrained("urchade/gliner_medium-v2.1")
+<<<<<<< HEAD
 
 
     #ner_labels = ["Person's Name", "Location", "Health Data", "Password"]
@@ -90,70 +90,129 @@ if args.ner == True:
     ner_labels = [c["term"] for c in config["ai-ner"]]
 
 
+=======
+>>>>>>> master
 
-# construct name for output files. Default is date/time, optionally with the value from args.outname
-outslug: str = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
+    import json
+    with open("config_types.json") as f:
+        config = json.load(f)
 
-if args.outname is not None:
-    outslug += " " + args.outname
+    ner_labels = [c["term"] for c in config["ai-ner"]]
 
-if args.whitelist and os.path.isfile(args.whitelist):
-    with open(args.whitelist, "r") as file:
+if globals.args.whitelist and os.path.isfile(globals.args.whitelist):
+    with open(globals.args.whitelist, "r") as file:
         pmc.whitelist = file.read().splitlines()
 
 time_start: datetime.datetime = datetime.datetime.now()
 time_end: datetime.datetime
 time_diff: datetime.timedelta
 
-# log all significant operations and findings
-with open("./output/" + outslug + "_log.txt", "wt") as file_log:
-    file_log.write(_("Analysis\n"))
-    file_log.write("====================\n\n")
-    file_log.write(_("Analysis started at {}\n\n").format(time_start))
+globals.logger.info(globals._("Analysis"))
+globals.logger.info("====================\n")
+globals.logger.info(globals._("Analysis started at {}\n").format(time_start))
 
-    if args.regex == True:
-        file_log.write(_("Regex-based search is active.\n"))
-    else:
-        file_log.write(_("Regex-based search is *not* active.\n"))
+if globals.args.regex == True:
+    globals.logger.info(globals._("Regex-based search is active."))
+else:
+    globals.logger.info(globals._("Regex-based search is *not* active."))
 
+<<<<<<< HEAD
     if args.ner == True:
         file_log.write(_("AI-based search is active.\n"))
     else:
         file_log.write(_("AI-based search is *not* active.\n"))
 
     file_log.write("\n\n")
+=======
+if globals.args.ner == True:
+    globals.logger.info(globals._("AI-based search is active."))
+else:
+    globals.logger.info(globals._("AI-based search is *not* active."))
+>>>>>>> master
 
-    # if the file isn't flushed it would show up empty when opened during an ongoing analysis
-    file_log.flush()
+globals.logger.info("\n")
 
-    # Number of files found during analysis
-    num_files_all: int = 0
-    # Number of files actually analyzed (supported file extension)
-    num_files_checked: int = 0
+# Number of files found during analysis
+num_files_all: int = 0
+# Number of files actually analyzed (supported file extension)
+num_files_checked: int = 0
 
-    # walk all files and subdirs of the root path
-    for root, dirs, files in os.walk(args.path):
-        for filename in files:
-            num_files_all += 1
+""" MAIN PROGRAM LOOP """
 
-            full_path: str = os.path.join(root, filename)
-            ext: str = os.path.splitext(full_path)[1].lower()
+# walk all files and subdirs of the root path
+for root, dirs, files in os.walk(globals.args.path):
+    for filename in files:
+        num_files_all += 1
 
-            # keep count of how many files have been found per extension
-            if ext not in exts_found.keys():
-                exts_found[ext] = 1
-            else:
-                exts_found[ext] += 1
+        full_path: str = os.path.join(root, filename)
+        ext: str = os.path.splitext(full_path)[1].lower()
 
-            print(str(num_files_all) + " " + full_path)
+        # keep count of how many files have been found per extension
+        if ext not in exts_found.keys():
+            exts_found[ext] = 1
+        else:
+            exts_found[ext] += 1
 
-            # handle all file extensions that we want to support
-            """ For PDF files, text is extracted from all pages using the pdfminer.six library.
-                This currently only works for PDF files which have actual text embeddings. If a file
-                contains images (for example from scanning a document without applying OCR), then
-                no text will be extracted."""
-            if ext == ".pdf":
+        print(str(num_files_all) + " " + full_path)
+
+        # handle all file extensions that we want to support
+        """ For PDF files, text is extracted from all pages using the pdfminer.six library.
+            This currently only works for PDF files which have actual text embeddings. If a file
+            contains images (for example from scanning a document without applying OCR), then
+            no text will be extracted."""
+        if ext == ".pdf":
+            try:
+                # extract text page by page since that's not too memory-intensive
+                for page_layout in extract_pages(full_path):
+                    for text_container in page_layout:
+                        if isinstance(text_container, LTTextContainer):
+                            text: str = text_container.get_text()
+
+                            """ Workaround for PDFs with messed-up text embeddings that only
+                                consist of very short character sequences """
+                            if len(text) < 10:
+                                continue
+                            else:
+                                if globals.args.regex == True:
+                                    matches: re.Match = regex_all.search(text)
+                                    pmc.add_matches_regex(matches, full_path)
+
+                                if globals.args.ner == True:
+                                    entities = model.predict_entities(text, ner_labels, threshold=0.5)
+                                    pmc.add_matches_ner(entities, full_path)
+
+                num_files_checked += 1
+            except Exception as excpt:
+                add_error(str(excpt), full_path)
+        elif ext == ".docx":
+            """ For DOCX files, we extract text using python-docx. Currently, this only takes a document's
+                paragraphs into account, with no regard for elements that aren't paragraphs (headers, footers, tables)."""
+            try:
+                doc: docx.Document = docx.Document(full_path)
+                num_files_checked += 1
+
+                text: str = ""
+
+                paragraph: docx.text.paragraph
+                for paragraph in doc.paragraphs:
+                    text += paragraph.text
+
+                    if globals.args.regex == True:
+                        matches: re.Match = regex_all.search(text)
+                        pmc.add_matches_regex(matches, full_path)
+
+                    if globals.args.ner == True:
+                        entities = model.predict_entities(text, ner_labels, threshold=0.5)
+                        pmc.add_matches_ner(entities, full_path)
+            except docx.opc.exceptions.PackageNotFoundError:
+                add_error("DOCX Empty Or Protected", full_path)
+            except Exception as excpt:
+                add_error(str(excpt), full_path)
+        elif ext == ".html":
+            """ For HTML files, we use BeautifulSoup4 to extract the text without markup. """
+            with open(full_path) as doc:
                 try:
+<<<<<<< HEAD
                     # extract text page by page since that's not too memory-intensive
                     for page_layout in extract_pages(full_path):
                         for text_container in page_layout:
@@ -181,10 +240,14 @@ with open("./output/" + outslug + "_log.txt", "wt") as file_log:
                     paragraphs into account, with no regard for elements that aren't paragraphs (headers, footers, tables)."""
                 try:
                     doc: docx.Document = docx.Document(full_path)
+=======
+                    soup: BeautifulSoup = BeautifulSoup(doc, "html.parser")
+>>>>>>> master
                     num_files_checked += 1
 
-                    text: str = ""
+                    text: str = soup.get_text()
 
+<<<<<<< HEAD
                     paragraph: docx.text.paragraph
                     for paragraph in doc.paragraphs:
                         text += paragraph.text
@@ -192,21 +255,33 @@ with open("./output/" + outslug + "_log.txt", "wt") as file_log:
                         if args.regex == True:
                             matches: re.Match = regex_all.search(text)
                             pmc.add_matches_regex(matches, full_path)
+=======
+                    if globals.args.regex == True:
+                        matches: re.Match = regex_all.search(text)
+                        pmc.add_matches_regex(matches, full_path)
+>>>>>>> master
 
-                        if args.ner == True:
-                            entities = model.predict_entities(text, ner_labels, threshold=0.5)
-                            pmc.add_matches_ner(entities, full_path)
-                except docx.opc.exceptions.PackageNotFoundError:
-                    add_error("DOCX Empty Or Protected", full_path)
+                    if globals.args.ner == True:
+                        entities = model.predict_entities(text, ner_labels, threshold=0.5)
+                        pmc.add_matches_ner(entities, full_path)
+                except UnicodeDecodeError:
+                    add_error("HTML Unicode Decode Error", full_path)
+        elif (ext == ".txt" or ext == "") and mimetypes.guess_type(full_path) == "text/plain":
+            with open(full_path) as doc:
+                try:
+                    text: str = doc.read()
+
+                    if globals.args.regex == True:
+                        matches: re.Match = regex_all.search(text)
+                        pmc.add_matches_regex(matches, full_path)
+
+                    if globals.args.ner == True:
+                        entities = model.predict_entities(text, ner_labels, threshold=0.5)
+                        pmc.add_matches_ner(entities, full_path)
                 except Exception as excpt:
                     add_error(str(excpt), full_path)
-            elif ext == ".html":
-                """ For HTML files, we use BeautifulSoup4 to extract the text without markup. """
-                with open(full_path) as doc:
-                    try:
-                        soup: BeautifulSoup = BeautifulSoup(doc, "html.parser")
-                        num_files_checked += 1
 
+<<<<<<< HEAD
                         text: str = soup.get_text()
 
                         if args.regex == True:
@@ -236,34 +311,35 @@ with open("./output/" + outslug + "_log.txt", "wt") as file_log:
             if args.stop_count and num_files_all == args.stop_count:
                 break
         if args.stop_count and num_files_all == args.stop_count:
+=======
+        if globals.args.stop_count and num_files_all == globals.args.stop_count:
+>>>>>>> master
             break
+    if globals.args.stop_count and num_files_all == globals.args.stop_count:
+        break
 
-    time_end = datetime.datetime.now()
-    time_diff = time_end - time_start
+time_end = datetime.datetime.now()
+time_diff = time_end - time_start
 
-    """ Output all results. """
-    file_log.write(_("Statistics\n"))
-    file_log.write("----------\n\n")
-    file_log.write(_("The following file extensions have been found:\n"))
-    [file_log.write("{:>10}: {:>10} Dateien\n".format(k, v)) for k, v in sorted(exts_found.items(), key=lambda item: item[1], reverse=True)]
-    file_log.write(_("TOTAL: {} files.\nQUALIFIED: {} files (supported file extension)\n\n\n").format(num_files_all, num_files_checked))
+""" Output all results. """
+globals.logger.info(globals._("Statistics"))
+globals.logger.info("----------\n")
+globals.logger.info(globals._("The following file extensions have been found:"))
+[globals.logger.info("{:>10}: {:>10} Dateien".format(k, v)) for k, v in sorted(exts_found.items(), key=lambda item: item[1], reverse=True)]
+globals.logger.info(globals._("TOTAL: {} files.\nQUALIFIED: {} files (supported file extension)\n\n").format(num_files_all, num_files_checked))
 
-    file_log.write(_("Findings\n"))
-    file_log.write("--------\n\n")
-    """for k, v in pmc.by_file().items():
-            file_log.write("\t{}\n".format(k))
-            for f in v:
-                file_log.write("\t\t{}\n".format(f.text))
-    file_log.write("\n\n")"""
-    file_log.write(_("--> see *_findings.csv\n\n\n"))
+globals.logger.info(globals._("Findings"))
+globals.logger.info("--------\n")
+globals.logger.info(globals._("--> see *_findings.csv\n\n"))
 
-    file_log.write(_("Errors\n"))
-    file_log.write("------\n\n")
-    for k, v in errors.items():
-        file_log.write("\t{}\n".format(k))
-        for f in v:
-            file_log.write("\t\t{}\n".format(f.encode("utf-8", "replace")))
+globals.logger.info(globals._("Errors"))
+globals.logger.info("------\n")
+for k, v in errors.items():
+    globals.logger.info("\t{}".format(k))
+    for f in v:
+        globals.logger.info("\t\t{}".format(f.encode("utf-8", "replace")))
 
+<<<<<<< HEAD
     file_log.write("\n\n")
     file_log.write(_("Analysis finished at {}\n").format(time_end))
     file_log.write(_("Performance of analysis: {} analyzed files per second\n").format(round(num_files_checked / max(time_diff.seconds, 1), 2)))
@@ -274,3 +350,8 @@ with open("./output/" + outslug + "_findings.csv", "w") as csvfile:
 
     for pm in pmc.pii_matches:
         csvwriter.writerow([pm.text, pm.file, pm.type, pm.ner_score])
+=======
+globals.logger.info("\n")
+globals.logger.info(globals._("Analysis finished at {}").format(time_end))
+globals.logger.info(globals._("Performance of analysis: {} analyzed files per second").format(round(num_files_checked / max(time_diff.seconds, 1), 2)))
+>>>>>>> master
