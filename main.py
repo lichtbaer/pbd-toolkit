@@ -1,5 +1,4 @@
 import datetime
-import gettext
 import json
 import mimetypes
 import os
@@ -17,14 +16,6 @@ import globals
 from matches import PiiMatchContainer
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LTTextContainer
-
-lstr: str = os.environ.get("LANGUAGE")
-lenv = lstr if lstr and lstr in ["de", "en"] else "de"
-
-lang = gettext.translation("base", localedir="locales", languages=[lenv])
-lang.install()
-_ = lang.gettext
-
 
 """ Used to count how many files per extension have been found. This does *not* only count supported/qualified
     extensions but all of the ones contained in the root directory searched.
@@ -68,10 +59,10 @@ ner_labels: list[str] = []
 setup.setup()
 
 if not globals.args.path:
-    exit(_("--path parameter cannot be empty"))
+    exit(globals._("--path parameter cannot be empty"))
 
 if not globals.args.ner and not globals.args.regex:
-    exit(_("Regex- and/or NER-based analysis must be turned on."))
+    exit(globals._("Regex- and/or NER-based analysis must be turned on."))
 
 if globals.args.ner == True:
     model: GLiNER = GLiNER.from_pretrained("urchade/gliner_medium-v2.1")
@@ -90,19 +81,19 @@ time_start: datetime.datetime = datetime.datetime.now()
 time_end: datetime.datetime
 time_diff: datetime.timedelta
 
-globals.logger.info(_("Analysis"))
+globals.logger.info(globals._("Analysis"))
 globals.logger.info("====================\n")
-globals.logger.info(_("Analysis started at {}\n").format(time_start))
+globals.logger.info(globals._("Analysis started at {}\n").format(time_start))
 
 if globals.args.regex == True:
-    globals.logger.info(_("Regex-based search is active."))
+    globals.logger.info(globals._("Regex-based search is active."))
 else:
-    globals.logger.info(_("Regex-based search is *not* active."))
+    globals.logger.info(globals._("Regex-based search is *not* active."))
 
 if globals.args.ner == True:
-    globals.logger.info(_("AI-based search is active."))
+    globals.logger.info(globals._("AI-based search is active."))
 else:
-    globals.logger.info(_("AI-based search is *not* active."))
+    globals.logger.info(globals._("AI-based search is *not* active."))
 
 globals.logger.info("\n")
 
@@ -110,6 +101,8 @@ globals.logger.info("\n")
 num_files_all: int = 0
 # Number of files actually analyzed (supported file extension)
 num_files_checked: int = 0
+
+""" MAIN PROGRAM LOOP """
 
 # walk all files and subdirs of the root path
 for root, dirs, files in os.walk(globals.args.path):
@@ -222,17 +215,17 @@ time_end = datetime.datetime.now()
 time_diff = time_end - time_start
 
 """ Output all results. """
-globals.logger.info(_("Statistics"))
+globals.logger.info(globals._("Statistics"))
 globals.logger.info("----------\n")
-globals.logger.info(_("The following file extensions have been found:"))
+globals.logger.info(globals._("The following file extensions have been found:"))
 [globals.logger.info("{:>10}: {:>10} Dateien".format(k, v)) for k, v in sorted(exts_found.items(), key=lambda item: item[1], reverse=True)]
-globals.logger.info(_("TOTAL: {} files.\nQUALIFIED: {} files (supported file extension)\n\n").format(num_files_all, num_files_checked))
+globals.logger.info(globals._("TOTAL: {} files.\nQUALIFIED: {} files (supported file extension)\n\n").format(num_files_all, num_files_checked))
 
-globals.logger.info(_("Findings"))
+globals.logger.info(globals._("Findings"))
 globals.logger.info("--------\n")
-globals.logger.info(_("--> see *_findings.csv\n\n"))
+globals.logger.info(globals._("--> see *_findings.csv\n\n"))
 
-globals.logger.info(_("Errors"))
+globals.logger.info(globals._("Errors"))
 globals.logger.info("------\n")
 for k, v in errors.items():
     globals.logger.info("\t{}".format(k))
@@ -240,5 +233,5 @@ for k, v in errors.items():
         globals.logger.info("\t\t{}".format(f.encode("utf-8", "replace")))
 
 globals.logger.info("\n")
-globals.logger.info(_("Analysis finished at {}").format(time_end))
-globals.logger.info(_("Performance of analysis: {} analyzed files per second").format(round(num_files_checked / max(time_diff.seconds, 1), 2)))
+globals.logger.info(globals._("Analysis finished at {}").format(time_end))
+globals.logger.info(globals._("Performance of analysis: {} analyzed files per second").format(round(num_files_checked / max(time_diff.seconds, 1), 2)))
