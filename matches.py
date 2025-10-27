@@ -1,8 +1,5 @@
-from enum import StrEnum
 import re
 from dataclasses import dataclass, field
-import gettext
-import os
 import json
 
 # configure support match types
