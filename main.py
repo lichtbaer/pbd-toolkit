@@ -192,7 +192,7 @@ for root, dirs, files in os.walk(globals.args.path):
                         pmc.add_matches_ner(entities, full_path)
                 except UnicodeDecodeError:
                     add_error("HTML Unicode Decode Error", full_path)
-        elif (ext == ".txt" or ext == "") and mimetypes.guess_type(full_path) == "text/plain":
+        elif (ext == ".txt" or ext == "") and mimetypes.guess_type(full_path)[0] == "text/plain":
             with open(full_path) as doc:
                 try:
                     text: str = doc.read()
