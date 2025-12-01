@@ -73,10 +73,9 @@ class PiiMatchContainer:
         results: dict[str, list[PiiMatch]] = {}
 
         for pm in self.pii_matches:
-            if pm.file in results.keys():
-                results[pm.file].append(pm)
-            else:
-                results[pm.file] = [pm]
+            if pm.file not in results:
+                results[pm.file] = []
+            results[pm.file].append(pm)
 
         return results
 
