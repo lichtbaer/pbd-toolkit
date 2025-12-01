@@ -1,6 +1,9 @@
 import datetime
 import os
 import re
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Optional
 
 import docx.opc.exceptions
 import setup
@@ -9,6 +12,7 @@ from config import Config
 from matches import PiiMatchContainer
 import constants
 from file_processors import (
+    BaseFileProcessor,
     PdfProcessor,
     DocxProcessor,
     HtmlProcessor,
@@ -29,17 +33,22 @@ exts_found: dict[str, int] = {}
 errors: dict[str, list[str]] = {}
 
 """ Helper function for adding errors to the above dict without duplicating this branch all over the code. """
+_error_lock = threading.Lock()
+
 def add_error(msg: str, path: str) -> None:
     """Add an error message for a specific file path.
+    
+    Thread-safe error tracking.
     
     Args:
         msg: Error message describing the type of error
         path: File path where the error occurred
     """
-    if msg not in errors.keys():
-        errors[msg] = [path]
-    else:
-        errors[msg].append(path)
+    with _error_lock:
+        if msg not in errors:
+            errors[msg] = [path]
+        else:
+            errors[msg].append(path)
 
 # Setup and create configuration
 setup.setup()
@@ -61,6 +70,8 @@ pmc.set_csv_writer(config.csv_writer)
 if config.whitelist_path and os.path.isfile(config.whitelist_path):
     with open(config.whitelist_path, "r", encoding="utf-8") as file:
         pmc.whitelist = file.read().splitlines()
+    # Pre-compile whitelist pattern for better performance
+    pmc._compile_whitelist_pattern()
 
 time_start: datetime.datetime = datetime.datetime.now()
 time_end: datetime.datetime
@@ -99,8 +110,21 @@ num_files_all: int = 0
 num_files_checked: int = 0
 
 
+# Cache file processors to avoid creating new instances for each file
+# Processors are stateless and can be safely reused
+_file_processors_cache: dict[str, BaseFileProcessor] = {}
+_file_processors_list = [
+    PdfProcessor(),
+    DocxProcessor(),
+    HtmlProcessor(),
+    TextProcessor(),
+]
+
 def get_file_processor(extension: str, file_path: str):
     """Get the appropriate file processor for a given file extension.
+    
+    Uses cached processor instances to avoid repeated instantiation.
+    Processors are stateless and thread-safe for reading operations.
     
     Args:
         extension: File extension (e.g., '.pdf', '.docx')
@@ -109,24 +133,28 @@ def get_file_processor(extension: str, file_path: str):
     Returns:
         Appropriate file processor instance or None if no processor available
     """
-    processors = [
-        PdfProcessor(),
-        DocxProcessor(),
-        HtmlProcessor(),
-        TextProcessor(),
-    ]
+    # For known extensions, use direct cache lookup
+    if extension and extension in _file_processors_cache:
+        return _file_processors_cache[extension]
     
-    for processor in processors:
+    # Check each processor (TextProcessor needs file_path for mime type checking)
+    for processor in _file_processors_list:
         if hasattr(processor, 'can_process'):
             # TextProcessor needs file_path for mime type checking
             if isinstance(processor, TextProcessor):
                 if processor.can_process(extension, file_path):
+                    # TextProcessor can't be cached by extension alone
                     return processor
             elif processor.can_process(extension):
+                # Cache by extension for other processors
+                _file_processors_cache[extension] = processor
                 return processor
     
     return None
 
+
+# Thread lock for thread-safe operations
+_process_lock = threading.Lock()
 
 def process_text(text: str, file_path: str, pmc: PiiMatchContainer, config: Config) -> None:
     """Process text content with regex and/or NER-based PII detection.
@@ -138,26 +166,33 @@ def process_text(text: str, file_path: str, pmc: PiiMatchContainer, config: Conf
         config: Configuration object with all settings
     """
     if config.use_regex and config.regex_pattern:
-        matches: re.Match | None = config.regex_pattern.search(text)
-        pmc.add_matches_regex(matches, file_path)
+        # Use finditer to find ALL matches, not just the first one
+        for match in config.regex_pattern.finditer(text):
+            with _process_lock:
+                pmc.add_matches_regex(match, file_path)
     
     if config.use_ner and config.ner_model:
         entities = config.ner_model.predict_entities(
             text, config.ner_labels, threshold=constants.NER_THRESHOLD
         )
-        pmc.add_matches_ner(entities, file_path)
+        with _process_lock:
+            pmc.add_matches_ner(entities, file_path)
 
 
 """ MAIN PROGRAM LOOP """
 
-# First pass: count total files for progress bar (if not using stop_count)
+# Skip file counting if stop_count is set (saves time)
+# For large directories, counting can be slow, so we estimate dynamically
 total_files_estimate = None
 if not config.stop_count:
-    config.logger.debug("Counting files for progress estimation...")
-    total_files_estimate = sum(
-        len(files) for _, _, files in os.walk(config.path)
-    )
-    config.logger.debug(f"Estimated total files: {total_files_estimate}")
+    # Only count files if verbose mode (for accurate progress)
+    # Otherwise, use dynamic estimation during processing
+    if config.verbose:
+        config.logger.debug("Counting files for progress estimation...")
+        total_files_estimate = sum(
+            len(files) for _, _, files in os.walk(config.path)
+        )
+        config.logger.debug(f"Estimated total files: {total_files_estimate}")
 
 # Initialize progress bar
 progress_bar = None
@@ -179,10 +214,9 @@ for root, dirs, files in os.walk(config.path):
         ext: str = os.path.splitext(full_path)[1].lower()
 
         # keep count of how many files have been found per extension
-        if ext not in exts_found.keys():
-            exts_found[ext] = 1
-        else:
-            exts_found[ext] += 1
+        # Thread-safe extension counting
+        with _error_lock:  # Reuse lock for extension counting
+            exts_found[ext] = exts_found.get(ext, 0) + 1
 
         # Validate file path (path traversal protection)
         is_valid, error_msg = config.validate_file_path(full_path)
@@ -214,10 +248,12 @@ for root, dirs, files in os.walk(config.path):
                 # PDF processor yields text chunks, others return full text
                 if isinstance(processor, PdfProcessor):
                     for text_chunk in processor.extract_text(full_path):
-                        process_text(text_chunk, full_path, pmc, config)
+                        if text_chunk.strip():  # Only process non-empty chunks
+                            process_text(text_chunk, full_path, pmc, config)
                 else:
                     text = processor.extract_text(full_path)
-                    process_text(text, full_path, pmc, config)
+                    if text.strip():  # Only process if there's actual text
+                        process_text(text, full_path, pmc, config)
                 
                 if config.verbose:
                     config.logger.debug(f"Successfully processed: {full_path}")
