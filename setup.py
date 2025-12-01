@@ -6,10 +6,12 @@ import logging
 import os
 
 import globals
+import constants
 
 """ Setup language handling by referring to the environment variable LANGUAGE and loading the corresponding
     locales file. """
 def __setup_lang() -> None:
+    """Initialize internationalization based on LANGUAGE environment variable."""
     lstr: str = os.environ.get("LANGUAGE")
     lenv: str = lstr if lstr and lstr in ["de", "en"] else "de"
 
@@ -19,6 +21,7 @@ def __setup_lang() -> None:
 
 """ Setup CLI argument parsing. """
 def __setup_args() -> None:
+    """Parse command line arguments and store them in globals.args."""
     parser = argparse.ArgumentParser(prog=globals._("HBDI PII Toolkit"))
     parser.add_argument("--path", action="store", help=globals._("Root directory under which to recursively search for PII"))
     parser.add_argument("--outname", action="store", help=globals._("Optional parameter; string which to include in the file name of all output files"))
@@ -33,7 +36,7 @@ def __setup_args() -> None:
     Logs are written to the output/ directory with the same name prefix as the findings file. """
 def __setup_logger(outslug: str = "") -> None:
     globals.logger = logging.getLogger(__package__)
-    logging.basicConfig(filename="./output/" + outslug + "_log.txt", format="%(message)s", encoding="utf-8", level=logging.INFO)
+    logging.basicConfig(filename=constants.OUTPUT_DIR + outslug + "_log.txt", format="%(message)s", encoding="utf-8", level=logging.INFO)
 
 """ Run all setup routines.
 
@@ -48,7 +51,10 @@ def setup() -> None:
     if globals.args.outname is not None:
         outslug += " " + globals.args.outname
 
-    outf = open("./output/" + outslug + "_findings.csv", "w")
-    globals.csvwriter = csv.writer(outf)
+    # Ensure output directory exists
+    os.makedirs(constants.OUTPUT_DIR, exist_ok=True)
+    
+    globals.csv_file_handle = open(constants.OUTPUT_DIR + outslug + "_findings.csv", "w", encoding="utf-8")
+    globals.csvwriter = csv.writer(globals.csv_file_handle)
 
     __setup_logger(outslug=outslug)

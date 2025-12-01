@@ -50,8 +50,15 @@ class PiiMatchContainer:
     pii_matches: list[PiiMatch] = field(default_factory=list)
     # Whitelist used for excluding strings from being identified as PII
     whitelist: list[str] = field(default_factory=list)
+    # Compiled regex pattern for efficient whitelist matching
+    _whitelist_pattern: re.Pattern | None = field(default=None, init=False, repr=False)
 
-    def by_file(self):
+    def by_file(self) -> dict[str, list[PiiMatch]]:
+        """Group PII matches by file path.
+        
+        Returns:
+            Dictionary mapping file paths to lists of PiiMatch objects found in each file.
+        """
         results: dict[str, list[PiiMatch]] = {}
 
         for pm in self.pii_matches:
@@ -62,19 +69,27 @@ class PiiMatchContainer:
 
         return results
 
+    def _compile_whitelist_pattern(self) -> None:
+        """Compile whitelist entries into a regex pattern for efficient matching."""
+        if self.whitelist and self._whitelist_pattern is None:
+            # Escape special regex characters and create pattern
+            escaped_patterns = [re.escape(word) for word in self.whitelist if word]
+            if escaped_patterns:
+                self._whitelist_pattern = re.compile("|".join(escaped_patterns))
+
     """ Helper function for adding matches to the matches container. This generic, internal method is
         called by the other methods intended for public use, its aim is to reduce redundancy. """
     def __add_match(self, text: str, file: str, type: str, ner_score: float | None = None) -> None:
             whitelisted: bool = False
 
-            # TODO: performance could be improved by creating a regex from the whitelist entries and matching against that.
-            # That way, no loop would be necessary.
-            for word in self.whitelist:
-                if word in text:
+            # Use compiled regex pattern for efficient whitelist checking
+            if self.whitelist:
+                if self._whitelist_pattern is None:
+                    self._compile_whitelist_pattern()
+                if self._whitelist_pattern and self._whitelist_pattern.search(text):
                     whitelisted = True
-                    break;
 
-            if whitelisted == False:
+            if not whitelisted:
                 pm: PiiMatch = PiiMatch(text=text, file=file, type=type, ner_score=ner_score)
                 self.pii_matches.append(pm)
                 globals.csvwriter.writerow([pm.text, pm.file, pm.type, pm.ner_score])
@@ -92,7 +107,7 @@ class PiiMatchContainer:
 
 
     """ Helper function for adding AI-based NER matches to the matches container. """
-    def add_matches_ner(self, matches, path: str) -> None:
+    def add_matches_ner(self, matches: list[dict] | None, path: str) -> None:
         if matches is not None:
             for match in matches:
                 type: str | None = None
