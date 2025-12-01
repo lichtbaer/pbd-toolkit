@@ -1,0 +1,16 @@
+"""Constants used throughout the application."""
+
+# Minimum text length for PDF processing (workaround for PDFs with messed-up text embeddings)
+MIN_PDF_TEXT_LENGTH: int = 10
+
+# NER model threshold for entity prediction
+NER_THRESHOLD: float = 0.5
+
+# NER model name
+NER_MODEL_NAME: str = "urchade/gliner_medium-v2.1"
+
+# Configuration file path
+CONFIG_FILE: str = "config_types.json"
+
+# Output directory
+OUTPUT_DIR: str = "./output/"

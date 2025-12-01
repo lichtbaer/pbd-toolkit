@@ -1,21 +1,19 @@
 import datetime
-import json
-import mimetypes
 import os
 import re
 
-import docx
-import docx.opc
 import docx.opc.exceptions
-import docx.text
-import docx.text.paragraph
 import setup
-from bs4 import BeautifulSoup
-from gliner import GLiNER
-import globals
+from tqdm import tqdm
+from config import Config
 from matches import PiiMatchContainer
-from pdfminer.high_level import extract_pages
-from pdfminer.layout import LTTextContainer
+import constants
+from file_processors import (
+    PdfProcessor,
+    DocxProcessor,
+    HtmlProcessor,
+    TextProcessor,
+)
 
 
 """ Used to count how many files per extension have been found. This does *not* only count supported/qualified
@@ -32,81 +30,148 @@ errors: dict[str, list[str]] = {}
 
 """ Helper function for adding errors to the above dict without duplicating this branch all over the code. """
 def add_error(msg: str, path: str) -> None:
+    """Add an error message for a specific file path.
+    
+    Args:
+        msg: Error message describing the type of error
+        path: File path where the error occurred
+    """
     if msg not in errors.keys():
         errors[msg] = [path]
     else:
         errors[msg].append(path)
 
-# All regular expressions used for analysis.
-with open("config_types.json") as f:
-    config = json.load(f)
-
-regex = config["regex"]
-regex_supported = []
-
-for entry in regex:
-    regex_supported.append(r"{}".format(entry["expression"]))
-
-# concatenate all regex strings so that we can scan each document just once instead of once per regex
-rxstr_all: str = "(" + ")|(".join(regex_supported) + ")"
-regex_all: re.Pattern = re.compile(rxstr_all)
-
-pmc: PiiMatchContainer = PiiMatchContainer()
-
-# Used to list all entities for AI-based NER
-ner_labels: list[str] = []
-
-# TODO: move more stuff to globals
+# Setup and create configuration
 setup.setup()
+config: Config = setup.create_config()
 
-if not globals.args.path:
-    exit(globals._("--path parameter cannot be empty"))
+# Validate configuration
+is_valid, error_msg = config.validate_path()
+if not is_valid:
+    exit(error_msg)
 
-if not globals.args.ner and not globals.args.regex:
-    exit(globals._("Regex- and/or NER-based analysis must be turned on."))
+if not config.use_ner and not config.use_regex:
+    exit(config._("Regex- and/or NER-based analysis must be turned on."))
 
-if globals.args.ner == True:
-    model: GLiNER = GLiNER.from_pretrained("urchade/gliner_medium-v2.1")
+# Initialize PII match container
+pmc: PiiMatchContainer = PiiMatchContainer()
+pmc.set_csv_writer(config.csv_writer)
 
-    import json
-    with open("config_types.json") as f:
-        config = json.load(f)
-
-    ner_labels = [c["term"] for c in config["ai-ner"]]
-
-if globals.args.whitelist and os.path.isfile(globals.args.whitelist):
-    with open(globals.args.whitelist, "r") as file:
+# Load whitelist if provided
+if config.whitelist_path and os.path.isfile(config.whitelist_path):
+    with open(config.whitelist_path, "r", encoding="utf-8") as file:
         pmc.whitelist = file.read().splitlines()
 
 time_start: datetime.datetime = datetime.datetime.now()
 time_end: datetime.datetime
 time_diff: datetime.timedelta
 
-globals.logger.info(globals._("Analysis"))
-globals.logger.info("====================\n")
-globals.logger.info(globals._("Analysis started at {}\n").format(time_start))
+config.logger.info(config._("Analysis"))
+config.logger.info("====================\n")
+config.logger.info(config._("Analysis started at {}\n").format(time_start))
 
-if globals.args.regex == True:
-    globals.logger.info(globals._("Regex-based search is active."))
+if config.use_regex:
+    config.logger.info(config._("Regex-based search is active."))
 else:
-    globals.logger.info(globals._("Regex-based search is *not* active."))
+    config.logger.info(config._("Regex-based search is *not* active."))
 
-if globals.args.ner == True:
-    globals.logger.info(globals._("AI-based search is active."))
+if config.use_ner:
+    config.logger.info(config._("AI-based search is active."))
+    if config.verbose:
+        config.logger.debug(f"NER Model: {constants.NER_MODEL_NAME}")
+        config.logger.debug(f"NER Threshold: {constants.NER_THRESHOLD}")
+        config.logger.debug(f"NER Labels: {config.ner_labels}")
 else:
-    globals.logger.info(globals._("AI-based search is *not* active."))
+    config.logger.info(config._("AI-based search is *not* active."))
 
-globals.logger.info("\n")
+if config.verbose:
+    config.logger.debug(f"Search path: {config.path}")
+    config.logger.debug(f"Output directory: {constants.OUTPUT_DIR}")
+    if config.whitelist_path:
+        config.logger.debug(f"Whitelist file: {config.whitelist_path}")
+        config.logger.debug(f"Whitelist entries: {len(pmc.whitelist)}")
+
+config.logger.info("\n")
 
 # Number of files found during analysis
 num_files_all: int = 0
 # Number of files actually analyzed (supported file extension)
 num_files_checked: int = 0
 
+
+def get_file_processor(extension: str, file_path: str):
+    """Get the appropriate file processor for a given file extension.
+    
+    Args:
+        extension: File extension (e.g., '.pdf', '.docx')
+        file_path: Full path to the file (needed for text file detection)
+        
+    Returns:
+        Appropriate file processor instance or None if no processor available
+    """
+    processors = [
+        PdfProcessor(),
+        DocxProcessor(),
+        HtmlProcessor(),
+        TextProcessor(),
+    ]
+    
+    for processor in processors:
+        if hasattr(processor, 'can_process'):
+            # TextProcessor needs file_path for mime type checking
+            if isinstance(processor, TextProcessor):
+                if processor.can_process(extension, file_path):
+                    return processor
+            elif processor.can_process(extension):
+                return processor
+    
+    return None
+
+
+def process_text(text: str, file_path: str, pmc: PiiMatchContainer, config: Config) -> None:
+    """Process text content with regex and/or NER-based PII detection.
+    
+    Args:
+        text: Text content to analyze
+        file_path: Path to the file containing the text
+        pmc: PiiMatchContainer instance for storing matches
+        config: Configuration object with all settings
+    """
+    if config.use_regex and config.regex_pattern:
+        matches: re.Match | None = config.regex_pattern.search(text)
+        pmc.add_matches_regex(matches, file_path)
+    
+    if config.use_ner and config.ner_model:
+        entities = config.ner_model.predict_entities(
+            text, config.ner_labels, threshold=constants.NER_THRESHOLD
+        )
+        pmc.add_matches_ner(entities, file_path)
+
+
 """ MAIN PROGRAM LOOP """
 
+# First pass: count total files for progress bar (if not using stop_count)
+total_files_estimate = None
+if not config.stop_count:
+    config.logger.debug("Counting files for progress estimation...")
+    total_files_estimate = sum(
+        len(files) for _, _, files in os.walk(config.path)
+    )
+    config.logger.debug(f"Estimated total files: {total_files_estimate}")
+
+# Initialize progress bar
+progress_bar = None
+if config.verbose or not config.stop_count:
+    # Only show progress bar in verbose mode or for long-running operations
+    progress_bar = tqdm(
+        total=total_files_estimate if total_files_estimate else None,
+        desc="Processing files",
+        unit="file",
+        disable=not config.verbose and config.stop_count is not None
+    )
+
 # walk all files and subdirs of the root path
-for root, dirs, files in os.walk(globals.args.path):
+for root, dirs, files in os.walk(config.path):
     for filename in files:
         num_files_all += 1
 
@@ -119,121 +184,113 @@ for root, dirs, files in os.walk(globals.args.path):
         else:
             exts_found[ext] += 1
 
-        print(str(num_files_all) + " " + full_path)
-
-        # handle all file extensions that we want to support
-        """ For PDF files, text is extracted from all pages using the pdfminer.six library.
-            This currently only works for PDF files which have actual text embeddings. If a file
-            contains images (for example from scanning a document without applying OCR), then
-            no text will be extracted."""
-        if ext == ".pdf":
+        # Validate file path (path traversal protection)
+        is_valid, error_msg = config.validate_file_path(full_path)
+        if not is_valid:
+            if error_msg and "Path traversal" in error_msg:
+                config.logger.warning(f"Security: {error_msg} - {full_path}")
+                add_error(error_msg, full_path)
+                continue
+            elif error_msg and "too large" in error_msg:
+                config.logger.warning(f"{error_msg} - {full_path}")
+                add_error(error_msg, full_path)
+                continue
+        
+        # Log file processing in verbose mode
+        if config.verbose:
             try:
-                # extract text page by page since that's not too memory-intensive
-                for page_layout in extract_pages(full_path):
-                    for text_container in page_layout:
-                        if isinstance(text_container, LTTextContainer):
-                            text: str = text_container.get_text()
+                file_size_mb = os.path.getsize(full_path) / (1024 * 1024)
+                config.logger.debug(f"Processing file {num_files_all}: {full_path} ({file_size_mb:.2f} MB)")
+            except OSError:
+                config.logger.debug(f"Processing file {num_files_all}: {full_path} (size unknown)")
 
-                            """ Workaround for PDFs with messed-up text embeddings that only
-                                consist of very short character sequences """
-                            if len(text) < 10:
-                                continue
-                            else:
-                                if globals.args.regex == True:
-                                    matches: re.Match = regex_all.search(text)
-                                    pmc.add_matches_regex(matches, full_path)
-
-                                if globals.args.ner == True:
-                                    entities = model.predict_entities(text, ner_labels, threshold=0.5)
-                                    pmc.add_matches_ner(entities, full_path)
-
-                num_files_checked += 1
-            except Exception as excpt:
-                add_error(str(excpt), full_path)
-        elif ext == ".docx":
-            """ For DOCX files, we extract text using python-docx. Currently, this only takes a document's
-                paragraphs into account, with no regard for elements that aren't paragraphs (headers, footers, tables)."""
+        # Get appropriate processor for this file type
+        processor = get_file_processor(ext, full_path)
+        
+        if processor is not None:
             try:
-                doc: docx.Document = docx.Document(full_path)
                 num_files_checked += 1
-
-                text: str = ""
-
-                paragraph: docx.text.paragraph
-                for paragraph in doc.paragraphs:
-                    text += paragraph.text
-
-                    if globals.args.regex == True:
-                        matches: re.Match = regex_all.search(text)
-                        pmc.add_matches_regex(matches, full_path)
-
-                    if globals.args.ner == True:
-                        entities = model.predict_entities(text, ner_labels, threshold=0.5)
-                        pmc.add_matches_ner(entities, full_path)
+                
+                # PDF processor yields text chunks, others return full text
+                if isinstance(processor, PdfProcessor):
+                    for text_chunk in processor.extract_text(full_path):
+                        process_text(text_chunk, full_path, pmc, config)
+                else:
+                    text = processor.extract_text(full_path)
+                    process_text(text, full_path, pmc, config)
+                
+                if config.verbose:
+                    config.logger.debug(f"Successfully processed: {full_path}")
+                    
             except docx.opc.exceptions.PackageNotFoundError:
-                add_error("DOCX Empty Or Protected", full_path)
+                error_msg = "DOCX Empty Or Protected"
+                config.logger.warning(f"{error_msg}: {full_path}")
+                add_error(error_msg, full_path)
+            except UnicodeDecodeError:
+                error_msg = "Unicode Decode Error"
+                config.logger.warning(f"{error_msg}: {full_path}")
+                add_error(error_msg, full_path)
+            except PermissionError:
+                error_msg = "Permission denied"
+                config.logger.warning(f"{error_msg}: {full_path}")
+                add_error(error_msg, full_path)
+            except FileNotFoundError:
+                error_msg = "File not found"
+                config.logger.warning(f"{error_msg}: {full_path}")
+                add_error(error_msg, full_path)
             except Exception as excpt:
-                add_error(str(excpt), full_path)
-        elif ext == ".html":
-            """ For HTML files, we use BeautifulSoup4 to extract the text without markup. """
-            with open(full_path) as doc:
-                try:
-                    soup: BeautifulSoup = BeautifulSoup(doc, "html.parser")
-                    num_files_checked += 1
+                error_msg = f"Unexpected error: {type(excpt).__name__}: {str(excpt)}"
+                config.logger.error(f"{error_msg}: {full_path}", exc_info=config.verbose)
+                add_error(error_msg, full_path)
+        else:
+            if config.verbose:
+                config.logger.debug(f"Skipping unsupported file type: {full_path}")
 
-                    text: str = soup.get_text()
+        # Update progress bar
+        if progress_bar:
+            progress_bar.update(1)
+            progress_bar.set_postfix({
+                'checked': num_files_checked,
+                'errors': len(errors),
+                'matches': len(pmc.pii_matches)
+            })
 
-                    if globals.args.regex == True:
-                        matches: re.Match = regex_all.search(text)
-                        pmc.add_matches_regex(matches, full_path)
-
-                    if globals.args.ner == True:
-                        entities = model.predict_entities(text, ner_labels, threshold=0.5)
-                        pmc.add_matches_ner(entities, full_path)
-                except UnicodeDecodeError:
-                    add_error("HTML Unicode Decode Error", full_path)
-        elif (ext == ".txt" or ext == "") and mimetypes.guess_type(full_path)[0] == "text/plain":
-            with open(full_path) as doc:
-                try:
-                    text: str = doc.read()
-
-                    if globals.args.regex == True:
-                        matches: re.Match = regex_all.search(text)
-                        pmc.add_matches_regex(matches, full_path)
-
-                    if globals.args.ner == True:
-                        entities = model.predict_entities(text, ner_labels, threshold=0.5)
-                        pmc.add_matches_ner(entities, full_path)
-                except Exception as excpt:
-                    add_error(str(excpt), full_path)
-
-        if globals.args.stop_count and num_files_all == globals.args.stop_count:
+        if config.stop_count and num_files_all == config.stop_count:
             break
-    if globals.args.stop_count and num_files_all == globals.args.stop_count:
+    if config.stop_count and num_files_all == config.stop_count:
         break
+
+# Close progress bar
+if progress_bar:
+    progress_bar.close()
 
 time_end = datetime.datetime.now()
 time_diff = time_end - time_start
 
 """ Output all results. """
-globals.logger.info(globals._("Statistics"))
-globals.logger.info("----------\n")
-globals.logger.info(globals._("The following file extensions have been found:"))
-[globals.logger.info("{:>10}: {:>10} Dateien".format(k, v)) for k, v in sorted(exts_found.items(), key=lambda item: item[1], reverse=True)]
-globals.logger.info(globals._("TOTAL: {} files.\nQUALIFIED: {} files (supported file extension)\n\n").format(num_files_all, num_files_checked))
+config.logger.info(config._("Statistics"))
+config.logger.info("----------\n")
+config.logger.info(config._("The following file extensions have been found:"))
+for k, v in sorted(exts_found.items(), key=lambda item: item[1], reverse=True):
+    config.logger.info("{:>10}: {:>10} Dateien".format(k, v))
+config.logger.info(config._("TOTAL: {} files.\nQUALIFIED: {} files (supported file extension)\n\n").format(num_files_all, num_files_checked))
 
-globals.logger.info(globals._("Findings"))
-globals.logger.info("--------\n")
-globals.logger.info(globals._("--> see *_findings.csv\n\n"))
+config.logger.info(config._("Findings"))
+config.logger.info("--------\n")
+config.logger.info(config._("--> see *_findings.csv\n\n"))
 
-globals.logger.info(globals._("Errors"))
-globals.logger.info("------\n")
+config.logger.info(config._("Errors"))
+config.logger.info("------\n")
 for k, v in errors.items():
-    globals.logger.info("\t{}".format(k))
+    config.logger.info("\t{}".format(k))
     for f in v:
-        globals.logger.info("\t\t{}".format(f.encode("utf-8", "replace")))
+        config.logger.info("\t\t{}".format(f))
 
-globals.logger.info("\n")
-globals.logger.info(globals._("Analysis finished at {}").format(time_end))
-globals.logger.info(globals._("Performance of analysis: {} analyzed files per second").format(round(num_files_checked / max(time_diff.seconds, 1), 2)))
+config.logger.info("\n")
+config.logger.info(config._("Analysis finished at {}").format(time_end))
+config.logger.info(config._("Performance of analysis: {} analyzed files per second").format(round(num_files_checked / max(time_diff.seconds, 1), 2)))
+
+# Close CSV file handle
+if config.csv_file_handle:
+    config.csv_file_handle.close()
 

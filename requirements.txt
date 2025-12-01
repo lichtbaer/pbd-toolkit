@@ -2,3 +2,6 @@ python-docx~=1.2.0
 beautifulsoup4~=4.14.2
 gliner~=0.2.22
 pdfminer.six==20250506
+pytest~=8.0.0
+pytest-cov~=4.1.0
+tqdm~=4.66.0
