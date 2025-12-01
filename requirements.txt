@@ -5,3 +5,5 @@ pdfminer.six==20250506
 pytest~=8.0.0
 pytest-cov~=4.1.0
 tqdm~=4.66.0
+striprtf~=0.0.26
+odfpy~=1.4.1

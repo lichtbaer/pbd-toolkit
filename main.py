@@ -17,6 +17,11 @@ from file_processors import (
     DocxProcessor,
     HtmlProcessor,
     TextProcessor,
+    CsvProcessor,
+    JsonProcessor,
+    RtfProcessor,
+    OdtProcessor,
+    EmlProcessor,
 )
 
 
@@ -118,6 +123,11 @@ _file_processors_list = [
     DocxProcessor(),
     HtmlProcessor(),
     TextProcessor(),
+    CsvProcessor(),
+    JsonProcessor(),
+    RtfProcessor(),
+    OdtProcessor(),
+    EmlProcessor(),
 ]
 
 def get_file_processor(extension: str, file_path: str):
