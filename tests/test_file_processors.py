@@ -9,6 +9,9 @@ from file_processors import (
     TextProcessor,
     CsvProcessor,
     JsonProcessor,
+    RtfProcessor,
+    OdtProcessor,
+    EmlProcessor,
 )
 
 
@@ -230,5 +233,134 @@ class TestJsonProcessor:
         """Test that FileNotFoundError is raised for non-existent file."""
         processor = JsonProcessor()
         non_existent = os.path.join(temp_dir, "nonexistent.json")
+        with pytest.raises(FileNotFoundError):
+            processor.extract_text(non_existent)
+
+
+class TestRtfProcessor:
+    """Tests for RTF processor."""
+    
+    def test_can_process_rtf(self):
+        """Test that RTF processor recognizes .rtf extension."""
+        processor = RtfProcessor()
+        assert processor.can_process(".rtf")
+        assert processor.can_process(".RTF")
+        assert not processor.can_process(".txt")
+        assert not processor.can_process(".docx")
+    
+    def test_extract_text_from_rtf(self, temp_dir):
+        """Test text extraction from RTF file."""
+        file_path = os.path.join(temp_dir, "test.rtf")
+        # Create a simple RTF file
+        rtf_content = r"{\rtf1\ansi\deff0 {\fonttbl {\f0 Times New Roman;}}\f0\fs24 This is a test RTF document with email test@example.com and IBAN DE89 3704 0044 0532 0130 00.}"
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(rtf_content)
+        
+        processor = RtfProcessor()
+        text = processor.extract_text(file_path)
+        assert "test@example.com" in text
+        assert "IBAN" in text
+        assert "test RTF document" in text.lower()
+    
+    def test_file_not_found(self, temp_dir):
+        """Test that FileNotFoundError is raised for non-existent file."""
+        processor = RtfProcessor()
+        non_existent = os.path.join(temp_dir, "nonexistent.rtf")
+        with pytest.raises(FileNotFoundError):
+            processor.extract_text(non_existent)
+
+
+class TestOdtProcessor:
+    """Tests for ODT processor."""
+    
+    def test_can_process_odt(self):
+        """Test that ODT processor recognizes .odt extension."""
+        processor = OdtProcessor()
+        assert processor.can_process(".odt")
+        assert processor.can_process(".ODT")
+        assert not processor.can_process(".txt")
+        assert not processor.can_process(".docx")
+    
+    def test_file_not_found(self, temp_dir):
+        """Test that FileNotFoundError is raised for non-existent file."""
+        processor = OdtProcessor()
+        non_existent = os.path.join(temp_dir, "nonexistent.odt")
+        with pytest.raises(FileNotFoundError):
+            processor.extract_text(non_existent)
+    
+    # Note: Testing actual ODT extraction would require creating a valid ODT file
+    # which is complex. The can_process test and file_not_found test verify
+    # the basic functionality. Full integration tests would require sample ODT files.
+
+
+class TestEmlProcessor:
+    """Tests for EML processor."""
+    
+    def test_can_process_eml(self):
+        """Test that EML processor recognizes .eml extension."""
+        processor = EmlProcessor()
+        assert processor.can_process(".eml")
+        assert processor.can_process(".EML")
+        assert not processor.can_process(".txt")
+        assert not processor.can_process(".msg")
+    
+    def test_extract_text_from_eml(self, temp_dir):
+        """Test text extraction from EML file."""
+        file_path = os.path.join(temp_dir, "test.eml")
+        # Create a simple EML file
+        eml_content = """From: sender@example.com
+To: recipient@example.com
+Subject: Test Email
+Content-Type: text/plain; charset=utf-8
+
+This is a test email with contact info: contact@example.com
+IBAN: DE89 3704 0044 0532 0130 00
+"""
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(eml_content)
+        
+        processor = EmlProcessor()
+        text = processor.extract_text(file_path)
+        assert "sender@example.com" in text
+        assert "recipient@example.com" in text
+        assert "Test Email" in text
+        assert "contact@example.com" in text
+        assert "IBAN" in text
+    
+    def test_extract_text_from_multipart_eml(self, temp_dir):
+        """Test text extraction from multipart EML file."""
+        file_path = os.path.join(temp_dir, "test.eml")
+        # Create a multipart EML file
+        eml_content = """From: sender@example.com
+To: recipient@example.com
+Subject: Multipart Test
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="boundary123"
+
+--boundary123
+Content-Type: text/plain; charset=utf-8
+
+This is the plain text part with email test@example.com
+
+--boundary123
+Content-Type: text/html; charset=utf-8
+
+<html><body>This is the <b>HTML</b> part with email test@example.com</body></html>
+
+--boundary123--
+"""
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(eml_content)
+        
+        processor = EmlProcessor()
+        text = processor.extract_text(file_path)
+        assert "sender@example.com" in text
+        assert "recipient@example.com" in text
+        assert "test@example.com" in text
+    
+    def test_file_not_found(self, temp_dir):
+        """Test that FileNotFoundError is raised for non-existent file."""
+        processor = EmlProcessor()
+        non_existent = os.path.join(temp_dir, "nonexistent.eml")
         with pytest.raises(FileNotFoundError):
             processor.extract_text(non_existent)
