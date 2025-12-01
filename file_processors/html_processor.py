@@ -32,4 +32,4 @@ class HtmlProcessor(BaseFileProcessor):
     @staticmethod
     def can_process(extension: str) -> bool:
         """Check if this processor can handle HTML files."""
-        return extension.lower() == ".html"
+        return extension.lower() in [".html", ".htm"]

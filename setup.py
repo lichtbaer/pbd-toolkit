@@ -29,14 +29,44 @@ def __setup_args() -> None:
     parser.add_argument("--stop-count", action="store", type=int, help=globals._("Optional parameter; stop analysis after N files"))
     parser.add_argument("--regex", action="store_true", help=globals._("Use regular expressions for analysis"))
     parser.add_argument("--ner", action="store_true", help=globals._("Use AI-based Named Entity Recognition for analysis"))
+    parser.add_argument("--verbose", "-v", action="store_true", help=globals._("Enable verbose output with detailed logging"))
     globals.args = parser.parse_args()
 
 """ Setup logging.
 
-    Logs are written to the output/ directory with the same name prefix as the findings file. """
+    Logs are written to the output/ directory with the same name prefix as the findings file.
+    Also outputs to console if verbose mode is enabled. """
 def __setup_logger(outslug: str = "") -> None:
+    # Determine log level based on verbose flag
+    log_level = logging.DEBUG if globals.args and globals.args.verbose else logging.INFO
+    
+    # Create formatter with timestamp, level, and message
+    formatter = logging.Formatter(
+        '%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    
+    # File handler for log file
+    file_handler = logging.FileHandler(
+        constants.OUTPUT_DIR + outslug + "_log.txt",
+        encoding="utf-8"
+    )
+    file_handler.setLevel(log_level)
+    file_handler.setFormatter(formatter)
+    
+    # Console handler for verbose output
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(log_level)
+    console_handler.setFormatter(formatter)
+    
+    # Configure root logger
     globals.logger = logging.getLogger(__package__)
-    logging.basicConfig(filename=constants.OUTPUT_DIR + outslug + "_log.txt", format="%(message)s", encoding="utf-8", level=logging.INFO)
+    globals.logger.setLevel(log_level)
+    globals.logger.addHandler(file_handler)
+    
+    # Only add console handler in verbose mode
+    if globals.args and globals.args.verbose:
+        globals.logger.addHandler(console_handler)
 
 """ Run all setup routines.
 

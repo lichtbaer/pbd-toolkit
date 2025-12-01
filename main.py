@@ -6,6 +6,7 @@ import re
 import docx.opc.exceptions
 import setup
 from gliner import GLiNER
+from tqdm import tqdm
 import globals
 from matches import PiiMatchContainer
 import constants
@@ -103,8 +104,19 @@ else:
 
 if globals.args.ner:
     globals.logger.info(globals._("AI-based search is active."))
+    if globals.args.verbose:
+        globals.logger.debug(f"NER Model: {constants.NER_MODEL_NAME}")
+        globals.logger.debug(f"NER Threshold: {constants.NER_THRESHOLD}")
+        globals.logger.debug(f"NER Labels: {ner_labels}")
 else:
     globals.logger.info(globals._("AI-based search is *not* active."))
+
+if globals.args.verbose:
+    globals.logger.debug(f"Search path: {globals.args.path}")
+    globals.logger.debug(f"Output directory: {constants.OUTPUT_DIR}")
+    if globals.args.whitelist:
+        globals.logger.debug(f"Whitelist file: {globals.args.whitelist}")
+        globals.logger.debug(f"Whitelist entries: {len(pmc.whitelist)}")
 
 globals.logger.info("\n")
 
@@ -169,6 +181,26 @@ def process_text(text: str, file_path: str, pmc: PiiMatchContainer,
 
 """ MAIN PROGRAM LOOP """
 
+# First pass: count total files for progress bar (if not using stop_count)
+total_files_estimate = None
+if not globals.args.stop_count:
+    globals.logger.debug("Counting files for progress estimation...")
+    total_files_estimate = sum(
+        len(files) for _, _, files in os.walk(globals.args.path)
+    )
+    globals.logger.debug(f"Estimated total files: {total_files_estimate}")
+
+# Initialize progress bar
+progress_bar = None
+if globals.args.verbose or not globals.args.stop_count:
+    # Only show progress bar in verbose mode or for long-running operations
+    progress_bar = tqdm(
+        total=total_files_estimate if total_files_estimate else None,
+        desc="Processing files",
+        unit="file",
+        disable=not globals.args.verbose and globals.args.stop_count is not None
+    )
+
 # walk all files and subdirs of the root path
 for root, dirs, files in os.walk(globals.args.path):
     for filename in files:
@@ -183,7 +215,13 @@ for root, dirs, files in os.walk(globals.args.path):
         else:
             exts_found[ext] += 1
 
-        print(str(num_files_all) + " " + full_path)
+        # Log file processing in verbose mode
+        if globals.args.verbose:
+            try:
+                file_size_mb = os.path.getsize(full_path) / (1024 * 1024)
+                globals.logger.debug(f"Processing file {num_files_all}: {full_path} ({file_size_mb:.2f} MB)")
+            except OSError:
+                globals.logger.debug(f"Processing file {num_files_all}: {full_path} (size unknown)")
 
         # Get appropriate processor for this file type
         processor = get_file_processor(ext, full_path)
@@ -201,21 +239,51 @@ for root, dirs, files in os.walk(globals.args.path):
                     text = processor.extract_text(full_path)
                     process_text(text, full_path, pmc, regex_all, model, 
                                ner_labels, globals.args.regex, globals.args.ner)
+                
+                if globals.args.verbose:
+                    globals.logger.debug(f"Successfully processed: {full_path}")
+                    
             except docx.opc.exceptions.PackageNotFoundError:
-                add_error("DOCX Empty Or Protected", full_path)
+                error_msg = "DOCX Empty Or Protected"
+                globals.logger.warning(f"{error_msg}: {full_path}")
+                add_error(error_msg, full_path)
             except UnicodeDecodeError:
-                add_error("Unicode Decode Error", full_path)
+                error_msg = "Unicode Decode Error"
+                globals.logger.warning(f"{error_msg}: {full_path}")
+                add_error(error_msg, full_path)
             except PermissionError:
-                add_error("Permission denied", full_path)
+                error_msg = "Permission denied"
+                globals.logger.warning(f"{error_msg}: {full_path}")
+                add_error(error_msg, full_path)
             except FileNotFoundError:
-                add_error("File not found", full_path)
+                error_msg = "File not found"
+                globals.logger.warning(f"{error_msg}: {full_path}")
+                add_error(error_msg, full_path)
             except Exception as excpt:
-                add_error(f"Unexpected error: {type(excpt).__name__}: {str(excpt)}", full_path)
+                error_msg = f"Unexpected error: {type(excpt).__name__}: {str(excpt)}"
+                globals.logger.error(f"{error_msg}: {full_path}", exc_info=globals.args.verbose)
+                add_error(error_msg, full_path)
+        else:
+            if globals.args.verbose:
+                globals.logger.debug(f"Skipping unsupported file type: {full_path}")
+
+        # Update progress bar
+        if progress_bar:
+            progress_bar.update(1)
+            progress_bar.set_postfix({
+                'checked': num_files_checked,
+                'errors': len(errors),
+                'matches': len(pmc.pii_matches)
+            })
 
         if globals.args.stop_count and num_files_all == globals.args.stop_count:
             break
     if globals.args.stop_count and num_files_all == globals.args.stop_count:
         break
+
+# Close progress bar
+if progress_bar:
+    progress_bar.close()
 
 time_end = datetime.datetime.now()
 time_diff = time_end - time_start
