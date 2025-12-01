@@ -40,4 +40,4 @@ class TestIntegration:
         assert len(text) > 0
         assert "user@example.com" in text
         # HTML tags should be removed
-        assert "<" not in text or ">" not in text
+        assert "<" not in text and ">" not in text

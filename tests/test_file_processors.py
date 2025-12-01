@@ -60,6 +60,7 @@ class TestHtmlProcessor:
         # HTML tags should be removed
         assert "<html>" not in text
         assert "<p>" not in text
+        assert "<" not in text and ">" not in text
 
 
 class TestTextProcessor:
