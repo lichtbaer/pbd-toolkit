@@ -95,7 +95,7 @@ class PiiMatchContainer:
     def add_matches_ner(self, matches, path: str) -> None:
         if matches is not None:
             for match in matches:
-                type: PiiMatch.PiiMatchType | None = None
+                type: str | None = None
 
                 type = config_ainer_sorted[match["label"]]["label"]
 

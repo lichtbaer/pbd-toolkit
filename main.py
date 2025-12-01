@@ -219,7 +219,8 @@ time_diff = time_end - time_start
 globals.logger.info(globals._("Statistics"))
 globals.logger.info("----------\n")
 globals.logger.info(globals._("The following file extensions have been found:"))
-[globals.logger.info("{:>10}: {:>10} Dateien".format(k, v)) for k, v in sorted(exts_found.items(), key=lambda item: item[1], reverse=True)]
+for k, v in sorted(exts_found.items(), key=lambda item: item[1], reverse=True):
+    globals.logger.info("{:>10}: {:>10} Dateien".format(k, v))
 globals.logger.info(globals._("TOTAL: {} files.\nQUALIFIED: {} files (supported file extension)\n\n").format(num_files_all, num_files_checked))
 
 globals.logger.info(globals._("Findings"))
@@ -231,7 +232,7 @@ globals.logger.info("------\n")
 for k, v in errors.items():
     globals.logger.info("\t{}".format(k))
     for f in v:
-        globals.logger.info("\t\t{}".format(f.encode("utf-8", "replace")))
+        globals.logger.info("\t\t{}".format(f))
 
 globals.logger.info("\n")
 globals.logger.info(globals._("Analysis finished at {}").format(time_end))
