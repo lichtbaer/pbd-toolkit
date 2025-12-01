@@ -88,3 +88,20 @@ def setup() -> None:
     globals.csvwriter = csv.writer(globals.csv_file_handle)
 
     __setup_logger(outslug=outslug)
+
+
+def create_config() -> "config.Config":
+    """Create Config object from current setup.
+    
+    Returns:
+        Config instance with all dependencies injected
+    """
+    from config import Config
+    
+    return Config.from_args(
+        args=globals.args,
+        logger=globals.logger,
+        csv_writer=globals.csvwriter,
+        csv_file_handle=globals.csv_file_handle,
+        translate_func=globals._
+    )

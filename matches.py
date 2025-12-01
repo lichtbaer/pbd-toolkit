@@ -1,5 +1,6 @@
 import re
 from dataclasses import dataclass, field
+from typing import Any
 import json
 import globals
 
@@ -52,6 +53,16 @@ class PiiMatchContainer:
     whitelist: list[str] = field(default_factory=list)
     # Compiled regex pattern for efficient whitelist matching
     _whitelist_pattern: re.Pattern | None = field(default=None, init=False, repr=False)
+    # CSV writer for output (injected dependency)
+    _csv_writer: Any = field(default=None, init=False, repr=False)
+    
+    def set_csv_writer(self, csv_writer: Any) -> None:
+        """Set the CSV writer for output.
+        
+        Args:
+            csv_writer: CSV writer instance
+        """
+        self._csv_writer = csv_writer
 
     def by_file(self) -> dict[str, list[PiiMatch]]:
         """Group PII matches by file path.
@@ -92,7 +103,8 @@ class PiiMatchContainer:
             if not whitelisted:
                 pm: PiiMatch = PiiMatch(text=text, file=file, type=type, ner_score=ner_score)
                 self.pii_matches.append(pm)
-                globals.csvwriter.writerow([pm.text, pm.file, pm.type, pm.ner_score])
+                if self._csv_writer:
+                    self._csv_writer.writerow([pm.text, pm.file, pm.type, pm.ner_score])
 
     """ Helper function for adding regex-based matches to the matches container. """
     def add_matches_regex(self, matches: re.Match | None, path: str) -> None:
