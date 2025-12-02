@@ -58,7 +58,14 @@ def add_error(msg: str, path: str) -> None:
 
 # Setup and create configuration
 setup.setup()
-config: Config = setup.create_config()
+try:
+    config: Config = setup.create_config()
+except RuntimeError as e:
+    # NER model loading failed - exit with error message
+    exit(str(e))
+except Exception as e:
+    # Other configuration errors
+    exit(f"Configuration error: {e}")
 
 # Validate configuration
 is_valid, error_msg = config.validate_path()
@@ -67,6 +74,10 @@ if not is_valid:
 
 if not config.use_ner and not config.use_regex:
     exit(config._("Regex- and/or NER-based analysis must be turned on."))
+
+# Validate that NER model is loaded if NER is enabled
+if config.use_ner and config.ner_model is None:
+    exit(config._("NER is enabled but model could not be loaded. Please check the error messages above."))
 
 # Initialize PII match container
 pmc: PiiMatchContainer = PiiMatchContainer()
@@ -98,7 +109,7 @@ if config.use_ner:
     config.logger.info(config._("AI-based search is active."))
     if config.verbose:
         config.logger.debug(f"NER Model: {constants.NER_MODEL_NAME}")
-        config.logger.debug(f"NER Threshold: {constants.NER_THRESHOLD}")
+        config.logger.debug(f"NER Threshold: {config.ner_threshold}")
         config.logger.debug(f"NER Labels: {config.ner_labels}")
 else:
     config.logger.info(config._("AI-based search is *not* active."))
@@ -168,6 +179,8 @@ def get_file_processor(extension: str, file_path: str):
 
 # Thread lock for thread-safe operations
 _process_lock = threading.Lock()
+# Separate lock for NER model calls (GLiNER may not be thread-safe)
+_ner_lock = threading.Lock()
 
 def process_text(text: str, file_path: str, pmc: PiiMatchContainer, config: Config) -> None:
     """Process text content with regex and/or NER-based PII detection.
@@ -185,11 +198,30 @@ def process_text(text: str, file_path: str, pmc: PiiMatchContainer, config: Conf
                 pmc.add_matches_regex(match, file_path)
     
     if config.use_ner and config.ner_model:
-        entities = config.ner_model.predict_entities(
-            text, config.ner_labels, threshold=constants.NER_THRESHOLD
-        )
-        with _process_lock:
-            pmc.add_matches_ner(entities, file_path)
+        try:
+            # Serialize NER model calls to ensure thread-safety
+            # GLiNER model may not be thread-safe, so we use a separate lock
+            with _ner_lock:
+                entities = config.ner_model.predict_entities(
+                    text, config.ner_labels, threshold=config.ner_threshold
+                )
+            with _process_lock:
+                pmc.add_matches_ner(entities, file_path)
+        except RuntimeError as e:
+            # GPU/Model-spezifische Fehler
+            config.logger.warning(f"NER processing error for {file_path}: {e}")
+            add_error("NER processing error", file_path)
+        except MemoryError as e:
+            # Speicherprobleme
+            config.logger.error(f"Out of memory during NER processing: {file_path}")
+            add_error("NER memory error", file_path)
+        except Exception as e:
+            # Unerwartete Fehler
+            config.logger.error(
+                f"Unexpected NER error for {file_path}: {type(e).__name__}: {e}",
+                exc_info=config.verbose
+            )
+            add_error(f"NER error: {type(e).__name__}", file_path)
 
 
 """ MAIN PROGRAM LOOP """

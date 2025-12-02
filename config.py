@@ -40,6 +40,7 @@ class Config:
     regex_pattern: re.Pattern | None = field(default=None)
     ner_model: GLiNER | None = field(default=None)
     ner_labels: list[str] = field(default_factory=list)
+    ner_threshold: float = field(default=constants.NER_THRESHOLD)
     
     # Resource limits
     max_file_size_mb: float = 500.0
@@ -157,19 +158,61 @@ class Config:
             self.regex_pattern = None
     
     def _load_ner_model(self) -> None:
-        """Load NER model and labels."""
+        """Load NER model and labels.
+        
+        Loads the GLiNER model from HuggingFace and configures labels and threshold
+        from config_types.json. Handles various error cases with specific error messages.
+        """
         try:
+            self.logger.info(self._("Loading NER model..."))
             self.ner_model = GLiNER.from_pretrained(constants.NER_MODEL_NAME)
+            self.logger.info(self._("NER model loaded: {}").format(constants.NER_MODEL_NAME))
             
             with open(constants.CONFIG_FILE) as f:
                 config_data = json.load(f)
             
+            # Load NER labels
             ner_config = config_data.get("ai-ner", [])
             self.ner_labels = [c["term"] for c in ner_config]
+            
+            if not self.ner_labels:
+                self.logger.warning(self._("No NER labels configured"))
+            
+            # Load threshold from config, fallback to constant
+            settings = config_data.get("settings", {})
+            self.ner_threshold = settings.get("ner_threshold", constants.NER_THRESHOLD)
+            
+            if self.verbose:
+                self.logger.debug(f"NER threshold: {self.ner_threshold}")
+                self.logger.debug(f"NER labels: {self.ner_labels}")
+                
+        except FileNotFoundError as e:
+            error_msg = (
+                self._("NER model not found. Please download it first:\n")
+                + f"  hf download {constants.NER_MODEL_NAME}\n"
+                + self._("Original error: {}").format(str(e))
+            )
+            self.logger.error(error_msg)
+            raise RuntimeError(error_msg) from e
+        except ImportError as e:
+            error_msg = (
+                self._("GLiNER library not installed. Install with:\n")
+                + "  pip install gliner\n"
+                + self._("Original error: {}").format(str(e))
+            )
+            self.logger.error(error_msg)
+            raise RuntimeError(error_msg) from e
+        except json.JSONDecodeError as e:
+            error_msg = (
+                self._("Failed to parse configuration file: {}").format(constants.CONFIG_FILE)
+                + f"\n{self._('Original error: {}')}".format(str(e))
+            )
+            self.logger.error(error_msg)
+            raise RuntimeError(error_msg) from e
         except Exception as e:
-            self.logger.error(f"Failed to load NER model: {e}")
-            self.ner_model = None
-            self.ner_labels = []
+            error_msg = self._("Failed to load NER model: {}").format(str(e))
+            self.logger.error(error_msg, exc_info=True)
+            raise RuntimeError(error_msg) from e
 
 
 def load_extended_config(config_file: str = constants.CONFIG_FILE) -> dict:
