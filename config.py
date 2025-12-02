@@ -15,6 +15,16 @@ import constants
 
 
 @dataclass
+class NerStats:
+    """Statistics for NER processing."""
+    total_chunks_processed: int = 0
+    total_entities_found: int = 0
+    total_processing_time: float = 0.0
+    entities_by_type: dict[str, int] = field(default_factory=dict)
+    errors: int = 0
+
+
+@dataclass
 class Config:
     """Configuration object for PII Toolkit.
     
@@ -41,6 +51,7 @@ class Config:
     ner_model: GLiNER | None = field(default=None)
     ner_labels: list[str] = field(default_factory=list)
     ner_threshold: float = field(default=constants.NER_THRESHOLD)
+    ner_stats: NerStats = field(default_factory=NerStats)
     
     # Resource limits
     max_file_size_mb: float = 500.0
@@ -162,10 +173,39 @@ class Config:
         
         Loads the GLiNER model from HuggingFace and configures labels and threshold
         from config_types.json. Handles various error cases with specific error messages.
+        Automatically detects and uses GPU if available (unless FORCE_CPU is True).
         """
         try:
             self.logger.info(self._("Loading NER model..."))
+            
+            # Check for GPU availability
+            device = "cpu"
+            if not constants.FORCE_CPU:
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        device = "cuda"
+                        gpu_name = torch.cuda.get_device_name(0)
+                        self.logger.info(self._("GPU detected: {}").format(gpu_name))
+                    else:
+                        self.logger.info(self._("Using CPU for NER processing"))
+                except ImportError:
+                    self.logger.debug("PyTorch not available, using CPU")
+                except Exception as e:
+                    self.logger.warning(self._("GPU detection failed, using CPU: {}").format(e))
+            else:
+                self.logger.info(self._("CPU forced for NER processing (FORCE_CPU=True)"))
+            
             self.ner_model = GLiNER.from_pretrained(constants.NER_MODEL_NAME)
+            
+            # Move model to device if supported
+            if device == "cuda" and hasattr(self.ner_model, 'to'):
+                try:
+                    self.ner_model = self.ner_model.to(device)
+                    self.logger.info(self._("NER model moved to GPU"))
+                except Exception as e:
+                    self.logger.warning(self._("Failed to move model to GPU, using CPU: {}").format(e))
+            
             self.logger.info(self._("NER model loaded: {}").format(constants.NER_MODEL_NAME))
             
             with open(constants.CONFIG_FILE) as f:
@@ -185,6 +225,24 @@ class Config:
             if self.verbose:
                 self.logger.debug(f"NER threshold: {self.ner_threshold}")
                 self.logger.debug(f"NER labels: {self.ner_labels}")
+            
+            # Warm-up: First call to initialize model (reduces latency on first real use)
+            if self.ner_model and self.ner_labels:
+                try:
+                    dummy_text = "This is a test sentence for model warm-up."
+                    # Use first label for warm-up to minimize overhead
+                    warmup_labels = self.ner_labels[:1] if self.ner_labels else []
+                    if warmup_labels:
+                        self.ner_model.predict_entities(
+                            dummy_text,
+                            warmup_labels,
+                            threshold=self.ner_threshold
+                        )
+                        if self.verbose:
+                            self.logger.debug("NER model warmed up")
+                except Exception as e:
+                    # Warm-up failure is not critical, just log it
+                    self.logger.debug(f"NER warm-up failed (non-critical): {e}")
                 
         except FileNotFoundError as e:
             error_msg = (

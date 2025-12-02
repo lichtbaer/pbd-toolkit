@@ -14,3 +14,6 @@ CONFIG_FILE: str = "config_types.json"
 
 # Output directory
 OUTPUT_DIR: str = "./output/"
+
+# Force CPU for NER processing (set to True to disable GPU even if available)
+FORCE_CPU: bool = False

@@ -2,6 +2,7 @@ import datetime
 import os
 import re
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional
 
@@ -198,6 +199,7 @@ def process_text(text: str, file_path: str, pmc: PiiMatchContainer, config: Conf
                 pmc.add_matches_regex(match, file_path)
     
     if config.use_ner and config.ner_model:
+        start_time = time.time()
         try:
             # Serialize NER model calls to ensure thread-safety
             # GLiNER model may not be thread-safe, so we use a separate lock
@@ -205,18 +207,35 @@ def process_text(text: str, file_path: str, pmc: PiiMatchContainer, config: Conf
                 entities = config.ner_model.predict_entities(
                     text, config.ner_labels, threshold=config.ner_threshold
                 )
+            processing_time = time.time() - start_time
+            
+            # Update statistics
             with _process_lock:
+                config.ner_stats.total_chunks_processed += 1
+                config.ner_stats.total_processing_time += processing_time
+                config.ner_stats.total_entities_found += len(entities) if entities else 0
+                
+                # Count entities by type
+                if entities:
+                    for entity in entities:
+                        entity_type = entity.get("label", "unknown")
+                        config.ner_stats.entities_by_type[entity_type] = \
+                            config.ner_stats.entities_by_type.get(entity_type, 0) + 1
+                
                 pmc.add_matches_ner(entities, file_path)
         except RuntimeError as e:
             # GPU/Model-spezifische Fehler
+            config.ner_stats.errors += 1
             config.logger.warning(f"NER processing error for {file_path}: {e}")
             add_error("NER processing error", file_path)
         except MemoryError as e:
             # Speicherprobleme
+            config.ner_stats.errors += 1
             config.logger.error(f"Out of memory during NER processing: {file_path}")
             add_error("NER memory error", file_path)
         except Exception as e:
             # Unerwartete Fehler
+            config.ner_stats.errors += 1
             config.logger.error(
                 f"Unexpected NER error for {file_path}: {type(e).__name__}: {e}",
                 exc_info=config.verbose
@@ -376,6 +395,24 @@ for k, v in errors.items():
 config.logger.info("\n")
 config.logger.info(config._("Analysis finished at {}").format(time_end))
 config.logger.info(config._("Performance of analysis: {} analyzed files per second").format(files_per_second))
+
+# Output NER statistics if NER was used
+if config.use_ner and config.ner_stats.total_chunks_processed > 0:
+    config.logger.info("\n" + config._("NER Statistics"))
+    config.logger.info("------------")
+    avg_time = (config.ner_stats.total_processing_time / 
+                config.ner_stats.total_chunks_processed)
+    config.logger.info(config._("Chunks processed: {}").format(config.ner_stats.total_chunks_processed))
+    config.logger.info(config._("Entities found: {}").format(config.ner_stats.total_entities_found))
+    config.logger.info(config._("Total NER processing time: {:.2f}s").format(config.ner_stats.total_processing_time))
+    config.logger.info(config._("Average time per chunk: {:.3f}s").format(avg_time))
+    if config.ner_stats.entities_by_type:
+        config.logger.info(config._("Entities by type:"))
+        for entity_type, count in sorted(config.ner_stats.entities_by_type.items(), 
+                                         key=lambda x: x[1], reverse=True):
+            config.logger.info(f"  {entity_type}: {count}")
+    if config.ner_stats.errors > 0:
+        config.logger.warning(config._("NER errors encountered: {}").format(config.ner_stats.errors))
 
 # Always show summary to console (provides immediate feedback to the user)
 # In verbose mode, this is in addition to the detailed logs
