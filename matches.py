@@ -120,10 +120,28 @@ class PiiMatchContainer:
     def add_matches_regex(self, matches: re.Match | None, path: str) -> None:
         if matches is not None:
             type: str | None = None
+            config_entry: dict | None = None
 
             for idx, item in enumerate(matches.groups()):
                 if item is not None:
                     type = config_regex_sorted[idx]["label"]
+                    config_entry = config_regex_sorted[idx]
+                    break
+
+            # Validate if validation is required
+            if config_entry and "validation" in config_entry:
+                validation_type = config_entry["validation"]
+                
+                if validation_type == "luhn":
+                    # Credit card validation using Luhn algorithm
+                    try:
+                        from validators.credit_card_validator import CreditCardValidator
+                        is_valid, card_type = CreditCardValidator.validate(matches.group())
+                        if not is_valid:
+                            return  # Skip invalid credit card numbers
+                    except ImportError:
+                        # If validator module not available, skip validation
+                        pass
 
             self.__add_match(text=matches.group(), file=path, type=type)
 
