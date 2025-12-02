@@ -311,7 +311,7 @@ for root, dirs, files in os.walk(config.path):
                 config.logger.debug(f"Skipping unsupported file type: {full_path}")
 
         # Update progress bar
-        if progress_bar:
+        if progress_bar is not None:
             progress_bar.update(1)
             progress_bar.set_postfix({
                 'checked': num_files_checked,
@@ -325,7 +325,7 @@ for root, dirs, files in os.walk(config.path):
         break
 
 # Close progress bar
-if progress_bar:
+if progress_bar is not None:
     progress_bar.close()
 
 time_end = datetime.datetime.now()
