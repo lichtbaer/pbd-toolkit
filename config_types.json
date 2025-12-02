@@ -76,6 +76,13 @@
             "value": "Regex: Extended Signal Words",
             "regex_compiled_pos": 10,
             "expression": "\\b(?:Diagnose|Therapie|Medikament|Krankheit|Behandlung|Arzt|Klinik|Krankenhaus|Patient|Symptom|Operation|Rezept|Gehalt|Lohn|Einkommen|Vermögen|Schulden|Kredit|Darlehen|Kontostand|Überweisung|Rechnung|Mahnung|Klage|Anwalt|Gericht|Urteil|Vertrag|Vereinbarung|Einverständniserklärung|Datenschutzerklärung|Lebenslauf|CV|Bewerbung|Referenz|Arbeitszeugnis|Qualifikation|Erfahrung|Kompetenz)\\b"
+        },
+        {
+            "label": "REGEX_CREDIT_CARD",
+            "value": "Regex: Credit Card Number",
+            "regex_compiled_pos": 11,
+            "expression": "\\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|3[0-9]{13}|6(?:011|5[0-9]{2})[0-9]{12})\\b",
+            "validation": "luhn"
         }
     ],
     "ai-ner": [
@@ -91,10 +98,25 @@
             "label": "NER_HEALTH",
             "value": "AI-NER: Health Data (experimental)",
             "term": "Health Data"
-        },{
+        },        {
             "label": "NER_PASSWORD",
             "value": "AI-NER: Passwords (experimental)",
             "term": "Password"
+        },
+        {
+            "label": "NER_BIOMETRIC",
+            "value": "AI-NER: Biometric Data",
+            "term": "Biometric Data"
+        },
+        {
+            "label": "NER_POLITICAL",
+            "value": "AI-NER: Political Affiliation",
+            "term": "Political Affiliation"
+        },
+        {
+            "label": "NER_RELIGIOUS",
+            "value": "AI-NER: Religious Belief",
+            "term": "Religious Belief"
         }
     ]
 }

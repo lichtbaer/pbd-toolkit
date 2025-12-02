@@ -1,12 +1,12 @@
 # Changelog: Neue Datenschutz-Dimensionen
 
-## Version: Erweiterte PII-Erkennung
+## Version: Erweiterte PII-Erkennung v2
 
 ### Datum: 2024
 
 ### Übersicht
 
-Dieses Update fügt 5 neue Regex-Patterns zur PII-Erkennung hinzu, um weitere datenschutzrelevante Dimensionen zu identifizieren.
+Dieses Update fügt 6 neue Regex-Patterns und 3 neue NER-Labels zur PII-Erkennung hinzu, um weitere datenschutzrelevante Dimensionen zu identifizieren. Zusätzlich wurde eine Validierungs-Infrastruktur für Kreditkartennummern implementiert.
 
 ## Neue Features
 
@@ -187,15 +187,102 @@ Beispiel-Whitelist-Einträge:
 3. **Telefonnummern**: Sehr breites Pattern kann auch andere Zahlen matchen
 4. **Keine Validierung**: Aktuell keine Format-Validierung (z.B. Luhn-Algorithmus für Kreditkarten)
 
+## Neue Features (Update v2)
+
+### 6. Kreditkartennummern-Erkennung (`REGEX_CREDIT_CARD`)
+
+**Beschreibung**: Erkennt Kreditkartennummern mit automatischer Luhn-Algorithmus-Validierung.
+
+**Pattern**: `\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|3[0-9]{13}|6(?:011|5[0-9]{2})[0-9]{12})\b`
+
+**Unterstützte Kartentypen**:
+- Visa: Beginnt mit 4, 13 oder 16 Ziffern
+- Mastercard: Beginnt mit 51-55, 16 Ziffern
+- American Express: Beginnt mit 34 oder 37, 15 Ziffern
+- Discover: Beginnt mit 6011 oder 65, 16 Ziffern
+- Diners Club: Beginnt mit 3, 14 Ziffern
+
+**Validierung**: Alle erkannten Nummern werden mit dem Luhn-Algorithmus validiert. Nur Nummern, die die Luhn-Prüfung bestehen, werden gemeldet, was False Positives erheblich reduziert.
+
+**Relevanz**: Sehr hoch - Kreditkartennummern sind hochsensible Daten
+
+**Implementierung**:
+- Neues Modul: `validators/credit_card_validator.py`
+- Luhn-Algorithmus-Implementierung
+- Automatische Kartentyp-Erkennung
+- Integration in `matches.py` für automatische Validierung
+
+**Hinweise**:
+- Nur gültige Kreditkartennummern (Luhn-valid) werden gemeldet
+- Sehr niedrige False-Positive-Rate durch Validierung
+- Kartentyp wird automatisch erkannt (optional)
+
+### 7-9. Erweiterte NER-Labels
+
+#### Biometrische Daten (`NER_BIOMETRIC`)
+
+**Beschreibung**: Erkennt biometrische Informationen wie Fingerabdrücke, Gesichtserkennungsdaten, Iris-Scans, DNA-Informationen.
+
+**NER-Term**: "Biometric Data"
+
+**Relevanz**: Sehr hoch - Biometrische Daten sind besondere Kategorien gemäß DSGVO Art. 9
+
+**Hinweise**:
+- Neues Feature, Qualität kann variieren
+- Ergebnisse sollten sorgfältig überprüft werden
+
+#### Politische Überzeugungen (`NER_POLITICAL`)
+
+**Beschreibung**: Erkennt politische Zugehörigkeiten, Parteimitgliedschaften und politische Meinungen.
+
+**NER-Term**: "Political Affiliation"
+
+**Relevanz**: Sehr hoch - Politische Meinungen sind besondere Kategorien gemäß DSGVO Art. 9
+
+**Hinweise**:
+- Neues Feature, Qualität kann variieren
+- Ergebnisse sollten sorgfältig überprüft werden
+
+#### Religiöse Überzeugungen (`NER_RELIGIOUS`)
+
+**Beschreibung**: Erkennt religiöse Zugehörigkeiten und Überzeugungen.
+
+**NER-Term**: "Religious Belief"
+
+**Relevanz**: Sehr hoch - Religiöse Überzeugungen sind besondere Kategorien gemäß DSGVO Art. 9
+
+**Hinweise**:
+- Neues Feature, Qualität kann variieren
+- Ergebnisse sollten sorgfältig überprüft werden
+
+## Technische Details (Update v2)
+
+### Validierungs-Infrastruktur
+
+Neues Modul `validators/` wurde erstellt:
+- `validators/credit_card_validator.py`: Luhn-Algorithmus und Kartentyp-Erkennung
+- Erweiterbar für zukünftige Validierungen (Steuer-ID, Telefonnummern, etc.)
+
+### Integration
+
+Die Validierung wird automatisch in `matches.py` verwendet, wenn ein Pattern `"validation": "luhn"` in der Konfiguration hat:
+
+```json
+{
+  "label": "REGEX_CREDIT_CARD",
+  "validation": "luhn"
+}
+```
+
 ## Zukünftige Verbesserungen
 
 Geplante Erweiterungen (siehe `DATENSCHUTZ_DIMENSIONEN_ANALYSE.md`):
 
 1. **Kontextprüfung**: Pattern nur matchen, wenn relevante Schlüsselwörter in der Nähe sind
-2. **Validierung**: Format-Validierung für Steuer-IDs, Telefonnummern, etc.
-3. **Kreditkartennummern**: Mit Luhn-Algorithmus-Validierung
-4. **Erweiterte NER-Labels**: Biometrie, politische Überzeugungen, etc.
-5. **Kombinationsmuster**: Erkennung vollständiger Identitäten (Name + Geburtsdatum + Adresse)
+2. **Erweiterte Validierung**: Format-Validierung für Steuer-IDs, Telefonnummern, etc.
+3. **Kombinationsmuster**: Erkennung vollständiger Identitäten (Name + Geburtsdatum + Adresse)
+4. **Metadaten-Analyse**: EXIF-Daten, Dokument-Metadaten
+5. **ML-basierte Klassifizierung**: Automatische Sensibilitäts-Bewertung
 
 ## Migration
 

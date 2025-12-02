@@ -152,6 +152,25 @@ Detects extended German keywords commonly associated with personal data across m
 
 This extends the original signal words pattern (`REGEX_WORDS`) with additional categories.
 
+#### Credit Card Numbers
+
+**Pattern**: `REGEX_CREDIT_CARD`
+
+Detects credit card numbers with automatic validation using the Luhn algorithm.
+
+**Supported card types**:
+- Visa: Starts with 4, 13 or 16 digits
+- Mastercard: Starts with 51-55, 16 digits
+- American Express: Starts with 34 or 37, 15 digits
+- Discover: Starts with 6011 or 65, 16 digits
+- Diners Club: Starts with 3, 14 digits
+
+**Validation**: All detected numbers are validated using the Luhn algorithm. Only numbers that pass the Luhn check are reported, significantly reducing false positives.
+
+**Example**: `4111111111111111` (test number)
+
+**Security Note**: Credit card numbers are highly sensitive data. Ensure proper handling and storage of any detected numbers.
+
 ### Configuration
 
 Regex patterns are defined in `config_types.json`. Each pattern includes:
@@ -220,6 +239,40 @@ Detects health-related information.
 Detects potential passwords.
 
 **Warning**: This is experimental and may have poor quality results. Use with caution.
+
+#### Biometric Data
+
+**Label**: `NER_BIOMETRIC`
+
+Detects biometric information such as:
+- Fingerprints
+- Facial recognition data
+- Iris scans
+- DNA information
+
+**Relevance**: Very high - Biometric data is considered special category data under GDPR Article 9.
+
+**Warning**: This is a new feature and detection quality may vary. Results should be reviewed carefully.
+
+#### Political Affiliation
+
+**Label**: `NER_POLITICAL`
+
+Detects political affiliations, party memberships, and political opinions.
+
+**Relevance**: Very high - Political opinions are considered special category data under GDPR Article 9.
+
+**Warning**: This is a new feature and detection quality may vary. Results should be reviewed carefully.
+
+#### Religious Belief
+
+**Label**: `NER_RELIGIOUS`
+
+Detects religious affiliations and beliefs.
+
+**Relevance**: Very high - Religious beliefs are considered special category data under GDPR Article 9.
+
+**Warning**: This is a new feature and detection quality may vary. Results should be reviewed carefully.
 
 ### Confidence Scores
 
