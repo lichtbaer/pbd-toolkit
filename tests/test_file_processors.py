@@ -12,6 +12,7 @@ from file_processors import (
     RtfProcessor,
     OdtProcessor,
     EmlProcessor,
+    MsgProcessor,
 )
 
 
@@ -364,3 +365,48 @@ Content-Type: text/html; charset=utf-8
         non_existent = os.path.join(temp_dir, "nonexistent.eml")
         with pytest.raises(FileNotFoundError):
             processor.extract_text(non_existent)
+
+
+class TestMsgProcessor:
+    """Tests for MSG processor."""
+    
+    def test_can_process_msg(self):
+        """Test that MSG processor recognizes .msg extension."""
+        processor = MsgProcessor()
+        assert processor.can_process(".msg")
+        assert processor.can_process(".MSG")
+        assert not processor.can_process(".txt")
+        assert not processor.can_process(".eml")
+    
+    def test_import_error_when_extract_msg_not_installed(self, temp_dir, mocker):
+        """Test that ImportError is raised when extract-msg is not installed."""
+        # Mock the import to raise ImportError
+        mocker.patch('file_processors.msg_processor.extract_msg', side_effect=ImportError("No module named 'extract_msg'"))
+        
+        processor = MsgProcessor()
+        file_path = os.path.join(temp_dir, "test.msg")
+        # Create a dummy file (won't be read due to import error)
+        with open(file_path, "w") as f:
+            f.write("dummy")
+        
+        with pytest.raises(ImportError) as exc_info:
+            processor.extract_text(file_path)
+        assert "extract-msg is required" in str(exc_info.value)
+    
+    def test_file_not_found(self, temp_dir):
+        """Test that FileNotFoundError is raised for non-existent file."""
+        processor = MsgProcessor()
+        non_existent = os.path.join(temp_dir, "nonexistent.msg")
+        # Note: This will raise ImportError if extract-msg is not installed,
+        # or FileNotFoundError if it is installed. We test both cases.
+        try:
+            with pytest.raises((FileNotFoundError, ImportError)):
+                processor.extract_text(non_existent)
+        except ImportError:
+            # If extract-msg is not installed, that's expected
+            pass
+    
+    # Note: Testing actual MSG extraction would require creating a valid MSG file
+    # which is complex and requires Outlook or specialized tools. The can_process test
+    # and error handling tests verify the basic functionality. Full integration tests
+    # would require sample MSG files from actual Outlook exports.

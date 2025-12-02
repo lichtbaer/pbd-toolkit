@@ -79,6 +79,7 @@ To add support for a new file format, simply:
 10. **XLSX** (`.xlsx`) - Using `openpyxl` ✨ NEW
 11. **XLS** (`.xls`) - Using `xlrd` ✨ NEW
 12. **XML** (`.xml`) - Built-in `xml.etree.ElementTree` ✨ NEW
+13. **MSG** (`.msg`) - Using `extract-msg` ✨ NEW
 
 ### Format-Specific Features
 
@@ -100,6 +101,13 @@ To add support for a new file format, simply:
 - Recursively extracts text from all elements
 - Extracts attribute values
 - Handles malformed XML with fallback text extraction
+
+#### MSG Processor
+- Extracts email headers (From, To, Cc, Bcc, Subject, etc.)
+- Extracts body content (plain text and HTML)
+- Extracts attachment metadata (filenames)
+- Extracts email addresses from various properties
+- Handles HTML body content with tag removal
 
 ## Usage in Main Application
 
@@ -145,4 +153,5 @@ New formats may require additional dependencies. Add them to `requirements.txt`:
 
 - `openpyxl` - For XLSX files
 - `xlrd` - For XLS files (older Excel format)
+- `extract-msg` - For MSG files (Outlook email format)
 - Built-in modules: `csv`, `json`, `xml.etree.ElementTree`, `email`

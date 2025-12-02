@@ -13,6 +13,7 @@ from file_processors.odt_processor import OdtProcessor
 from file_processors.eml_processor import EmlProcessor
 from file_processors.xlsx_processor import XlsxProcessor, XlsProcessor
 from file_processors.xml_processor import XmlProcessor
+from file_processors.msg_processor import MsgProcessor
 
 __all__ = [
     "BaseFileProcessor",
@@ -29,6 +30,7 @@ __all__ = [
     "XlsxProcessor",
     "XlsProcessor",
     "XmlProcessor",
+    "MsgProcessor",
 ]
 
 # Auto-register all processors
@@ -47,6 +49,7 @@ _registered_processors = [
     XlsxProcessor(),
     XlsProcessor(),
     XmlProcessor(),
+    MsgProcessor(),
 ]
 
 # Register all processors with the registry
