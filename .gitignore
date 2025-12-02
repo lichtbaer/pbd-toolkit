@@ -22,3 +22,6 @@ dmypy.json
 output/*.csv
 output/*.txt
 !output/.gitignore
+
+# MkDocs build output
+site/
