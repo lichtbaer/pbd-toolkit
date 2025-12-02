@@ -15,15 +15,9 @@ import constants
 import globals as g
 from file_processors import (
     BaseFileProcessor,
+    FileProcessorRegistry,
     PdfProcessor,
-    DocxProcessor,
-    HtmlProcessor,
     TextProcessor,
-    CsvProcessor,
-    JsonProcessor,
-    RtfProcessor,
-    OdtProcessor,
-    EmlProcessor,
 )
 
 
@@ -130,25 +124,12 @@ num_files_all: int = 0
 num_files_checked: int = 0
 
 
-# Cache file processors to avoid creating new instances for each file
-# Processors are stateless and can be safely reused
-_file_processors_cache: dict[str, BaseFileProcessor] = {}
-_file_processors_list = [
-    PdfProcessor(),
-    DocxProcessor(),
-    HtmlProcessor(),
-    TextProcessor(),
-    CsvProcessor(),
-    JsonProcessor(),
-    RtfProcessor(),
-    OdtProcessor(),
-    EmlProcessor(),
-]
-
+# Use FileProcessorRegistry for automatic processor discovery
+# All processors are automatically registered when file_processors module is imported
 def get_file_processor(extension: str, file_path: str):
     """Get the appropriate file processor for a given file extension.
     
-    Uses cached processor instances to avoid repeated instantiation.
+    Uses FileProcessorRegistry for automatic processor discovery.
     Processors are stateless and thread-safe for reading operations.
     
     Args:
@@ -158,24 +139,7 @@ def get_file_processor(extension: str, file_path: str):
     Returns:
         Appropriate file processor instance or None if no processor available
     """
-    # For known extensions, use direct cache lookup
-    if extension and extension in _file_processors_cache:
-        return _file_processors_cache[extension]
-    
-    # Check each processor (TextProcessor needs file_path for mime type checking)
-    for processor in _file_processors_list:
-        if hasattr(processor, 'can_process'):
-            # TextProcessor needs file_path for mime type checking
-            if isinstance(processor, TextProcessor):
-                if processor.can_process(extension, file_path):
-                    # TextProcessor can't be cached by extension alone
-                    return processor
-            elif processor.can_process(extension):
-                # Cache by extension for other processors
-                _file_processors_cache[extension] = processor
-                return processor
-    
-    return None
+    return FileProcessorRegistry.get_processor(extension, file_path)
 
 
 # Thread lock for thread-safe operations
