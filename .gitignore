@@ -25,3 +25,4 @@ output/*.txt
 
 # MkDocs build output
 site/
+.idea/
