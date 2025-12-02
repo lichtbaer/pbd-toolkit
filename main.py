@@ -313,7 +313,13 @@ if progress_bar:
 time_end = datetime.datetime.now()
 time_diff = time_end - time_start
 
+# Calculate performance metrics
+time_seconds = max(time_diff.total_seconds(), 0.001)  # Avoid division by zero
+files_per_second = round(num_files_checked / time_seconds, 2)
+total_errors = sum(len(v) for v in errors.values())
+
 """ Output all results. """
+# Always log detailed information
 config.logger.info(config._("Statistics"))
 config.logger.info("----------\n")
 config.logger.info(config._("The following file extensions have been found:"))
@@ -334,7 +340,33 @@ for k, v in errors.items():
 
 config.logger.info("\n")
 config.logger.info(config._("Analysis finished at {}").format(time_end))
-config.logger.info(config._("Performance of analysis: {} analyzed files per second").format(round(num_files_checked / max(time_diff.seconds, 1), 2)))
+config.logger.info(config._("Performance of analysis: {} analyzed files per second").format(files_per_second))
+
+# Always show summary to console (provides immediate feedback to the user)
+# In verbose mode, this is in addition to the detailed logs
+print("\n" + "=" * 50)
+print(config._("Analysis Summary"))
+print("=" * 50)
+print(f"{config._('Started:')}     {time_start.strftime('%Y-%m-%d %H:%M:%S')}")
+print(f"{config._('Finished:')}    {time_end.strftime('%Y-%m-%d %H:%M:%S')}")
+print(f"{config._('Duration:')}    {time_diff}")
+print()
+print(config._("Statistics:"))
+print(f"  {config._('Files scanned:')}      {num_files_all:,}")
+print(f"  {config._('Files analyzed:')}     {num_files_checked:,}")
+print(f"  {config._('Matches found:')}      {len(pmc.pii_matches):,}")
+print(f"  {config._('Errors:')}             {total_errors:,}")
+print()
+print(config._("Performance:"))
+print(f"  {config._('Throughput:')}         {files_per_second} {config._('files/sec')}")
+print()
+if errors:
+    print(config._("Errors Summary:"))
+    for k, v in errors.items():
+        print(f"  {k}: {len(v)} {config._('files')}")
+    print()
+print(f"{config._('Output directory:')} {constants.OUTPUT_DIR}")
+print("=" * 50 + "\n")
 
 # Close CSV file handle
 if config.csv_file_handle:

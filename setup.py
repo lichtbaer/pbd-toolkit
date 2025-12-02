@@ -22,14 +22,41 @@ def __setup_lang() -> None:
 """ Setup CLI argument parsing. """
 def __setup_args() -> None:
     """Parse command line arguments and store them in globals.args."""
-    parser = argparse.ArgumentParser(prog=globals._("HBDI PII Toolkit"))
-    parser.add_argument("--path", action="store", help=globals._("Root directory under which to recursively search for PII"))
-    parser.add_argument("--outname", action="store", help=globals._("Optional parameter; string which to include in the file name of all output files"))
-    parser.add_argument("--whitelist", action="store", help=globals._("Optional parameter; relative path to a text file containing one string per line. These strings will be matched against potential findings to exclude them from the output."))
-    parser.add_argument("--stop-count", action="store", type=int, help=globals._("Optional parameter; stop analysis after N files"))
-    parser.add_argument("--regex", action="store_true", help=globals._("Use regular expressions for analysis"))
-    parser.add_argument("--ner", action="store_true", help=globals._("Use AI-based Named Entity Recognition for analysis"))
-    parser.add_argument("--verbose", "-v", action="store_true", help=globals._("Enable verbose output with detailed logging"))
+    parser = argparse.ArgumentParser(
+        prog=globals._("HBDI PII Toolkit"),
+        description=globals._("Scan directories for personally identifiable information"),
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    
+    # Version
+    parser.add_argument("--version", "-V", action="version", version="%(prog)s 1.0.0")
+    
+    # Required arguments
+    parser.add_argument("--path", action="store", required=True, 
+                       help=globals._("Root directory under which to recursively search for PII"))
+    
+    # Analysis methods (at least one required, validated later)
+    parser.add_argument("--regex", action="store_true", 
+                       help=globals._("Use regular expressions for analysis"))
+    parser.add_argument("--ner", action="store_true", 
+                       help=globals._("Use AI-based Named Entity Recognition for analysis"))
+    
+    # Optional arguments
+    parser.add_argument("--outname", action="store", 
+                       help=globals._("Optional parameter; string which to include in the file name of all output files"))
+    parser.add_argument("--whitelist", action="store", 
+                       help=globals._("Optional parameter; relative path to a text file containing one string per line. These strings will be matched against potential findings to exclude them from the output."))
+    parser.add_argument("--stop-count", action="store", type=int, 
+                       help=globals._("Optional parameter; stop analysis after N files"))
+    parser.add_argument("--output-dir", action="store", default="./output/",
+                       help=globals._("Directory for output files (default: ./output/)"))
+    parser.add_argument("--no-header", action="store_true",
+                       help=globals._("Don't include header row in CSV output (for backward compatibility)"))
+    
+    # Output options
+    parser.add_argument("--verbose", "-v", action="store_true", 
+                       help=globals._("Enable verbose output with detailed logging"))
+    
     globals.args = parser.parse_args()
 
 """ Setup logging.
@@ -46,9 +73,15 @@ def __setup_logger(outslug: str = "") -> None:
         datefmt='%Y-%m-%d %H:%M:%S'
     )
     
+    # Use constants.OUTPUT_DIR which is set in setup() before this is called
+    # Ensure output directory ends with separator
+    output_dir = constants.OUTPUT_DIR
+    if not output_dir.endswith(os.sep):
+        output_dir += os.sep
+    
     # File handler for log file
     file_handler = logging.FileHandler(
-        constants.OUTPUT_DIR + outslug + "_log.txt",
+        output_dir + outslug + "_log.txt",
         encoding="utf-8"
     )
     file_handler.setLevel(log_level)
@@ -81,11 +114,24 @@ def setup() -> None:
     if globals.args.outname is not None:
         outslug += " " + globals.args.outname
 
-    # Ensure output directory exists
-    os.makedirs(constants.OUTPUT_DIR, exist_ok=True)
+    # Get output directory from args or use default
+    output_dir = globals.args.output_dir if globals.args and hasattr(globals.args, 'output_dir') else constants.OUTPUT_DIR
+    # Ensure output directory ends with separator
+    if not output_dir.endswith(os.sep):
+        output_dir += os.sep
     
-    globals.csv_file_handle = open(constants.OUTPUT_DIR + outslug + "_findings.csv", "w", encoding="utf-8")
+    # Ensure output directory exists
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Update constants.OUTPUT_DIR for use in other modules
+    constants.OUTPUT_DIR = output_dir
+    
+    globals.csv_file_handle = open(output_dir + outslug + "_findings.csv", "w", encoding="utf-8")
     globals.csvwriter = csv.writer(globals.csv_file_handle)
+    
+    # Write CSV header unless --no-header is specified
+    if not (globals.args and hasattr(globals.args, 'no_header') and globals.args.no_header):
+        globals.csvwriter.writerow(["match", "file", "type", "ner_score"])
 
     __setup_logger(outslug=outslug)
 
