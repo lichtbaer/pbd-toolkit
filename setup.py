@@ -50,6 +50,8 @@ def __setup_args() -> None:
                        help=globals._("Optional parameter; stop analysis after N files"))
     parser.add_argument("--output-dir", action="store", default="./output/",
                        help=globals._("Directory for output files (default: ./output/)"))
+    parser.add_argument("--format", choices=["csv", "json", "xlsx"], default="csv",
+                       help=globals._("Output format for findings (default: csv)"))
     parser.add_argument("--no-header", action="store_true",
                        help=globals._("Don't include header row in CSV output (for backward compatibility)"))
     
@@ -126,12 +128,37 @@ def setup() -> None:
     # Update constants.OUTPUT_DIR for use in other modules
     constants.OUTPUT_DIR = output_dir
     
-    globals.csv_file_handle = open(output_dir + outslug + "_findings.csv", "w", encoding="utf-8")
-    globals.csvwriter = csv.writer(globals.csv_file_handle)
+    # Get output format from args
+    output_format = globals.args.format if globals.args and hasattr(globals.args, 'format') else "csv"
+    globals.output_format = output_format
     
-    # Write CSV header unless --no-header is specified
-    if not (globals.args and hasattr(globals.args, 'no_header') and globals.args.no_header):
-        globals.csvwriter.writerow(["match", "file", "type", "ner_score"])
+    # Setup output file based on format
+    if output_format == "csv":
+        output_file_path = output_dir + outslug + "_findings.csv"
+        globals.output_file_path = output_file_path
+        globals.csv_file_handle = open(output_file_path, "w", encoding="utf-8")
+        globals.csvwriter = csv.writer(globals.csv_file_handle)
+        
+        # Write CSV header unless --no-header is specified
+        if not (globals.args and hasattr(globals.args, 'no_header') and globals.args.no_header):
+            globals.csvwriter.writerow(["match", "file", "type", "ner_score"])
+    elif output_format == "json":
+        output_file_path = output_dir + outslug + "_findings.json"
+        globals.output_file_path = output_file_path
+        globals.csv_file_handle = None
+        globals.csvwriter = None
+    elif output_format == "xlsx":
+        output_file_path = output_dir + outslug + "_findings.xlsx"
+        globals.output_file_path = output_file_path
+        globals.csv_file_handle = None
+        globals.csvwriter = None
+    else:
+        # Fallback to CSV
+        output_file_path = output_dir + outslug + "_findings.csv"
+        globals.csv_file_handle = open(output_file_path, "w", encoding="utf-8")
+        globals.csvwriter = csv.writer(globals.csv_file_handle)
+        if not (globals.args and hasattr(globals.args, 'no_header') and globals.args.no_header):
+            globals.csvwriter.writerow(["match", "file", "type", "ner_score"])
 
     __setup_logger(outslug=outslug)
 

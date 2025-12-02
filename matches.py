@@ -53,8 +53,10 @@ class PiiMatchContainer:
     whitelist: list[str] = field(default_factory=list)
     # Compiled regex pattern for efficient whitelist matching
     _whitelist_pattern: re.Pattern | None = field(default=None, init=False, repr=False)
-    # CSV writer for output (injected dependency)
+    # CSV writer for output (injected dependency, only used for CSV format)
     _csv_writer: Any = field(default=None, init=False, repr=False)
+    # Output format (csv, json, xlsx)
+    _output_format: str = field(default="csv", init=False, repr=False)
     
     def set_csv_writer(self, csv_writer: Any) -> None:
         """Set the CSV writer for output.
@@ -63,6 +65,14 @@ class PiiMatchContainer:
             csv_writer: CSV writer instance
         """
         self._csv_writer = csv_writer
+    
+    def set_output_format(self, output_format: str) -> None:
+        """Set the output format.
+        
+        Args:
+            output_format: Output format (csv, json, xlsx)
+        """
+        self._output_format = output_format
 
     def by_file(self) -> dict[str, list[PiiMatch]]:
         """Group PII matches by file path.
@@ -102,7 +112,8 @@ class PiiMatchContainer:
             if not whitelisted:
                 pm: PiiMatch = PiiMatch(text=text, file=file, type=type, ner_score=ner_score)
                 self.pii_matches.append(pm)
-                if self._csv_writer:
+                # Only write directly for CSV format
+                if self._output_format == "csv" and self._csv_writer:
                     self._csv_writer.writerow([pm.text, pm.file, pm.type, pm.ner_score])
 
     """ Helper function for adding regex-based matches to the matches container. """
