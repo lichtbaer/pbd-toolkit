@@ -1,0 +1,78 @@
+site_name: PII Toolkit (Fork)
+site_description: A fork of the HBDI PII Toolkit for scanning directories for personally identifiable information
+site_author: Fork Maintainer
+site_url: https://github.com/yourusername/pii-toolkit-fork
+
+repo_name: pii-toolkit-fork
+repo_url: https://github.com/yourusername/pii-toolkit-fork
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.annotate
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - admonition
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+  - md_in_html
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quick-start.md
+    - Configuration: getting-started/configuration.md
+  - User Guide:
+    - Command Line Interface: user-guide/cli.md
+    - Output Formats: user-guide/output-formats.md
+    - Supported File Formats: user-guide/file-formats.md
+    - PII Detection Methods: user-guide/detection-methods.md
+    - Whitelist Usage: user-guide/whitelist.md
+  - Developer Documentation:
+    - Architecture: developer/architecture.md
+    - Adding File Processors: developer/adding-processors.md
+    - Configuration System: developer/configuration-system.md
+    - Configuration Reference: developer/config-reference.md
+    - Testing: developer/testing.md
+  - About:
+    - Project Status: about/project-status.md
+    - Contributing: about/contributing.md
+    - License: about/license.md
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      enable_creation_date: true

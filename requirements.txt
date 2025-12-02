@@ -12,3 +12,8 @@ xlrd~=2.0.1
 extract-msg~=0.41.0
 python-pptx~=0.6.23
 PyYAML~=6.0.1
+
+# Documentation dependencies (optional)
+# mkdocs~=1.5.0
+# mkdocs-material~=9.5.0
+# mkdocs-git-revision-date-localized-plugin~=1.2.0

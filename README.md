@@ -1,93 +1,75 @@
-*(If you're looking for an English README, check out the file [README_en.md in the docs/ sub-directory](./docs/README_en.md))*
+# PII Toolkit (Fork)
 
-Bei dem *pbD-Toolkit* handelt es sich um ein Tool, das der Hessische Beauftragte für Datenschutz und Informationsfreiheit (HBDI) programmiert hat, um große Datenmenge zu durchsuchen. Das Tool soll dabei Hinweise dafür suchen, ob in diesen Datenmengen personenbezogene Daten enthalten sein könnten. Ein Beispiel für große Datenmengen, die der HBDI damit durchsucht, sind Daten-Leaks, die etwa im sogenannten Darknet veröffentlicht werden.
+> **⚠️ This is an unofficial fork of the HBDI PII Toolkit. This project is not maintained by or affiliated with the Hessian Commissioner for Data Protection and Freedom of Information (HBDI).**
 
-Der HBDI teilt dieses Tool mit der Öffentlichkeit, damit es auch von anderen Stellen genutzt und vielleicht sogar weiterentwickelt werden kann.
+## Overview
 
-Beim HBDI wird das Tool von dem Referat 3.2 - technische Datenschutzprüfungen - gepflegt. Die Ansprechpartner findet man zum Beispiel über das Organigramm, das der HBDI auf [dieser Seite](https://datenschutz.hessen.de/ueber-uns/aufgaben-und-organisation) veröffentlicht. Vertreter der Presse finden Ansprechpartner auf [dieser anderen Seite](https://datenschutz.hessen.de/presse-0).
+The PII Toolkit is a command-line tool for scanning directories and identifying potentially personally identifiable information (PII) within files. It supports multiple detection methods (regex and AI-based NER) and a wide range of file formats.
 
+## Quick Start
 
-Installation
-============
+```bash
+# Install dependencies
+pip install -r requirements.txt
 
-* (optional) virtuelle Umgebung erstellen:
-```shell
-python3 -m venv .venv
-source .venv/bin/activate
+# Basic usage
+python main.py --path /path/to/scan --regex --ner
 ```
-* Abhängigkeiten installieren: `pip install -r requirements.txt`
-* Für die Verwendung KI-gestützer Verfahren sollte das verwendete Modell vorab heruntergeladen werden. Es wird vorausgesetzt, dass ein HuggingFace-Account registriert wurde und die Authentifizierung erfolgt ist (`pip install "huggingface_hub[cli]"`, `hf auth login`). Sodann Download des Models via: `hf download urchade/gliner_medium-v2.1`
 
-Verwendung
-==========
+## Documentation
 
-Das Toolkit wird über die Konsole mittels des Befehls `python main.py` gestartet. Der
-Kommandozeilenparameter `--path` muss in jedem Fall an das Toolkit übergeben werden. Er enthält
-den Pfad zu dem Stammverzeichnis, in dem und unterhalb von dem die Suche nach personenbezogenen
-Daten gestartet wird.
+**📚 Comprehensive documentation is available via MkDocs:**
 
-Mindestens einer der Parameter `--ner`/`--regex` muss gesetzt sein. `--regex` aktiviert die Suche mittels regulärer Ausdrücke, `--ner` aktiviert die Suche mittels eines KI-basierten Named Entity Recognition-Verfahrens.
+```bash
+# Install documentation dependencies
+pip install mkdocs mkdocs-material
 
-Ein weiterer, optionaler Parameter `--outname`, wirkt sich auf
-die Benennung der Ausgabedateien aus.
+# Serve documentation locally
+mkdocs serve
+```
 
-Der optionale Parameter `--whitelist` enthält den Pfad zu einer Textdatei, die pro Zeile eine Zeichenkette enthält, die als Ausschlusskriterium für potentielle Treffer herangezogen wird. Steht in einer Zeile etwa die Zeichenkette "info@", so werden in der findings.csv keinerlei E-Mail-Adressen ausgegeben, welche diese Zeichenkette beinhalten. Das kann dazu genutzt werden, um falsch-positive Ergebnisse auszuschließen, z. B. bei solchen E-Mail-Adressen, die bekanntermaßen nicht personenbezogen sind.
+Then open `http://127.0.0.1:8000` in your browser.
 
-Der optionale Parameter `--stop-count` kann benutzt werden, um die Analyse nach einer bestimmten Anzahl von Dateien abzubrechen, z. B. zu Erprobungszwecken.
+**Or view the documentation files directly in the `docs/` directory.**
 
-Die Sprache des Programms kann über die Umgebungsvariable `LANGUAGE` beeinflusst werden, welche die Werte "de" und "en" akzeptiert. Der Standardwert ist "de".
+## Key Features
 
-Beispiel für einen vollständigen Aufruf: `python main.py --path /var/data-leak/ --outname "Großes Datenleck" --ner --regex --whitelist stopwords.txt --stop-count 200`
+- **Multiple Detection Methods**: Regular expressions and AI-powered Named Entity Recognition
+- **Wide File Format Support**: PDF, DOCX, HTML, TXT, CSV, JSON, XLSX, and more
+- **Flexible Output Formats**: CSV, JSON, and Excel (XLSX)
+- **Advanced Features**: Whitelist support, multi-threaded processing, progress tracking
 
-Funktionsumfang
-===============
+## Installation
 
-Das Toolkit kann derzeit folgende Zeichenketten erkennen:
-* Suche mittels regulärer Ausdrücke:
-  * Deutsche Rentenversicherungsnummern
-  * IBAN (Fokus auf bei deutschen Bankkonten übliche Formate)
-  * E-Mail-Adressen (übliche Formate)
-  * IPv4-Adressen
-  * bestimmte Signalwörter: "Abmahnung", "Bewerbung", "Zeugnis", "Entwicklungsbericht", "Gutachten", "Krankmeldung"
-  * Private PGP-Schlüssel
-* Suche mittels KI-basierter Named Entity Recognition:
-  * Namen von Personen
-  * Orte
-  * Gesundheitsdaten (experimentell - schlechte Ergebnisqualität)
-  * Passwörter (experimentell - schlechte Ergebnisqualität)
+See [Installation Guide](docs/getting-started/installation.md) for detailed instructions.
 
-Im derzeitigen Stadium wird eine Aussage dazu, ob es sich dabei mit einer bestimmten
-Wahrscheinlichkeit um personenbezogene Daten handelt, nur von der KI-basierten Suchmethode unterstützt. 
+## Usage
 
-Derzeit wird eine Suche in folgenden Dateiformaten unterstützt, wobei die Auswahl von Dateien ausschließlich
-aufgrund ihrer Dateiendung erfolgt:
-* .pdf
-* .docx
-* .html
-* .txt (auch Dateien ohne Dateiendung, wenn der Mime Type "text/plain" erkannt wird)
+```bash
+python main.py --path /var/data-leak/ --regex --ner --format json --outname "scan-2024"
+```
 
-Bei jeder Ausführung werden im Unterverzeichnis output/ zwei Dateien erzeugt:
-* [Zeitstempel]_log.txt: Enthält Informationen zur Ausführung wie z. B. Zeitpunkt, gefundene
-  Dateiendungen und Fehler/Auffälligkeiten bei der Ausführung (z. B. Dateien, die nicht gelesen
-  werden konnten)
-* [Zeitstempel]_findings.csv: Enthält alle Funde von Zeichenketten aus diesem Durchlauf. Die
-  CSV-Datei besteht aus vier Spalten:
-  * *match*: Die gefundene Zeichenkette
-  * *file*: Der Pfad zu der Datei, in der die Zeichenkette gefunden wurde
-  * *type*: Der Typ von Zeichenkette, die gefunden wurde (s. o.)
-  * *ner_score*: Bei der KI-basierten Suchmethode: Aussagekraft der Erkennung (Selbstbewertung des Modells)
+See [User Guide](docs/user-guide/cli.md) for complete usage documentation.
 
-Fragen/Kritik/Anregungen/Patches
-================================
+## Original Project
 
-Gerne via openCode oder an das Referat 3.2 - technische Datenschutzprüfungen - des Hessischen
-Beauftragten für Datenschutz und Informationsfreiheit.
+This fork is based on the **pbD-Toolkit** (Personenbezogene Daten Toolkit) developed by the Hessian Commissioner for Data Protection and Freedom of Information (HBDI).
 
-ToDo/Pläne
-==========
+- **Original Repository**: [hessen-datenschutz/pbd-toolkit](https://github.com/hessen-datenschutz/pbd-toolkit)
+- **Original Website**: [datenschutz.hessen.de](https://datenschutz.hessen.de)
 
-* Nützlichere Ausgabe
-* Unterstützung für Krankenversicherungsnummern (reguläre Ausdrücke)
-* Unterstützung weiterer Dateiformate
-* Unterstützung von PDF-Dateien ohne Texteinbettungen mittels OCR
-* Unterstützung von DOCX-Dateien ausweiten auf Text in Header, Footer und in Tabellen
+## Disclaimer
+
+This fork is provided "as is" without warranty of any kind. The maintainers of this fork are not responsible for any issues, data loss, or compliance problems. Users should verify that this fork meets their requirements and complies with applicable data protection regulations.
+
+## License
+
+Please refer to the [LICENSE](LICENSE) file for license information.
+
+## Contributing
+
+Contributions are welcome! See [Contributing Guide](docs/about/contributing.md) for details.
+
+---
+
+**For complete documentation, please refer to the [MkDocs documentation](docs/index.md) or build it locally with `mkdocs serve`.**
