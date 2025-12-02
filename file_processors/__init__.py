@@ -14,6 +14,9 @@ from file_processors.eml_processor import EmlProcessor
 from file_processors.xlsx_processor import XlsxProcessor, XlsProcessor
 from file_processors.xml_processor import XmlProcessor
 from file_processors.msg_processor import MsgProcessor
+from file_processors.ods_processor import OdsProcessor
+from file_processors.pptx_processor import PptxProcessor, PptProcessor
+from file_processors.yaml_processor import YamlProcessor
 
 __all__ = [
     "BaseFileProcessor",
@@ -31,6 +34,10 @@ __all__ = [
     "XlsProcessor",
     "XmlProcessor",
     "MsgProcessor",
+    "OdsProcessor",
+    "PptxProcessor",
+    "PptProcessor",
+    "YamlProcessor",
 ]
 
 # Auto-register all processors
@@ -50,6 +57,10 @@ _registered_processors = [
     XlsProcessor(),
     XmlProcessor(),
     MsgProcessor(),
+    OdsProcessor(),
+    PptxProcessor(),
+    PptProcessor(),
+    YamlProcessor(),
 ]
 
 # Register all processors with the registry

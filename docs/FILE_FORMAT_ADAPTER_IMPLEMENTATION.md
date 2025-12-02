@@ -80,6 +80,9 @@ To add support for a new file format, simply:
 11. **XLS** (`.xls`) - Using `xlrd` ✨ NEW
 12. **XML** (`.xml`) - Built-in `xml.etree.ElementTree` ✨ NEW
 13. **MSG** (`.msg`) - Using `extract-msg` ✨ NEW
+14. **ODS** (`.ods`) - Using `odfpy` ✨ NEW
+15. **PPTX** (`.pptx`) - Using `python-pptx` ✨ NEW
+16. **YAML** (`.yaml`, `.yml`) - Using `PyYAML` ✨ NEW
 
 ### Format-Specific Features
 
@@ -108,6 +111,23 @@ To add support for a new file format, simply:
 - Extracts attachment metadata (filenames)
 - Extracts email addresses from various properties
 - Handles HTML body content with tag removal
+
+#### ODS Processor
+- Extracts all cell values from all sheets
+- Similar to Excel in terms of PII content
+- Uses OpenDocument format (LibreOffice/OpenOffice)
+
+#### PPTX Processor
+- Extracts text from slides (text boxes, shapes, tables)
+- Extracts text from notes pages
+- Handles different shape types and tables
+- Note: Older PPT format (97-2003) is not supported
+
+#### YAML Processor
+- Recursively extracts all string values (keys and values)
+- Handles nested structures, arrays, and objects
+- Similar to JSON processor in functionality
+- Handles malformed YAML with fallback text extraction
 
 ## Usage in Main Application
 
@@ -154,4 +174,7 @@ New formats may require additional dependencies. Add them to `requirements.txt`:
 - `openpyxl` - For XLSX files
 - `xlrd` - For XLS files (older Excel format)
 - `extract-msg` - For MSG files (Outlook email format)
+- `python-pptx` - For PPTX files (PowerPoint)
+- `PyYAML` - For YAML files
+- `odfpy` - For ODT and ODS files (already present)
 - Built-in modules: `csv`, `json`, `xml.etree.ElementTree`, `email`
