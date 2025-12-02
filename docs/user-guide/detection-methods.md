@@ -87,6 +87,71 @@ Detects private PGP keys.
 
 Format: Begins with `BEGIN PGP PRIVATE KEY`
 
+#### Phone Numbers
+
+**Pattern**: `REGEX_PHONE`
+
+Detects phone numbers in various formats:
+- German mobile: `01761234567`, `+49 176 1234567`
+- International: `+1 555 123 4567`, `+44 20 7946 0958`
+- National formats: Various country-specific formats
+
+**Note**: The pattern is broad and may match some non-phone numbers. Consider using a whitelist to filter known false positives.
+
+#### Tax ID (Steuer-ID)
+
+**Pattern**: `REGEX_TAX_ID`
+
+Detects German tax identification numbers (*Steueridentifikationsnummer*).
+
+Format: 11 digits
+
+Example: `12345678901`
+
+**Note**: This pattern matches any 11-digit number. In practice, tax IDs are often found near keywords like "Steuer-ID", "TIN", or "IdNr". Consider context checking for better accuracy.
+
+#### BIC (Bank Identifier Code)
+
+**Pattern**: `REGEX_BIC`
+
+Detects BIC codes (also known as SWIFT codes) used for international bank transfers.
+
+Format:
+- 4 letters: Bank code
+- 2 letters: Country code
+- 2 alphanumeric: Location code
+- Optional 3 alphanumeric: Branch code
+
+Example: `DEUTDEFF` or `DEUTDEFF500`
+
+#### Postal Codes (Germany)
+
+**Pattern**: `REGEX_POSTAL_CODE`
+
+Detects German postal codes (*Postleitzahlen*).
+
+Format: 5 digits (00000-99999)
+
+Example: `10115` (Berlin)
+
+**Note**: This pattern matches any 5-digit number. Postal codes are most relevant when found in combination with street addresses or city names. Consider context checking for better accuracy.
+
+#### Extended Signal Words
+
+**Pattern**: `REGEX_SIGNAL_WORDS_EXTENDED`
+
+Detects extended German keywords commonly associated with personal data across multiple categories:
+
+**Medical**: Diagnose, Therapie, Medikament, Krankheit, Behandlung, Arzt, Klinik, Krankenhaus, Patient, Symptom, Operation, Rezept
+
+**Financial**: Gehalt, Lohn, Einkommen, Vermögen, Schulden, Kredit, Darlehen, Kontostand, Überweisung, Rechnung, Mahnung
+
+**Legal**: Klage, Anwalt, Gericht, Urteil, Vertrag, Vereinbarung, Einverständniserklärung, Datenschutzerklärung
+
+**Application/Employment**: Lebenslauf, CV, Bewerbung, Referenz, Arbeitszeugnis, Qualifikation, Erfahrung, Kompetenz
+
+This extends the original signal words pattern (`REGEX_WORDS`) with additional categories.
+
 ### Configuration
 
 Regex patterns are defined in `config_types.json`. Each pattern includes:
