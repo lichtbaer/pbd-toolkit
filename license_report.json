@@ -1,0 +1,139 @@
+{
+  "project_license": "EUPL-1.2",
+  "summary": {
+    "total": 16,
+    "compatible": 16,
+    "review_needed": 0,
+    "unknown": 0
+  },
+  "dependencies": [
+    {
+      "package": "python-docx",
+      "version": "1.2.0",
+      "license": "MIT",
+      "status": "COMPATIBLE",
+      "issues": [],
+      "compatible": true
+    },
+    {
+      "package": "beautifulsoup4",
+      "version": "4.14.3",
+      "license": "MIT License",
+      "status": "COMPATIBLE",
+      "issues": [],
+      "compatible": true
+    },
+    {
+      "package": "gliner",
+      "version": "0.2.24",
+      "license": "Apache-2.0",
+      "status": "COMPATIBLE",
+      "issues": [],
+      "compatible": true
+    },
+    {
+      "package": "pdfminer.six",
+      "version": "20251107",
+      "license": "MIT",
+      "status": "COMPATIBLE",
+      "issues": [],
+      "compatible": true
+    },
+    {
+      "package": "pytest",
+      "version": "9.0.1",
+      "license": "MIT",
+      "status": "COMPATIBLE",
+      "issues": [],
+      "compatible": true
+    },
+    {
+      "package": "pytest-cov",
+      "version": "7.0.0",
+      "license": "MIT",
+      "status": "COMPATIBLE",
+      "issues": [],
+      "compatible": true
+    },
+    {
+      "package": "tqdm",
+      "version": "4.67.1",
+      "license": "MPL-2.0 AND MIT",
+      "status": "COMPATIBLE",
+      "issues": [],
+      "compatible": true
+    },
+    {
+      "package": "striprtf",
+      "version": "0.0.29",
+      "license": "BSD-3-Clause",
+      "status": "COMPATIBLE",
+      "issues": [],
+      "compatible": true
+    },
+    {
+      "package": "odfpy",
+      "version": "1.4.1",
+      "license": "Apache-2.0",
+      "status": "COMPATIBLE",
+      "issues": [],
+      "compatible": true
+    },
+    {
+      "package": "openpyxl",
+      "version": "3.1.5",
+      "license": "MIT",
+      "status": "COMPATIBLE",
+      "issues": [],
+      "compatible": true
+    },
+    {
+      "package": "xlrd",
+      "version": "2.0.2",
+      "license": "BSD",
+      "status": "COMPATIBLE",
+      "issues": [],
+      "compatible": true
+    },
+    {
+      "package": "extract-msg",
+      "version": "0.55.0",
+      "license": "GPL",
+      "status": "COMPATIBLE",
+      "issues": [],
+      "compatible": true
+    },
+    {
+      "package": "python-pptx",
+      "version": "1.0.2",
+      "license": "MIT",
+      "status": "COMPATIBLE",
+      "issues": [],
+      "compatible": true
+    },
+    {
+      "package": "PyYAML",
+      "version": "6.0.3",
+      "license": "MIT",
+      "status": "COMPATIBLE",
+      "issues": [],
+      "compatible": true
+    },
+    {
+      "package": "spacy",
+      "version": "3.8.11",
+      "license": "MIT",
+      "status": "COMPATIBLE",
+      "issues": [],
+      "compatible": true
+    },
+    {
+      "package": "requests",
+      "version": "2.32.5",
+      "license": "Apache-2.0",
+      "status": "COMPATIBLE",
+      "issues": [],
+      "compatible": true
+    }
+  ]
+}
