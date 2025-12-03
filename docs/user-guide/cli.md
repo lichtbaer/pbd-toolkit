@@ -130,12 +130,88 @@ Includes:
 - Debug messages
 - Console output in addition to log file
 
+### `--quiet`, `-q`
+
+Suppress all output except errors. Useful for automation and scripts where only errors are relevant.
+
+```bash
+python main.py --path /data --regex --quiet
+```
+
+**Note**: When `--quiet` is specified:
+- Only error messages are shown to console
+- Summary output is suppressed
+- Log file still contains all information
+- Exit codes are still returned for automation
+
 ### `--version`, `-V`
 
 Display version information and exit.
 
 ```bash
 python main.py --version
+```
+
+### `--config`
+
+Path to configuration file (YAML or JSON). CLI arguments override config file values.
+
+```bash
+python main.py --config config.yaml --path /data
+```
+
+**Example config.yaml:**
+```yaml
+path: "/path/to/scan"
+regex: true
+ner: true
+format: "json"
+verbose: false
+```
+
+**Example config.json:**
+```json
+{
+  "path": "/path/to/scan",
+  "regex": true,
+  "ner": true,
+  "format": "json"
+}
+```
+
+**Note**: CLI arguments take precedence over config file values. This allows you to use a config file as a base and override specific values via CLI.
+
+### `--summary-format`
+
+Format for summary output. Use `json` for machine-readable output.
+
+```bash
+python main.py --path /data --regex --summary-format json
+```
+
+**Options:**
+- `human` (default): Human-readable text output
+- `json`: Machine-readable JSON output
+
+**Example JSON output:**
+```json
+{
+  "start_time": "2024-01-01T10:00:00",
+  "end_time": "2024-01-01T10:05:00",
+  "duration_seconds": 300.0,
+  "statistics": {
+    "files_scanned": 1000,
+    "files_analyzed": 950,
+    "matches_found": 42,
+    "errors": 2,
+    "throughput_files_per_sec": 3.17
+  },
+  "output_file": "./output/2024-01-01 10-00-00_findings.csv",
+  "output_directory": "./output/",
+  "errors_summary": {
+    "Permission denied": 2
+  }
+}
 ```
 
 ## Environment Variables
@@ -202,8 +278,15 @@ The tool generates:
 
 ## Exit Codes
 
-- `0`: Success
-- `1`: Error (configuration, validation, or runtime error)
+The tool uses standardized exit codes for automation and scripting:
+
+- `0` (`EXIT_SUCCESS`): Analysis completed successfully
+- `1` (`EXIT_GENERAL_ERROR`): General error occurred
+- `2` (`EXIT_INVALID_ARGUMENTS`): Invalid command-line arguments
+- `3` (`EXIT_FILE_ACCESS_ERROR`): File access error (reserved for future use)
+- `4` (`EXIT_CONFIGURATION_ERROR`): Configuration error or NER model loading failed
+
+See [Exit Codes Documentation](../EXIT_CODES.md) for detailed information and usage examples.
 
 ## Getting Help
 

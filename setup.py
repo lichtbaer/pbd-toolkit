@@ -4,27 +4,42 @@ import datetime
 import gettext
 import logging
 import os
+from pathlib import Path
+from typing import Optional
 
-import globals
 import constants
+from core.context import ApplicationContext
+from core.config_loader import ConfigLoader
+from output.writers import create_output_writer, OutputWriter
 
 """ Setup language handling by referring to the environment variable LANGUAGE and loading the corresponding
     locales file. """
-def __setup_lang() -> None:
-    """Initialize internationalization based on LANGUAGE environment variable."""
+def __setup_lang() -> gettext.NullTranslations:
+    """Initialize internationalization based on LANGUAGE environment variable.
+    
+    Returns:
+        Translation object
+    """
     lstr: str = os.environ.get("LANGUAGE")
     lenv: str = lstr if lstr and lstr in ["de", "en"] else "de"
 
     lang = gettext.translation("base", localedir="locales", languages=[lenv])
     lang.install()
-    globals._ = lang.gettext
+    return lang
 
 """ Setup CLI argument parsing. """
-def __setup_args() -> None:
-    """Parse command line arguments and store them in globals.args."""
+def __setup_args(translate_func: gettext.NullTranslations) -> argparse.Namespace:
+    """Parse command line arguments.
+    
+    Args:
+        translate_func: Translation function for help texts
+    
+    Returns:
+        Parsed arguments
+    """
     parser = argparse.ArgumentParser(
-        prog=globals._("HBDI PII Toolkit"),
-        description=globals._("Scan directories for personally identifiable information"),
+        prog=translate_func("HBDI PII Toolkit"),
+        description=translate_func("Scan directories for personally identifiable information"),
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
@@ -33,41 +48,72 @@ def __setup_args() -> None:
     
     # Required arguments
     parser.add_argument("--path", action="store", required=True, 
-                       help=globals._("Root directory under which to recursively search for PII"))
+                       help=translate_func("Root directory under which to recursively search for PII"))
     
     # Analysis methods (at least one required, validated later)
     parser.add_argument("--regex", action="store_true", 
-                       help=globals._("Use regular expressions for analysis"))
+                       help=translate_func("Use regular expressions for analysis"))
     parser.add_argument("--ner", action="store_true", 
-                       help=globals._("Use AI-based Named Entity Recognition for analysis"))
+                       help=translate_func("Use AI-based Named Entity Recognition for analysis"))
     
     # Optional arguments
     parser.add_argument("--outname", action="store", 
-                       help=globals._("Optional parameter; string which to include in the file name of all output files"))
+                       help=translate_func("Optional parameter; string which to include in the file name of all output files"))
     parser.add_argument("--whitelist", action="store", 
-                       help=globals._("Optional parameter; relative path to a text file containing one string per line. These strings will be matched against potential findings to exclude them from the output."))
+                       help=translate_func("Optional parameter; relative path to a text file containing one string per line. These strings will be matched against potential findings to exclude them from the output."))
     parser.add_argument("--stop-count", action="store", type=int, 
-                       help=globals._("Optional parameter; stop analysis after N files"))
+                       help=translate_func("Optional parameter; stop analysis after N files"))
     parser.add_argument("--output-dir", action="store", default="./output/",
-                       help=globals._("Directory for output files (default: ./output/)"))
+                       help=translate_func("Directory for output files (default: ./output/)"))
     parser.add_argument("--format", choices=["csv", "json", "xlsx"], default="csv",
-                       help=globals._("Output format for findings (default: csv)"))
+                       help=translate_func("Output format for findings (default: csv)"))
+    parser.add_argument("--summary-format", choices=["human", "json"], default="human",
+                       help=translate_func("Format for summary output (default: human). Use 'json' for machine-readable output."))
     parser.add_argument("--no-header", action="store_true",
-                       help=globals._("Don't include header row in CSV output (for backward compatibility)"))
+                       help=translate_func("Don't include header row in CSV output (for backward compatibility)"))
     
     # Output options
     parser.add_argument("--verbose", "-v", action="store_true", 
-                       help=globals._("Enable verbose output with detailed logging"))
+                       help=translate_func("Enable verbose output with detailed logging"))
+    parser.add_argument("--quiet", "-q", action="store_true",
+                       help=translate_func("Suppress all output except errors"))
     
-    globals.args = parser.parse_args()
+    parser.add_argument("--config", type=Path,
+                       help=translate_func("Path to configuration file (YAML or JSON). CLI arguments override config file values."))
+    
+    args = parser.parse_args()
+    
+    # Load config file if provided
+    if args.config:
+        try:
+            config_data = ConfigLoader.load_config(args.config)
+            args = ConfigLoader.merge_with_args(config_data, args)
+        except ValueError as e:
+            parser.error(f"Configuration file error: {e}")
+    
+    return args
 
 """ Setup logging.
 
     Logs are written to the output/ directory with the same name prefix as the findings file.
     Also outputs to console if verbose mode is enabled. """
-def __setup_logger(outslug: str = "") -> None:
-    # Determine log level based on verbose flag
-    log_level = logging.DEBUG if globals.args and globals.args.verbose else logging.INFO
+def __setup_logger(args: Optional[argparse.Namespace], outslug: str = "") -> logging.Logger:
+    """Setup logging.
+    
+    Args:
+        args: Parsed command line arguments
+        outslug: Slug for log file name
+    
+    Returns:
+        Logger instance
+    """
+    # Determine log level based on verbose and quiet flags
+    if args and args.quiet:
+        log_level = logging.ERROR  # Only errors in quiet mode
+    elif args and args.verbose:
+        log_level = logging.DEBUG
+    else:
+        log_level = logging.INFO
     
     # Create formatter with timestamp, level, and message
     formatter = logging.Formatter(
@@ -95,29 +141,43 @@ def __setup_logger(outslug: str = "") -> None:
     console_handler.setFormatter(formatter)
     
     # Configure root logger
-    globals.logger = logging.getLogger(__package__)
-    globals.logger.setLevel(log_level)
-    globals.logger.addHandler(file_handler)
+    logger = logging.getLogger(__package__)
+    logger.setLevel(log_level)
+    logger.addHandler(file_handler)
     
-    # Only add console handler in verbose mode
-    if globals.args and globals.args.verbose:
-        globals.logger.addHandler(console_handler)
+    # Add console handler in verbose mode, or if not in quiet mode
+    if args:
+        if args.verbose:
+            logger.addHandler(console_handler)
+        elif not args.quiet:
+            # In normal mode, show INFO and above
+            console_handler.setLevel(logging.INFO)
+            logger.addHandler(console_handler)
+    
+    return logger
 
 """ Run all setup routines.
 
-    These are used to populate globally used variables, e. g. for handling of i18n or logging. """
-def setup() -> None:
-    __setup_lang()
-    __setup_args()
+    Returns:
+        Tuple of (args, logger, translate_func, output_writer, output_file_path)
+    """
+def setup() -> tuple[argparse.Namespace, logging.Logger, gettext.NullTranslations, Optional[OutputWriter], str]:
+    """Setup application: parse arguments, setup logging, create output writer.
+    
+    Returns:
+        Tuple of (args, logger, translate_func, output_writer, output_file_path)
+    """
+    translate_func = __setup_lang()
+    args = __setup_args(translate_func)
 
     # construct name for output files. Default is date/time, optionally with the value from args.outname
     outslug: str = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
 
-    if globals.args.outname is not None:
-        outslug += " " + globals.args.outname
+    if args.outname is not None:
+        outslug += " " + args.outname
 
     # Get output directory from args or use default
-    output_dir = globals.args.output_dir if globals.args and hasattr(globals.args, 'output_dir') else constants.OUTPUT_DIR
+    output_dir = args.output_dir if args and hasattr(args, 'output_dir') else constants.OUTPUT_DIR
     # Ensure output directory ends with separator
     if not output_dir.endswith(os.sep):
         output_dir += os.sep
@@ -129,42 +189,37 @@ def setup() -> None:
     constants.OUTPUT_DIR = output_dir
     
     # Get output format from args
-    output_format = globals.args.format if globals.args and hasattr(globals.args, 'format') else "csv"
-    globals.output_format = output_format
+    output_format = args.format if args and hasattr(args, 'format') else "csv"
     
-    # Setup output file based on format
-    if output_format == "csv":
-        output_file_path = output_dir + outslug + "_findings.csv"
-        globals.output_file_path = output_file_path
-        globals.csv_file_handle = open(output_file_path, "w", encoding="utf-8")
-        globals.csvwriter = csv.writer(globals.csv_file_handle)
-        
-        # Write CSV header unless --no-header is specified
-        if not (globals.args and hasattr(globals.args, 'no_header') and globals.args.no_header):
-            globals.csvwriter.writerow(["match", "file", "type", "ner_score"])
-    elif output_format == "json":
-        output_file_path = output_dir + outslug + "_findings.json"
-        globals.output_file_path = output_file_path
-        globals.csv_file_handle = None
-        globals.csvwriter = None
-    elif output_format == "xlsx":
-        output_file_path = output_dir + outslug + "_findings.xlsx"
-        globals.output_file_path = output_file_path
-        globals.csv_file_handle = None
-        globals.csvwriter = None
-    else:
-        # Fallback to CSV
-        output_file_path = output_dir + outslug + "_findings.csv"
-        globals.csv_file_handle = open(output_file_path, "w", encoding="utf-8")
-        globals.csvwriter = csv.writer(globals.csv_file_handle)
-        if not (globals.args and hasattr(globals.args, 'no_header') and globals.args.no_header):
-            globals.csvwriter.writerow(["match", "file", "type", "ner_score"])
+    # Determine file extension and create output file path
+    extension_map = {"csv": ".csv", "json": ".json", "xlsx": ".xlsx"}
+    extension = extension_map.get(output_format, ".csv")
+    output_file_path = output_dir + outslug + "_findings" + extension
+    
+    # Create output writer
+    include_header = not (args and hasattr(args, 'no_header') and args.no_header)
+    output_writer = create_output_writer(
+        output_format, 
+        output_file_path, 
+        include_header=include_header
+    )
 
-    __setup_logger(outslug=outslug)
+    logger = __setup_logger(args, outslug=outslug)
+    
+    return (args, logger, translate_func, output_writer, output_file_path)
 
 
-def create_config() -> "config.Config":
-    """Create Config object from current setup.
+def create_config(args: argparse.Namespace, logger: logging.Logger,
+                 csv_writer: Any, csv_file_handle: Any,
+                 translate_func: gettext.NullTranslations) -> "config.Config":
+    """Create Config object from setup.
+    
+    Args:
+        args: Parsed command line arguments
+        logger: Logger instance
+        csv_writer: CSV writer instance
+        csv_file_handle: CSV file handle
+        translate_func: Translation function
     
     Returns:
         Config instance with all dependencies injected
@@ -172,9 +227,9 @@ def create_config() -> "config.Config":
     from config import Config
     
     return Config.from_args(
-        args=globals.args,
-        logger=globals.logger,
-        csv_writer=globals.csvwriter,
-        csv_file_handle=globals.csv_file_handle,
-        translate_func=globals._
+        args=args,
+        logger=logger,
+        csv_writer=csv_writer,
+        csv_file_handle=csv_file_handle,
+        translate_func=translate_func
     )

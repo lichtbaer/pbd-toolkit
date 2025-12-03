@@ -19,7 +19,9 @@ class TestIntegration:
         def mock_writerow(row):
             written_rows.append(row)
         
-        monkeypatch.setattr("globals.csvwriter", type('obj', (object,), {'writerow': mock_writerow})())
+        mock_csv_writer = type('obj', (object,), {'writerow': mock_writerow})()
+        container.set_csv_writer(mock_csv_writer)
+        container.set_output_format("csv")
         
         # Compile whitelist pattern
         container._compile_whitelist_pattern()

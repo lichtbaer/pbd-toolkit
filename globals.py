@@ -8,3 +8,4 @@ csv_file_handle: Any = None
 logger = None
 output_format: str = "csv"
 output_file_path: str | None = None
+output_writer: Any = None

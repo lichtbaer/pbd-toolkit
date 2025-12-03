@@ -1,8 +1,8 @@
+import csv
+import json
 import re
 from dataclasses import dataclass, field
-from typing import Any
-import json
-import globals
+from typing import Optional
 
 # configure support match types
 with open("config_types.json") as f:
@@ -54,11 +54,11 @@ class PiiMatchContainer:
     # Compiled regex pattern for efficient whitelist matching
     _whitelist_pattern: re.Pattern | None = field(default=None, init=False, repr=False)
     # CSV writer for output (injected dependency, only used for CSV format)
-    _csv_writer: Any = field(default=None, init=False, repr=False)
+    _csv_writer: Optional[csv.writer] = field(default=None, init=False, repr=False)
     # Output format (csv, json, xlsx)
     _output_format: str = field(default="csv", init=False, repr=False)
     
-    def set_csv_writer(self, csv_writer: Any) -> None:
+    def set_csv_writer(self, csv_writer: Optional[csv.writer]) -> None:
         """Set the CSV writer for output.
         
         Args:

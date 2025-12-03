@@ -29,9 +29,8 @@ class TestPhoneNumberDetection:
         def mock_writerow(row):
             mock_writer.append(row)
         
-        monkeypatch.setattr("globals.csvwriter", type('obj', (object,), {'writerow': mock_writerow})())
+        container.set_csv_writer(type('obj', (object,), {'writerow': mock_writerow})())
         container.set_output_format("csv")
-        container._csv_writer = type('obj', (object,), {'writerow': mock_writerow})()
         
         for match in matches:
             container.add_matches_regex(match, "test.txt")
@@ -58,9 +57,8 @@ class TestPhoneNumberDetection:
         def mock_writerow(row):
             mock_writer.append(row)
         
-        monkeypatch.setattr("globals.csvwriter", type('obj', (object,), {'writerow': mock_writerow})())
+        container.set_csv_writer(type('obj', (object,), {'writerow': mock_writerow})())
         container.set_output_format("csv")
-        container._csv_writer = type('obj', (object,), {'writerow': mock_writerow})()
         
         for match in matches:
             container.add_matches_regex(match, "test.txt")
@@ -91,9 +89,8 @@ class TestTaxIdDetection:
         def mock_writerow(row):
             mock_writer.append(row)
         
-        monkeypatch.setattr("globals.csvwriter", type('obj', (object,), {'writerow': mock_writerow})())
+        container.set_csv_writer(type('obj', (object,), {'writerow': mock_writerow})())
         container.set_output_format("csv")
-        container._csv_writer = type('obj', (object,), {'writerow': mock_writerow})()
         
         for match in matches:
             container.add_matches_regex(match, "test.txt")
@@ -120,9 +117,8 @@ class TestTaxIdDetection:
         def mock_writerow(row):
             mock_writer.append(row)
         
-        monkeypatch.setattr("globals.csvwriter", type('obj', (object,), {'writerow': mock_writerow})())
+        container.set_csv_writer(type('obj', (object,), {'writerow': mock_writerow})())
         container.set_output_format("csv")
-        container._csv_writer = type('obj', (object,), {'writerow': mock_writerow})()
         
         for match in matches:
             container.add_matches_regex(match, "test.txt")
@@ -153,9 +149,8 @@ class TestBicDetection:
         def mock_writerow(row):
             mock_writer.append(row)
         
-        monkeypatch.setattr("globals.csvwriter", type('obj', (object,), {'writerow': mock_writerow})())
+        container.set_csv_writer(type('obj', (object,), {'writerow': mock_writerow})())
         container.set_output_format("csv")
-        container._csv_writer = type('obj', (object,), {'writerow': mock_writerow})()
         
         for match in matches:
             container.add_matches_regex(match, "test.txt")
@@ -188,9 +183,8 @@ class TestPostalCodeDetection:
         def mock_writerow(row):
             mock_writer.append(row)
         
-        monkeypatch.setattr("globals.csvwriter", type('obj', (object,), {'writerow': mock_writerow})())
+        container.set_csv_writer(type('obj', (object,), {'writerow': mock_writerow})())
         container.set_output_format("csv")
-        container._csv_writer = type('obj', (object,), {'writerow': mock_writerow})()
         
         for match in matches:
             container.add_matches_regex(match, "test.txt")
@@ -222,9 +216,8 @@ class TestExtendedSignalWords:
         def mock_writerow(row):
             mock_writer.append(row)
         
-        monkeypatch.setattr("globals.csvwriter", type('obj', (object,), {'writerow': mock_writerow})())
+        container.set_csv_writer(type('obj', (object,), {'writerow': mock_writerow})())
         container.set_output_format("csv")
-        container._csv_writer = type('obj', (object,), {'writerow': mock_writerow})()
         
         for match in matches:
             container.add_matches_regex(match, "test.txt")
@@ -251,9 +244,8 @@ class TestExtendedSignalWords:
         def mock_writerow(row):
             mock_writer.append(row)
         
-        monkeypatch.setattr("globals.csvwriter", type('obj', (object,), {'writerow': mock_writerow})())
+        container.set_csv_writer(type('obj', (object,), {'writerow': mock_writerow})())
         container.set_output_format("csv")
-        container._csv_writer = type('obj', (object,), {'writerow': mock_writerow})()
         
         for match in matches:
             container.add_matches_regex(match, "test.txt")
@@ -280,9 +272,8 @@ class TestExtendedSignalWords:
         def mock_writerow(row):
             mock_writer.append(row)
         
-        monkeypatch.setattr("globals.csvwriter", type('obj', (object,), {'writerow': mock_writerow})())
+        container.set_csv_writer(type('obj', (object,), {'writerow': mock_writerow})())
         container.set_output_format("csv")
-        container._csv_writer = type('obj', (object,), {'writerow': mock_writerow})()
         
         for match in matches:
             container.add_matches_regex(match, "test.txt")
@@ -316,9 +307,8 @@ class TestCreditCardDetection:
         def mock_writerow(row):
             mock_writer.append(row)
         
-        monkeypatch.setattr("globals.csvwriter", type('obj', (object,), {'writerow': mock_writerow})())
+        container.set_csv_writer(type('obj', (object,), {'writerow': mock_writerow})())
         container.set_output_format("csv")
-        container._csv_writer = type('obj', (object,), {'writerow': mock_writerow})()
         
         for match in matches:
             container.add_matches_regex(match, "test.txt")
@@ -345,9 +335,8 @@ class TestCreditCardDetection:
         def mock_writerow(row):
             mock_writer.append(row)
         
-        monkeypatch.setattr("globals.csvwriter", type('obj', (object,), {'writerow': mock_writerow})())
+        container.set_csv_writer(type('obj', (object,), {'writerow': mock_writerow})())
         container.set_output_format("csv")
-        container._csv_writer = type('obj', (object,), {'writerow': mock_writerow})()
         
         for match in matches:
             container.add_matches_regex(match, "test.txt")
