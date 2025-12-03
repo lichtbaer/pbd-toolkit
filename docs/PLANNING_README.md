@@ -11,19 +11,8 @@ This directory contains planning documents, analysis reports, and review summari
 - **`VERBESSERUNGS_CHECKLISTE_AKTUELL.md`** - Current improvement checklist
 - **`README_REFACTORING.md`** - Overview of refactoring documentation
 
-### Phase Documentation (Historical)
-These documents track the progress of each refactoring phase:
-- **`UMGESETZTE_SOFORT_PRIORITAETEN.md`** - Phase 1: Immediate priorities
-- **`PHASE2_SCHRITT1_ABGESCHLOSSEN.md`** - Phase 2, Step 1: Scanner extraction
-- **`PHASE2_SCHRITT2_ABGESCHLOSSEN.md`** - Phase 2, Step 2: Processor extraction
-- **`PHASE2_SCHRITT3_ABGESCHLOSSEN.md`** - Phase 2, Step 3: Statistics extraction
-- **`PHASE2_SCHRITT4_ABGESCHLOSSEN.md`** - Phase 2, Step 4: Application Context
+### Historical Documentation
 - **`CHANGELOG_REFACTORING.md`** - Changelog of refactoring changes
-
-### Feature Analysis Documents
-- **`ANALYTICAL_ENGINES_EXTENSION_ANALYSIS.md`** - Detailed analysis of engine extension architecture
-- **`ANALYTICAL_ENGINES_ZUSAMMENFASSUNG.md`** - Summary of engine extension analysis
-- **`IMPLEMENTATION_ENGINES_EXTENSION.md`** - Implementation summary of engine extensions
 
 ### Architecture Documents
 - **`ARCHITEKTUR_ANALYSE_AKTUELL.md`** - Current detailed architecture analysis
@@ -49,8 +38,8 @@ Historical and outdated documents are in the `archive/` directory:
 **For improvement checklist:**
 → `VERBESSERUNGS_CHECKLISTE_AKTUELL.md`
 
-**For engine extension details:**
-→ `ANALYTICAL_ENGINES_EXTENSION_ANALYSIS.md`
+**For historical changes:**
+→ `CHANGELOG_REFACTORING.md`
 
 ## Status
 

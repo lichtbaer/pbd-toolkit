@@ -10,12 +10,8 @@ Diese Dokumentation beschreibt die durchgeführten Refactorings und den aktuelle
 - **`VERBESSERUNGS_CHECKLISTE_AKTUELL.md`** - Aktuelle Checkliste mit Status
 - **`REFACTORING_ABGESCHLOSSEN.md`** - Zusammenfassung aller Refactorings
 
-### Phase-Dokumentation:
-- **`UMGESETZTE_SOFORT_PRIORITAETEN.md`** - Phase 1 Dokumentation
-- **`PHASE2_SCHRITT1_ABGESCHLOSSEN.md`** - Scanner-Logik extrahiert
-- **`PHASE2_SCHRITT2_ABGESCHLOSSEN.md`** - Processor-Logik extrahiert
-- **`PHASE2_SCHRITT3_ABGESCHLOSSEN.md`** - Statistics-Tracking extrahiert
-- **`PHASE2_SCHRITT4_ABGESCHLOSSEN.md`** - Application Context eingeführt
+### Changelog:
+- **`CHANGELOG_REFACTORING.md`** - Detaillierte Änderungen während des Refactorings
 
 ### Feature-Dokumentation:
 - **`EXIT_CODES.md`** - Exit Code Dokumentation
@@ -23,7 +19,7 @@ Diese Dokumentation beschreibt die durchgeführten Refactorings und den aktuelle
 - **`CONFIG_FILE_EXAMPLE.json`** - Config File Beispiel (JSON)
 
 ### Alte Dokumente (Archiv):
-Die folgenden Dokumente sind veraltet und sollten nicht mehr verwendet werden:
+Die folgenden Dokumente sind veraltet und befinden sich im `archive/` Verzeichnis:
 - `ARCHITEKTUR_ANALYSE.md` (veraltet, siehe `ARCHITEKTUR_ANALYSE_AKTUELL.md`)
 - `ARCHITEKTUR_ZUSAMMENFASSUNG.md` (veraltet, siehe `ARCHITEKTUR_ZUSAMMENFASSUNG_AKTUELL.md`)
 - `VERBESSERUNGS_CHECKLISTE.md` (veraltet, siehe `VERBESSERUNGS_CHECKLISTE_AKTUELL.md`)
