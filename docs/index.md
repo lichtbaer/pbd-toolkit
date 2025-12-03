@@ -17,8 +17,8 @@ The PII Toolkit is a command-line tool designed to scan directories and identify
 
 - **Wide File Format Support**:
   - Documents: PDF, DOCX, ODT, RTF
-  - Spreadsheets: XLSX, ODS, CSV
-  - Presentations: PPTX
+  - Spreadsheets: XLSX, XLS, ODS, CSV
+  - Presentations: PPTX, PPT
   - Web: HTML, XML
   - Email: EML, MSG
   - Data: JSON, YAML

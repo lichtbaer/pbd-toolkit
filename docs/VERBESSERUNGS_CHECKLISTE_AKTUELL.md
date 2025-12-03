@@ -17,35 +17,27 @@
 
 ---
 
+### Phase 3: Weitere Verbesserungen
+- [x] **Config-File-Support**: YAML/JSON Config-File für CLI-Argumente ✅
+  - Implementiert: `core/config_loader.py`
+  - CLI-Flag: `--config`
+- [x] **Structured Output für Machine-Parsing**: Machine-readable Output-Format ✅
+  - Implementiert: `--summary-format json`
+  - Unterstützt: `human` (default) und `json`
+- [x] **Type Hints vervollständigen**: Alle Funktionen sollten vollständige Type Hints haben ✅
+  - Vervollständigt in allen Core-Modulen
+  - `Any` durch konkrete Types ersetzt
+- [x] **Tests aktualisieren**: globals.py Referenzen entfernt ✅
+  - Alle Tests aktualisiert
+
+---
+
 ## ⏳ Verbleibend
 
 ### Code-Qualität
-- [ ] **Type Hints vervollständigen**: Alle Funktionen sollten vollständige Type Hints haben
-  - Dateien: `main.py`, `matches.py`, `setup.py`
-  - `Any` durch konkrete Types ersetzen
-  
 - [ ] **Code-Kommentare auf Englisch**: Code-Kommentare sollten Englisch sein (laut User Rules)
   - Aktuell teilweise Deutsch in Kommentaren
-
-### CLI-Verbesserungen
-- [ ] **Config-File-Support**: YAML/JSON Config-File für CLI-Argumente
-  ```python
-  parser.add_argument('--config', type=Path,
-                     help='Path to configuration file')
-  ```
-
-- [ ] **Structured Output für Machine-Parsing**: Machine-readable Output-Format
-  ```python
-  parser.add_argument('--output-format', 
-                     choices=['human', 'json', 'yaml'],
-                     default='human')
-  ```
-
-### Tests
-- [ ] **Tests aktualisieren**: globals.py Referenzen entfernen
-  - `tests/test_matches.py`
-  - `tests/test_new_regex_patterns.py`
-  - `tests/test_integration.py`
+  - Dateien prüfen: `main.py`, `config.py`, `matches.py`
 
 ---
 
@@ -73,13 +65,10 @@
 ## Priorisierung
 
 ### 🔴 Hoch (Empfohlen)
-1. Tests aktualisieren (globals.py Referenzen)
-2. Config-File-Support
-3. Type Hints vervollständigen
+1. Code-Kommentare auf Englisch umstellen
 
 ### 🟡 Mittel (Optional)
-4. Code-Kommentare auf Englisch
-5. Structured Output für Machine-Parsing
+2. Structured Output für Machine-Parsing (bereits implementiert als `--summary-format json`)
 
 ### 🟢 Niedrig (Langfristig)
 6. Plugin-System
@@ -90,4 +79,4 @@
 
 **Hinweis**: Diese Checkliste sollte regelmäßig aktualisiert werden, wenn Verbesserungen umgesetzt werden.
 
-**Stand**: Nach Phase 2 abgeschlossen
+**Stand**: Nach Phase 3 abgeschlossen (Refactoring komplett, Engines erweitert, Config-File-Support, Structured Output)

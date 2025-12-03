@@ -10,24 +10,41 @@ The PII Toolkit is a modular, extensible system for detecting personally identif
 
 ### Main Entry Point
 
-**File**: `main.py`
+**Files**: `main.py`, `setup.py`
 
-The main entry point that:
-- Parses command-line arguments
-- Initializes configuration
-- Coordinates file scanning
-- Manages output generation
+- **setup.py**: Handles CLI argument parsing, logging setup, output writer creation
+- **main.py**: Main entry point that:
+  - Uses setup functions for initialization
+  - Creates ApplicationContext for dependency injection
+  - Coordinates file scanning via FileScanner
+  - Manages output generation via OutputWriter
+
+### Core Modules
+
+**Directory**: `core/`
+
+- **scanner.py**: FileScanner class for directory traversal and file discovery
+- **processor.py**: TextProcessor class for text extraction and PII detection
+- **statistics.py**: Statistics class for tracking processing metrics
+- **context.py**: ApplicationContext dataclass for dependency injection
+- **config_loader.py**: ConfigLoader for loading YAML/JSON config files
+- **exceptions.py**: Custom exception types
+- **engines/**: Detection engine implementations and registry
 
 ### Configuration System
 
-**File**: `config.py`
+**Files**: `config.py`, `core/config_loader.py`
 
 The `Config` class manages:
-- Command-line argument parsing
-- NER model loading
+- Configuration from CLI arguments and config files (YAML/JSON)
+- NER model loading (GLiNER, spaCy, Ollama, OpenAI)
 - Regex pattern compilation
-- Logging setup
-- Output file handling
+- Engine-specific settings
+- Resource limits and timeouts
+
+The `ConfigLoader` handles:
+- Loading configuration from YAML or JSON files
+- Merging config file values with CLI arguments (CLI takes precedence)
 
 ### File Processing
 
@@ -40,20 +57,25 @@ Modular file processor system:
 
 ### PII Detection
 
-**File**: `matches.py`
+**Files**: `matches.py`, `core/processor.py`, `core/engines/`
 
-The `PiiMatchContainer` class:
-- Stores detected PII matches
-- Handles whitelist filtering
-- Manages output writing (CSV, JSON, XLSX)
+The detection system consists of:
+- **TextProcessor** (`core/processor.py`): Coordinates text extraction and PII detection
+- **Engine Registry** (`core/engines/registry.py`): Manages multiple detection engines
+- **Detection Engines**: RegexEngine, GLiNEREngine, SpacyNEREngine, OllamaEngine, OpenAICompatibleEngine
+- **PiiMatchContainer** (`matches.py`): Stores detected PII matches, handles whitelist filtering
 
-### Constants and Globals
+**Note**: Output writing is now handled by `output/writers.py`, not `matches.py`.
 
-**Files**: `constants.py`, `globals.py`
+### Constants
+
+**File**: `constants.py`
 
 - Application-wide constants
-- Global state management
-- Internationalization setup
+- Output directory configuration
+- NER model configuration
+
+**Note**: The `globals.py` file exists but is no longer used. Global state has been eliminated through dependency injection and the ApplicationContext pattern.
 
 ## Design Patterns
 
@@ -89,28 +111,35 @@ Detection methods (regex vs. NER) are implemented as strategies:
 ## Data Flow
 
 ```
-1. Command Line Arguments
+1. Command Line Arguments (setup.py)
    ↓
-2. Configuration Setup (config.py)
+2. Configuration Setup (config.py, core/config_loader.py)
    ↓
-3. File Discovery (os.walk)
+3. Application Context Creation (core/context.py)
    ↓
-4. Processor Selection (registry.py)
+4. File Discovery (core/scanner.py - FileScanner)
    ↓
-5. Text Extraction (file_processors/*.py)
+5. Processor Selection (file_processors/registry.py)
    ↓
-6. PII Detection (regex/NER)
+6. Text Extraction (file_processors/*.py)
    ↓
-7. Whitelist Filtering (matches.py)
+7. PII Detection (core/processor.py - TextProcessor)
    ↓
-8. Output Generation (CSV/JSON/XLSX)
+   - Engine Registry (core/engines/registry.py)
+   - Multiple engines: regex, GLiNER, spaCy, Ollama, OpenAI
+   ↓
+8. Whitelist Filtering (matches.py - PiiMatchContainer)
+   ↓
+9. Output Generation (output/writers.py - OutputWriter)
+   - CSV, JSON, or XLSX format
 ```
 
 ## Threading Model
 
-The toolkit uses a single-threaded approach for file processing:
-- Files are processed sequentially
-- NER model calls are serialized (thread-safe)
+The toolkit uses a callback-based approach for file processing:
+- FileScanner walks the directory tree and calls a callback for each file
+- Files are processed sequentially by default
+- Each detection engine handles thread safety internally (locks for model calls)
 - Match storage uses locks for thread safety
 
 ## Error Handling
@@ -138,15 +167,19 @@ See [Adding File Processors](adding-processors.md) for details.
 
 ### Adding Detection Methods
 
+See [Engines Documentation](engines.md) for details on adding new detection engines.
+
+For regex patterns:
 1. Add pattern to `config_types.json`
-2. Update regex compilation in `config.py`
-3. Add processing logic in `main.py`
+2. Pattern is automatically compiled in `config.py`
+3. RegexEngine automatically uses all patterns from config
 
 ### Adding Output Formats
 
-1. Add format option to CLI arguments
-2. Implement output writer in `main.py`
-3. Update `PiiMatchContainer` if needed
+1. Add format option to CLI arguments in `setup.py`
+2. Implement output writer class in `output/writers.py` (inherit from OutputWriter)
+3. Register in `output/writers.py` `create_output_writer()` function
+4. No changes needed to `PiiMatchContainer` or `main.py`
 
 ## Performance Considerations
 
