@@ -52,6 +52,26 @@ hf download urchade/gliner_medium-v2.1
 
 The model will be cached in your HuggingFace cache directory (typically `~/.cache/huggingface/`).
 
+## Privacy and Telemetry
+
+This project automatically disables telemetry in dependencies to ensure privacy:
+
+- **HuggingFace telemetry**: Automatically disabled via `HF_HUB_DISABLE_TELEMETRY=1`
+- **PyTorch telemetry**: Automatically disabled via `TORCH_DISABLE_TELEMETRY=1`
+- **tqdm telemetry**: Disabled by default in recent versions
+
+These settings are configured automatically when the application starts. No manual configuration is required.
+
+For complete privacy, you can also set these environment variables in your shell profile:
+
+```bash
+# Add to ~/.bashrc or ~/.zshrc
+export HF_HUB_DISABLE_TELEMETRY=1
+export TORCH_DISABLE_TELEMETRY=1
+```
+
+For detailed security and privacy information, see [Security and Privacy Analysis](../SECURITY_AND_PRIVACY_ANALYSIS.md).
+
 ## Verify Installation
 
 Test the installation:

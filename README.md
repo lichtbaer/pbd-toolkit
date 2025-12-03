@@ -60,6 +60,17 @@ This fork is based on the **pbD-Toolkit** (Personenbezogene Daten Toolkit) devel
 - **Original Repository**: [hessen-datenschutz/pbd-toolkit](https://github.com/hessen-datenschutz/pbd-toolkit)
 - **Original Website**: [datenschutz.hessen.de](https://datenschutz.hessen.de)
 
+## Privacy and Security
+
+This project is designed with privacy in mind:
+
+- **No telemetry**: The project code does not collect or transmit any data
+- **Local processing**: All analysis is performed locally
+- **Telemetry disabled**: Dependencies with telemetry (HuggingFace, PyTorch) are automatically configured to disable telemetry
+- **User-initiated network calls**: Network connections are only made when explicitly using external APIs (OpenAI, Ollama) with user-provided credentials
+
+For detailed security and privacy analysis, see [Security and Privacy Analysis](docs/SECURITY_AND_PRIVACY_ANALYSIS.md).
+
 ## Disclaimer
 
 This fork is provided "as is" without warranty of any kind. The maintainers of this fork are not responsible for any issues, data loss, or compliance problems. Users should verify that this fork meets their requirements and complies with applicable data protection regulations.

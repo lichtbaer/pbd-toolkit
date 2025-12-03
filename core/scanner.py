@@ -92,6 +92,8 @@ class FileScanner:
                 self.config.logger.warning(f"Failed to count files: {e}")
         
         # Initialize progress bar
+        # Note: tqdm telemetry is disabled by default in recent versions
+        # For additional privacy, set TQDM_DISABLE_TELEMETRY=1 environment variable
         progress_bar = None
         if self.config.verbose or not stop_count:
             progress_bar = tqdm(
