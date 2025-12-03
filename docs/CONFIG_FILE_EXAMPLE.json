@@ -1,0 +1,14 @@
+{
+  "path": "/path/to/scan",
+  "regex": true,
+  "ner": true,
+  "outname": "scan-2024",
+  "output_dir": "./output/",
+  "format": "json",
+  "no_header": false,
+  "whitelist": "./whitelist.txt",
+  "stop_count": null,
+  "verbose": false,
+  "quiet": false,
+  "summary_format": "human"
+}

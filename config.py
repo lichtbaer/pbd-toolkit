@@ -1,5 +1,6 @@
 """Configuration management for PII Toolkit."""
 
+import argparse
 import csv
 import json
 import logging
@@ -7,7 +8,7 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Callable, Optional
 
 from gliner import GLiNER
 
@@ -42,9 +43,9 @@ class Config:
     stop_count: int | None = None
     
     # Dependencies
-    logger: logging.Logger = field(default=None)
-    csv_writer: Any = field(default=None)
-    csv_file_handle: Any = field(default=None)
+    logger: Optional[logging.Logger] = field(default=None)
+    csv_writer: Optional[csv.writer] = field(default=None)
+    csv_file_handle: Optional[object] = field(default=None)
     
     # Processing configuration
     regex_pattern: re.Pattern | None = field(default=None)
@@ -58,11 +59,11 @@ class Config:
     max_processing_time_seconds: int = 300
     
     # Translation function
-    _: Any = field(default=None)
+    _: Callable[[str], str] = field(default=lambda x: x)
     
     def __post_init__(self):
         """Initialize derived configuration after object creation."""
-        if self._ is None:
+        if self._ is None or not callable(self._):
             # Fallback if translation not set
             self._ = lambda x: x
     
@@ -115,8 +116,10 @@ class Config:
             return False, f"Path validation error: {str(e)}"
     
     @classmethod
-    def from_args(cls, args: Any, logger: logging.Logger, csv_writer: Any, 
-                  csv_file_handle: Any, translate_func: Any) -> "Config":
+    def from_args(cls, args: argparse.Namespace, logger: logging.Logger, 
+                  csv_writer: Optional[csv.writer], 
+                  csv_file_handle: Optional[object], 
+                  translate_func: Callable[[str], str]) -> "Config":
         """Create Config from command line arguments.
         
         Args:

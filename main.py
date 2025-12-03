@@ -295,36 +295,59 @@ else:
 
 # Show summary to console (unless in quiet mode)
 if not (args and hasattr(args, 'quiet') and args.quiet):
-    print("\n" + "=" * 50)
-    print(context._("Analysis Summary"))
-    print("=" * 50)
-    if context.statistics.start_time:
-        print(f"{context._('Started:')}     {context.statistics.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-    if context.statistics.end_time:
-        print(f"{context._('Finished:')}    {context.statistics.end_time.strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"{context._('Duration:')}    {context.statistics.duration}")
-    print()
-    print(context._("Statistics:"))
-    print(f"  {context._('Files scanned:')}      {context.statistics.total_files_found:,}")
-    print(f"  {context._('Files analyzed:')}     {context.statistics.files_processed:,}")
-    print(f"  {context._('Matches found:')}      {context.statistics.matches_found:,}")
-    print(f"  {context._('Errors:')}             {context.statistics.total_errors:,}")
-    print()
-    print(context._("Performance:"))
-    print(f"  {context._('Throughput:')}         {context.statistics.files_per_second} {context._('files/sec')}")
-    print()
-    if errors:
-        print(context._("Errors Summary:"))
-        for k, v in errors.items():
-            print(f"  {k}: {len(v)} {context._('files')}")
+    summary_format = getattr(args, 'summary_format', 'human') if args else 'human'
+    
+    if summary_format == 'json':
+        # Machine-readable JSON output
+        import json
+        summary_data = {
+            "start_time": context.statistics.start_time.isoformat() if context.statistics.start_time else None,
+            "end_time": context.statistics.end_time.isoformat() if context.statistics.end_time else None,
+            "duration_seconds": context.statistics.duration_seconds,
+            "statistics": {
+                "files_scanned": context.statistics.total_files_found,
+                "files_analyzed": context.statistics.files_processed,
+                "matches_found": context.statistics.matches_found,
+                "errors": context.statistics.total_errors,
+                "throughput_files_per_sec": context.statistics.files_per_second
+            },
+            "output_file": context.output_file_path or (constants.OUTPUT_DIR + "_findings." + context.output_format),
+            "output_directory": constants.OUTPUT_DIR,
+            "errors_summary": {k: len(v) for k, v in errors.items()} if errors else {}
+        }
+        print(json.dumps(summary_data, indent=2))
+    else:
+        # Human-readable output
+        print("\n" + "=" * 50)
+        print(context._("Analysis Summary"))
+        print("=" * 50)
+        if context.statistics.start_time:
+            print(f"{context._('Started:')}     {context.statistics.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        if context.statistics.end_time:
+            print(f"{context._('Finished:')}    {context.statistics.end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"{context._('Duration:')}    {context.statistics.duration}")
         print()
-    
-    # Get output file name
-    output_file = context.output_file_path or (constants.OUTPUT_DIR + "_findings." + context.output_format)
-    
-    print(f"{context._('Output file:')} {output_file}")
-    print(f"{context._('Output directory:')} {constants.OUTPUT_DIR}")
-    print("=" * 50 + "\n")
+        print(context._("Statistics:"))
+        print(f"  {context._('Files scanned:')}      {context.statistics.total_files_found:,}")
+        print(f"  {context._('Files analyzed:')}     {context.statistics.files_processed:,}")
+        print(f"  {context._('Matches found:')}      {context.statistics.matches_found:,}")
+        print(f"  {context._('Errors:')}             {context.statistics.total_errors:,}")
+        print()
+        print(context._("Performance:"))
+        print(f"  {context._('Throughput:')}         {context.statistics.files_per_second} {context._('files/sec')}")
+        print()
+        if errors:
+            print(context._("Errors Summary:"))
+            for k, v in errors.items():
+                print(f"  {k}: {len(v)} {context._('files')}")
+            print()
+        
+        # Get output file name
+        output_file = context.output_file_path or (constants.OUTPUT_DIR + "_findings." + context.output_format)
+        
+        print(f"{context._('Output file:')} {output_file}")
+        print(f"{context._('Output directory:')} {constants.OUTPUT_DIR}")
+        print("=" * 50 + "\n")
 
 # Exit with success code
 sys.exit(constants.EXIT_SUCCESS)

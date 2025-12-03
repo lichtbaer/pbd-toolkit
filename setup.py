@@ -4,10 +4,12 @@ import datetime
 import gettext
 import logging
 import os
+from pathlib import Path
 from typing import Optional
 
 import constants
 from core.context import ApplicationContext
+from core.config_loader import ConfigLoader
 from output.writers import create_output_writer, OutputWriter
 
 """ Setup language handling by referring to the environment variable LANGUAGE and loading the corresponding
@@ -65,6 +67,8 @@ def __setup_args(translate_func: gettext.NullTranslations) -> argparse.Namespace
                        help=translate_func("Directory for output files (default: ./output/)"))
     parser.add_argument("--format", choices=["csv", "json", "xlsx"], default="csv",
                        help=translate_func("Output format for findings (default: csv)"))
+    parser.add_argument("--summary-format", choices=["human", "json"], default="human",
+                       help=translate_func("Format for summary output (default: human). Use 'json' for machine-readable output."))
     parser.add_argument("--no-header", action="store_true",
                        help=translate_func("Don't include header row in CSV output (for backward compatibility)"))
     
@@ -74,7 +78,20 @@ def __setup_args(translate_func: gettext.NullTranslations) -> argparse.Namespace
     parser.add_argument("--quiet", "-q", action="store_true",
                        help=translate_func("Suppress all output except errors"))
     
-    return parser.parse_args()
+    parser.add_argument("--config", type=Path,
+                       help=translate_func("Path to configuration file (YAML or JSON). CLI arguments override config file values."))
+    
+    args = parser.parse_args()
+    
+    # Load config file if provided
+    if args.config:
+        try:
+            config_data = ConfigLoader.load_config(args.config)
+            args = ConfigLoader.merge_with_args(config_data, args)
+        except ValueError as e:
+            parser.error(f"Configuration file error: {e}")
+    
+    return args
 
 """ Setup logging.
 

@@ -1,0 +1,24 @@
+# Example configuration file for PII Toolkit
+# Save this as config.yaml and use with: python main.py --config config.yaml --path /data
+
+# Required: Path to scan (can be overridden via CLI)
+path: "/path/to/scan"
+
+# Analysis methods (at least one required)
+regex: true
+ner: true
+
+# Optional: Output configuration
+outname: "scan-2024"
+output_dir: "./output/"
+format: "json"  # csv, json, or xlsx
+no_header: false
+
+# Optional: Processing options
+whitelist: "./whitelist.txt"
+stop_count: null  # Set to number to limit files processed
+
+# Optional: Output options
+verbose: false
+quiet: false
+summary_format: "human"  # human or json

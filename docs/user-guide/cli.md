@@ -152,6 +152,68 @@ Display version information and exit.
 python main.py --version
 ```
 
+### `--config`
+
+Path to configuration file (YAML or JSON). CLI arguments override config file values.
+
+```bash
+python main.py --config config.yaml --path /data
+```
+
+**Example config.yaml:**
+```yaml
+path: "/path/to/scan"
+regex: true
+ner: true
+format: "json"
+verbose: false
+```
+
+**Example config.json:**
+```json
+{
+  "path": "/path/to/scan",
+  "regex": true,
+  "ner": true,
+  "format": "json"
+}
+```
+
+**Note**: CLI arguments take precedence over config file values. This allows you to use a config file as a base and override specific values via CLI.
+
+### `--summary-format`
+
+Format for summary output. Use `json` for machine-readable output.
+
+```bash
+python main.py --path /data --regex --summary-format json
+```
+
+**Options:**
+- `human` (default): Human-readable text output
+- `json`: Machine-readable JSON output
+
+**Example JSON output:**
+```json
+{
+  "start_time": "2024-01-01T10:00:00",
+  "end_time": "2024-01-01T10:05:00",
+  "duration_seconds": 300.0,
+  "statistics": {
+    "files_scanned": 1000,
+    "files_analyzed": 950,
+    "matches_found": 42,
+    "errors": 2,
+    "throughput_files_per_sec": 3.17
+  },
+  "output_file": "./output/2024-01-01 10-00-00_findings.csv",
+  "output_directory": "./output/",
+  "errors_summary": {
+    "Permission denied": 2
+  }
+}
+```
+
 ## Environment Variables
 
 ### `LANGUAGE`

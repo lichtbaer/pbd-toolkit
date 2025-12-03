@@ -1,8 +1,10 @@
 """Application context for dependency injection."""
 
+import argparse
+import csv
 import logging
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 from config import Config
 from core.statistics import Statistics
@@ -31,15 +33,15 @@ class ApplicationContext:
     translate_func: Callable[[str], str] = lambda x: x
     
     # Backward compatibility: CSV writer and file handle
-    csv_writer: Any = None
-    csv_file_handle: Any = None
+    csv_writer: Optional[csv.writer] = None
+    csv_file_handle: Optional[object] = None
     
     # Output configuration
     output_format: str = "csv"
     output_file_path: Optional[str] = None
     
     @classmethod
-    def from_cli_args(cls, args: Any, config: Config, logger: logging.Logger,
+    def from_cli_args(cls, args: argparse.Namespace, config: Config, logger: logging.Logger,
                      statistics: Statistics, match_container: PiiMatchContainer,
                      output_writer: Optional[OutputWriter] = None,
                      translate_func: Optional[Callable[[str], str]] = None) -> "ApplicationContext":

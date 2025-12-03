@@ -43,8 +43,8 @@ class TestPiiMatchContainer:
     def test_by_file_grouping(self):
         """Test grouping matches by file."""
         container = PiiMatchContainer()
-        # Note: We can't easily test __add_match directly as it requires globals.csvwriter
-        # This test would need mocking or refactoring
+        # Test grouping by file (requires matches to be added first)
+        # This is tested in test_add_matches_regex and test_add_matches_ner
     
     def test_whitelist_compilation(self):
         """Test that whitelist pattern is compiled correctly."""
@@ -68,12 +68,13 @@ class TestPiiMatchContainer:
         """Test adding regex matches."""
         container = PiiMatchContainer()
         
-        # Mock csvwriter to avoid file I/O in tests
+        # Set CSV writer for testing
         mock_writer = []
         def mock_writerow(row):
             mock_writer.append(row)
         
-        monkeypatch.setattr("globals.csvwriter", type('obj', (object,), {'writerow': mock_writerow})())
+        container.set_csv_writer(type('obj', (object,), {'writerow': mock_writerow})())
+        container.set_output_format("csv")
         
         # Create a mock regex match
         pattern = re.compile(r"(test@\w+\.com)")
