@@ -54,7 +54,31 @@ def __setup_args(translate_func: gettext.NullTranslations) -> argparse.Namespace
     parser.add_argument("--regex", action="store_true", 
                        help=translate_func("Use regular expressions for analysis"))
     parser.add_argument("--ner", action="store_true", 
-                       help=translate_func("Use AI-based Named Entity Recognition for analysis"))
+                       help=translate_func("Use AI-based Named Entity Recognition for analysis (GLiNER)"))
+    
+    # Additional NER engines
+    parser.add_argument("--spacy-ner", action="store_true",
+                       help=translate_func("Use spaCy NER models for detection"))
+    parser.add_argument("--spacy-model", default="de_core_news_lg",
+                       choices=["de_core_news_sm", "de_core_news_md", "de_core_news_lg"],
+                       help=translate_func("spaCy model to use (default: de_core_news_lg)"))
+    
+    # LLM engines
+    parser.add_argument("--ollama", action="store_true",
+                       help=translate_func("Use Ollama LLM for detection"))
+    parser.add_argument("--ollama-url", default="http://localhost:11434",
+                       help=translate_func("Ollama API base URL (default: http://localhost:11434)"))
+    parser.add_argument("--ollama-model", default="llama3.2",
+                       help=translate_func("Ollama model to use (default: llama3.2)"))
+    
+    parser.add_argument("--openai-compatible", action="store_true",
+                       help=translate_func("Use OpenAI-compatible API for detection"))
+    parser.add_argument("--openai-api-base", default="https://api.openai.com/v1",
+                       help=translate_func("OpenAI-compatible API base URL"))
+    parser.add_argument("--openai-api-key",
+                       help=translate_func("OpenAI API key (or set OPENAI_API_KEY env var)"))
+    parser.add_argument("--openai-model", default="gpt-3.5-turbo",
+                       help=translate_func("OpenAI model to use (default: gpt-3.5-turbo)"))
     
     # Optional arguments
     parser.add_argument("--outname", action="store", 

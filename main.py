@@ -85,13 +85,21 @@ if not is_valid:
     print(f"Invalid path: {error_msg}", file=sys.stderr)
     sys.exit(constants.EXIT_INVALID_ARGUMENTS)
 
-if not config.use_ner and not config.use_regex:
-    print(translate_func("Regex- and/or NER-based analysis must be turned on."), file=sys.stderr)
+# Check if at least one detection method is enabled
+enabled_methods = [
+    config.use_regex,
+    config.use_ner,
+    config.use_spacy_ner,
+    config.use_ollama,
+    config.use_openai_compatible
+]
+if not any(enabled_methods):
+    print(translate_func("At least one detection method must be enabled (--regex, --ner, --spacy-ner, --ollama, or --openai-compatible)."), file=sys.stderr)
     sys.exit(constants.EXIT_INVALID_ARGUMENTS)
 
-# Validate that NER model is loaded if NER is enabled
+# Validate that GLiNER model is loaded if GLiNER is enabled
 if config.use_ner and config.ner_model is None:
-    print(translate_func("NER is enabled but model could not be loaded. Please check the error messages above."), file=sys.stderr)
+    print(translate_func("GLiNER NER is enabled but model could not be loaded. Please check the error messages above."), file=sys.stderr)
     sys.exit(constants.EXIT_CONFIGURATION_ERROR)
 
 # Initialize components

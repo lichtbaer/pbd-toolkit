@@ -1,6 +1,6 @@
 # PII Detection Methods
 
-The PII Toolkit supports two complementary detection methods that can be used independently or together.
+The PII Toolkit supports multiple detection engines that can be used independently or in combination for comprehensive PII detection.
 
 ## Regular Expression-Based Detection
 
@@ -194,7 +194,7 @@ Regex patterns are defined in `config_types.json`. Each pattern includes:
 
 ## AI-Based Named Entity Recognition (NER)
 
-AI-powered detection using the GLiNER (Generalist and Lightweight model for Named Entity Recognition) model.
+AI-powered detection using multiple analytical engines. The toolkit supports several detection engines that can be used individually or in combination.
 
 ### Usage
 
@@ -310,12 +310,121 @@ NER labels are defined in `config_types.json`. Each label includes:
 - **False positives/negatives**: AI models are not perfect
 - **Experimental features**: Some entity types have poor quality
 
-## Combined Usage
+## Additional Detection Engines
 
-Use both methods together for comprehensive detection:
+### spaCy NER Engine
+
+German-specific Named Entity Recognition using spaCy models optimized for German text.
+
+**Usage**:
 
 ```bash
+python main.py --path /data --spacy-ner --spacy-model de_core_news_lg
+```
+
+**Available Models**:
+- `de_core_news_sm` - Small model (fast, lower accuracy)
+- `de_core_news_md` - Medium model (balanced)
+- `de_core_news_lg` - Large model (slower, higher accuracy, default)
+
+**Installation**:
+
+```bash
+pip install spacy
+python -m spacy download de_core_news_lg
+```
+
+**Advantages**:
+- Optimized for German text
+- Fast inference
+- Local execution (no API calls)
+- Good accuracy for German names and locations
+
+**Limitations**:
+- German-focused (may not work well for other languages)
+- Requires model download (~500MB for large model)
+
+### Ollama LLM Engine
+
+Local LLM-based detection using Ollama. Runs completely offline.
+
+**Usage**:
+
+```bash
+python main.py --path /data --ollama --ollama-model llama3.2
+```
+
+**Configuration**:
+- `--ollama-url`: Ollama API base URL (default: `http://localhost:11434`)
+- `--ollama-model`: Model to use (default: `llama3.2`)
+
+**Installation**:
+
+1. Install Ollama: https://ollama.ai
+2. Download a model:
+   ```bash
+   ollama pull llama3.2
+   ollama pull mistral
+   ```
+
+**Advantages**:
+- Completely local (no data leaves your system)
+- No API costs
+- Supports various models
+- Good for complex PII detection
+
+**Limitations**:
+- Requires Ollama server running
+- Slower than specialized NER models
+- Requires significant local resources
+
+### OpenAI-Compatible API Engine
+
+Detection using OpenAI API or compatible endpoints (e.g., Anthropic, local servers).
+
+**Usage**:
+
+```bash
+python main.py --path /data --openai-compatible \
+    --openai-api-key YOUR_KEY \
+    --openai-model gpt-3.5-turbo
+```
+
+**Configuration**:
+- `--openai-api-base`: API base URL (default: `https://api.openai.com/v1`)
+- `--openai-api-key`: API key (or set `OPENAI_API_KEY` environment variable)
+- `--openai-model`: Model to use (default: `gpt-3.5-turbo`)
+
+**Advantages**:
+- High-quality detection
+- Supports various providers
+- Good for complex scenarios
+
+**Limitations**:
+- Requires API key and internet connection
+- API costs apply
+- Slower than local models
+- Data sent to external service
+
+## Combined Usage
+
+Use multiple engines together for comprehensive detection:
+
+```bash
+# Basic combination
 python main.py --path /data --regex --ner
+
+# All engines
+python main.py --path /data \
+    --regex \
+    --ner \
+    --spacy-ner --spacy-model de_core_news_lg \
+    --ollama --ollama-model llama3.2
+
+# German-focused
+python main.py --path /data \
+    --regex \
+    --spacy-ner --spacy-model de_core_news_lg
 ```
 
 ### When to Use Each Method
@@ -340,11 +449,34 @@ python main.py --path /data --regex --ner
 
 ## Performance Comparison
 
-| Method | Speed | Memory | CPU/GPU | Accuracy (Structured) | Accuracy (Unstructured) |
-|--------|-------|--------|---------|----------------------|------------------------|
-| Regex | Very Fast | Low | Low | High | Low |
-| NER | Slow | High | High | Medium | High |
-| Both | Slow | High | High | High | High |
+| Engine | Speed | Memory | CPU/GPU | Accuracy (Structured) | Accuracy (Unstructured) | Local | Cost |
+|--------|-------|--------|---------|----------------------|------------------------|-------|------|
+| Regex | Very Fast | Low | Low | High | Low | Yes | Free |
+| GLiNER | Slow | High | High | Medium | High | Yes | Free |
+| spaCy | Medium | Medium | Medium | Medium | High (German) | Yes | Free |
+| Ollama | Very Slow | Very High | Very High | Medium | High | Yes | Free |
+| OpenAI | Slow | Low | Low | Medium | Very High | No | Paid |
+
+## Engine Selection Guide
+
+**For German text analysis**:
+- Use `--spacy-ner` with `de_core_news_lg` for best German-specific results
+- Combine with `--regex` for structured data
+
+**For maximum privacy**:
+- Use `--ollama` for completely local processing
+- No data leaves your system
+
+**For best accuracy**:
+- Use `--openai-compatible` with GPT-4
+- Combine with `--regex` for structured patterns
+
+**For speed**:
+- Use `--regex` only for fastest results
+- Add `--spacy-ner` for German names/locations
+
+**For comprehensive coverage**:
+- Combine multiple engines: `--regex --ner --spacy-ner`
 
 ## Best Practices
 

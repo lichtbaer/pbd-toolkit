@@ -40,6 +40,10 @@ class PiiMatch:
     type: str
     # Only for PII found via AI-assisted NER: The likelihood with which a PII string represents a specific PII type, self-assessed by the model used.
     ner_score: float | None = None
+    # Name of the engine that found this match (e.g., "regex", "gliner", "spacy-ner")
+    engine: str | None = None
+    # Additional engine-specific metadata
+    metadata: dict = field(default_factory=dict)
 
 
 """ Class for holding all PII matches found. The aim is to provide helpful functions for processing
@@ -99,7 +103,8 @@ class PiiMatchContainer:
 
     """ Helper function for adding matches to the matches container. This generic, internal method is
         called by the other methods intended for public use, its aim is to reduce redundancy. """
-    def __add_match(self, text: str, file: str, type: str, ner_score: float | None = None) -> None:
+    def __add_match(self, text: str, file: str, type: str, ner_score: float | None = None, 
+                    engine: str | None = None, metadata: dict | None = None) -> None:
             whitelisted: bool = False
 
             # Use compiled regex pattern for efficient whitelist checking
@@ -110,11 +115,22 @@ class PiiMatchContainer:
                     whitelisted = True
 
             if not whitelisted:
-                pm: PiiMatch = PiiMatch(text=text, file=file, type=type, ner_score=ner_score)
+                pm: PiiMatch = PiiMatch(
+                    text=text, 
+                    file=file, 
+                    type=type, 
+                    ner_score=ner_score,
+                    engine=engine,
+                    metadata=metadata or {}
+                )
                 self.pii_matches.append(pm)
                 # Only write directly for CSV format
                 if self._output_format == "csv" and self._csv_writer:
-                    self._csv_writer.writerow([pm.text, pm.file, pm.type, pm.ner_score])
+                    # Include engine in CSV output if available
+                    row = [pm.text, pm.file, pm.type, pm.ner_score]
+                    if pm.engine:
+                        row.append(pm.engine)
+                    self._csv_writer.writerow(row)
 
     """ Helper function for adding regex-based matches to the matches container. """
     def add_matches_regex(self, matches: re.Match | None, path: str) -> None:
@@ -143,7 +159,12 @@ class PiiMatchContainer:
                         # If validator module not available, skip validation
                         pass
 
-            self.__add_match(text=matches.group(), file=path, type=type)
+            self.__add_match(
+                text=matches.group(), 
+                file=path, 
+                type=type, 
+                engine="regex"
+            )
 
 
     """ Helper function for adding AI-based NER matches to the matches container. """
@@ -154,4 +175,29 @@ class PiiMatchContainer:
 
                 type = config_ainer_sorted[match["label"]]["label"]
 
-                self.__add_match(text=match["text"], file=path, type=type, ner_score=match["score"])
+                self.__add_match(
+                    text=match["text"], 
+                    file=path, 
+                    type=type, 
+                    ner_score=match["score"],
+                    engine="gliner",
+                    metadata={"gliner_label": match.get("label", "")}
+                )
+    
+    """ Helper function for adding detection results from engines. """
+    def add_detection_results(self, results: list, file_path: str) -> None:
+        """Add detection results from engine registry.
+        
+        Args:
+            results: List of DetectionResult objects
+            file_path: Path to the file where matches were found
+        """
+        for result in results:
+            self.__add_match(
+                text=result.text,
+                file=file_path,
+                type=result.entity_type,
+                ner_score=result.confidence,
+                engine=result.engine_name,
+                metadata=result.metadata
+            )
