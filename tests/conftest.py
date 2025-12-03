@@ -4,6 +4,8 @@ import os
 import tempfile
 import pytest
 from pathlib import Path
+from unittest.mock import Mock
+from config import Config
 
 
 @pytest.fixture
@@ -48,3 +50,25 @@ def empty_whitelist():
 def sample_whitelist():
     """Return a sample whitelist."""
     return ["test@example.com", "info@"]
+
+
+@pytest.fixture
+def mock_config():
+    """Create a mock Config object for testing."""
+    config = Mock(spec=Config)
+    config.verbose = False
+    config.stop_count = None
+    config.logger = Mock()
+    config.logger.debug = Mock()
+    config.logger.warning = Mock()
+    config.logger.error = Mock()
+    config.logger.info = Mock()
+    
+    # Mock validate_file_path to always return valid
+    def validate_file_path(path):
+        return True, None
+    
+    config.validate_file_path = validate_file_path
+    config.max_file_size_mb = 500.0
+    
+    return config

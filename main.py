@@ -15,6 +15,7 @@ from matches import PiiMatchContainer
 import constants
 import globals as g
 from core.exceptions import ConfigurationError, ProcessingError, OutputError
+from core.scanner import FileScanner, FileInfo
 from output.writers import OutputWriter
 from file_processors import (
     BaseFileProcessor,
@@ -24,19 +25,8 @@ from file_processors import (
 )
 
 
-""" Used to count how many files per extension have been found. This does *not* only count supported/qualified
-    extensions but all of the ones contained in the root directory searched.
-    Example: {".pdf": 42} indicates that there were 42 files with the extension ".pdf" in the root directory
-    and its subdirectories. """
-exts_found: dict[str, int] = {}
-
-""" Used to hold information about special occurrences during analysis, such as files that could not be
-    read due to an access violation or data corruption. The key contains the type of error, the value
-    contains all files that produced that error.
-    Example: { "file is password protected": ["a.pdf", "b.docx"]}"""
+# Error tracking (will be replaced by Scanner in future)
 errors: dict[str, list[str]] = {}
-
-""" Helper function for adding errors to the above dict without duplicating this branch all over the code. """
 _error_lock = threading.Lock()
 
 def add_error(msg: str, path: str) -> None:
@@ -47,6 +37,9 @@ def add_error(msg: str, path: str) -> None:
     Args:
         msg: Error message describing the type of error
         path: File path where the error occurred
+    
+    Note: This function is kept for backward compatibility during refactoring.
+          Errors are now also tracked by FileScanner.
     """
     with _error_lock:
         if msg not in errors:
@@ -222,125 +215,81 @@ def process_text(text: str, file_path: str, pmc: PiiMatchContainer, config: Conf
 
 """ MAIN PROGRAM LOOP """
 
-# Skip file counting if stop_count is set (saves time)
-# For large directories, counting can be slow, so we estimate dynamically
-total_files_estimate = None
-if not config.stop_count:
-    # Only count files if verbose mode (for accurate progress)
-    # Otherwise, use dynamic estimation during processing
-    if config.verbose:
-        config.logger.debug("Counting files for progress estimation...")
-        total_files_estimate = sum(
-            len(files) for _, _, files in os.walk(config.path)
-        )
-        config.logger.debug(f"Estimated total files: {total_files_estimate}")
+# Initialize scanner
+scanner = FileScanner(config)
 
-# Initialize progress bar
-progress_bar = None
-if config.verbose or not config.stop_count:
-    # Only show progress bar in verbose mode or for long-running operations
-    progress_bar = tqdm(
-        total=total_files_estimate if total_files_estimate else None,
-        desc="Processing files",
-        unit="file",
-        disable=not config.verbose and config.stop_count is not None
-    )
-
-# walk all files and subdirs of the root path
-for root, dirs, files in os.walk(config.path):
-    for filename in files:
-        num_files_all += 1
-
-        full_path: str = os.path.join(root, filename)
-        ext: str = os.path.splitext(full_path)[1].lower()
-
-        # keep count of how many files have been found per extension
-        # Thread-safe extension counting
-        with _error_lock:  # Reuse lock for extension counting
-            exts_found[ext] = exts_found.get(ext, 0) + 1
-
-        # Validate file path (path traversal protection)
-        is_valid, error_msg = config.validate_file_path(full_path)
-        if not is_valid:
-            if error_msg and "Path traversal" in error_msg:
-                config.logger.warning(f"Security: {error_msg} - {full_path}")
-                add_error(error_msg, full_path)
-                continue
-            elif error_msg and "too large" in error_msg:
-                config.logger.warning(f"{error_msg} - {full_path}")
-                add_error(error_msg, full_path)
-                continue
-        
-        # Log file processing in verbose mode
-        if config.verbose:
-            try:
-                file_size_mb = os.path.getsize(full_path) / (1024 * 1024)
-                config.logger.debug(f"Processing file {num_files_all}: {full_path} ({file_size_mb:.2f} MB)")
-            except OSError:
-                config.logger.debug(f"Processing file {num_files_all}: {full_path} (size unknown)")
-
-        # Get appropriate processor for this file type
-        processor = get_file_processor(ext, full_path)
-        
-        if processor is not None:
-            try:
-                num_files_checked += 1
-                
-                # PDF processor yields text chunks, others return full text
-                if isinstance(processor, PdfProcessor):
-                    for text_chunk in processor.extract_text(full_path):
-                        if text_chunk.strip():  # Only process non-empty chunks
-                            process_text(text_chunk, full_path, pmc, config)
-                else:
-                    text = processor.extract_text(full_path)
-                    if text.strip():  # Only process if there's actual text
-                        process_text(text, full_path, pmc, config)
-                
-                if config.verbose:
-                    config.logger.debug(f"Successfully processed: {full_path}")
-                    
-            except docx.opc.exceptions.PackageNotFoundError:
-                error_msg = "DOCX Empty Or Protected"
-                config.logger.warning(f"{error_msg}: {full_path}")
-                add_error(error_msg, full_path)
-            except UnicodeDecodeError:
-                error_msg = "Unicode Decode Error"
-                config.logger.warning(f"{error_msg}: {full_path}")
-                add_error(error_msg, full_path)
-            except PermissionError:
-                error_msg = "Permission denied"
-                config.logger.warning(f"{error_msg}: {full_path}")
-                add_error(error_msg, full_path)
-            except FileNotFoundError:
-                error_msg = "File not found"
-                config.logger.warning(f"{error_msg}: {full_path}")
-                add_error(error_msg, full_path)
-            except Exception as excpt:
-                error_msg = f"Unexpected error: {type(excpt).__name__}: {str(excpt)}"
-                config.logger.error(f"{error_msg}: {full_path}", exc_info=config.verbose)
-                add_error(error_msg, full_path)
-        else:
+# Define callback function for processing each file
+# This will be moved to a separate Processor class in the next step
+def process_file(file_info: FileInfo) -> None:
+    """Process a single file: extract text and detect PII.
+    
+    Args:
+        file_info: FileInfo object with file path and metadata
+    """
+    full_path = file_info.path
+    ext = file_info.extension
+    
+    # Get appropriate processor for this file type
+    processor = get_file_processor(ext, full_path)
+    
+    if processor is not None:
+        try:
+            # PDF processor yields text chunks, others return full text
+            if isinstance(processor, PdfProcessor):
+                for text_chunk in processor.extract_text(full_path):
+                    if text_chunk.strip():  # Only process non-empty chunks
+                        process_text(text_chunk, full_path, pmc, config)
+            else:
+                text = processor.extract_text(full_path)
+                if text.strip():  # Only process if there's actual text
+                    process_text(text, full_path, pmc, config)
+            
             if config.verbose:
-                config.logger.debug(f"Skipping unsupported file type: {full_path}")
+                config.logger.debug(f"Successfully processed: {full_path}")
+                
+        except docx.opc.exceptions.PackageNotFoundError:
+            error_msg = "DOCX Empty Or Protected"
+            config.logger.warning(f"{error_msg}: {full_path}")
+            add_error(error_msg, full_path)
+        except UnicodeDecodeError:
+            error_msg = "Unicode Decode Error"
+            config.logger.warning(f"{error_msg}: {full_path}")
+            add_error(error_msg, full_path)
+        except PermissionError:
+            error_msg = "Permission denied"
+            config.logger.warning(f"{error_msg}: {full_path}")
+            add_error(error_msg, full_path)
+        except FileNotFoundError:
+            error_msg = "File not found"
+            config.logger.warning(f"{error_msg}: {full_path}")
+            add_error(error_msg, full_path)
+        except Exception as excpt:
+            error_msg = f"Unexpected error: {type(excpt).__name__}: {str(excpt)}"
+            config.logger.error(f"{error_msg}: {full_path}", exc_info=config.verbose)
+            add_error(error_msg, full_path)
+    else:
+        if config.verbose:
+            config.logger.debug(f"Skipping unsupported file type: {full_path}")
 
-        # Update progress bar
-        if progress_bar is not None:
-            progress_bar.update(1)
-            progress_bar.set_postfix({
-                'checked': num_files_checked,
-                'errors': len(errors),
-                'matches': len(pmc.pii_matches)
-            })
+# Scan directory and process files
+scan_result = scanner.scan(
+    path=config.path,
+    file_callback=process_file,
+    stop_count=config.stop_count
+)
 
-        if config.stop_count and num_files_all == config.stop_count:
-            break
-    if config.stop_count and num_files_all == config.stop_count:
-        break
+# Extract results
+num_files_all = scan_result.total_files_found
+num_files_checked = scan_result.files_processed
+exts_found = scan_result.extension_counts
 
-# Close progress bar
-if progress_bar is not None:
-    progress_bar.close()
+# Merge scanner errors with existing errors
+for error_type, file_list in scan_result.errors.items():
+    if error_type not in errors:
+        errors[error_type] = []
+    errors[error_type].extend(file_list)
 
+# Calculate timing
 time_end = datetime.datetime.now()
 time_diff = time_end - time_start
 
