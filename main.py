@@ -16,13 +16,10 @@ import constants
 import globals as g
 from core.exceptions import ConfigurationError, ProcessingError, OutputError
 from core.scanner import FileScanner, FileInfo
+from core.processor import TextProcessor
 from output.writers import OutputWriter
-from file_processors import (
-    BaseFileProcessor,
-    FileProcessorRegistry,
-    PdfProcessor,
-    TextProcessor,
-)
+# File processor imports no longer needed in main.py
+# They are now used in core.processor
 
 
 # Error tracking (will be replaced by Scanner in future)
@@ -130,87 +127,11 @@ num_files_all: int = 0
 num_files_checked: int = 0
 
 
-# Use FileProcessorRegistry for automatic processor discovery
-# All processors are automatically registered when file_processors module is imported
-def get_file_processor(extension: str, file_path: str):
-    """Get the appropriate file processor for a given file extension.
-    
-    Uses FileProcessorRegistry for automatic processor discovery.
-    Processors are stateless and thread-safe for reading operations.
-    
-    Args:
-        extension: File extension (e.g., '.pdf', '.docx')
-        file_path: Full path to the file (needed for text file detection)
-        
-    Returns:
-        Appropriate file processor instance or None if no processor available
-    """
-    return FileProcessorRegistry.get_processor(extension, file_path)
+# File processor selection is now handled in core.processor.TextProcessor
 
 
-# Thread lock for thread-safe operations
-_process_lock = threading.Lock()
-# Separate lock for NER model calls (GLiNER may not be thread-safe)
-_ner_lock = threading.Lock()
-
-def process_text(text: str, file_path: str, pmc: PiiMatchContainer, config: Config) -> None:
-    """Process text content with regex and/or NER-based PII detection.
-    
-    Args:
-        text: Text content to analyze
-        file_path: Path to the file containing the text
-        pmc: PiiMatchContainer instance for storing matches
-        config: Configuration object with all settings
-    """
-    if config.use_regex and config.regex_pattern:
-        # Use finditer to find ALL matches, not just the first one
-        for match in config.regex_pattern.finditer(text):
-            with _process_lock:
-                pmc.add_matches_regex(match, file_path)
-    
-    if config.use_ner and config.ner_model:
-        start_time = time.time()
-        try:
-            # Serialize NER model calls to ensure thread-safety
-            # GLiNER model may not be thread-safe, so we use a separate lock
-            with _ner_lock:
-                entities = config.ner_model.predict_entities(
-                    text, config.ner_labels, threshold=config.ner_threshold
-                )
-            processing_time = time.time() - start_time
-            
-            # Update statistics
-            with _process_lock:
-                config.ner_stats.total_chunks_processed += 1
-                config.ner_stats.total_processing_time += processing_time
-                config.ner_stats.total_entities_found += len(entities) if entities else 0
-                
-                # Count entities by type
-                if entities:
-                    for entity in entities:
-                        entity_type = entity.get("label", "unknown")
-                        config.ner_stats.entities_by_type[entity_type] = \
-                            config.ner_stats.entities_by_type.get(entity_type, 0) + 1
-                
-                pmc.add_matches_ner(entities, file_path)
-        except RuntimeError as e:
-            # GPU/Model-spezifische Fehler
-            config.ner_stats.errors += 1
-            config.logger.warning(f"NER processing error for {file_path}: {e}")
-            add_error("NER processing error", file_path)
-        except MemoryError as e:
-            # Speicherprobleme
-            config.ner_stats.errors += 1
-            config.logger.error(f"Out of memory during NER processing: {file_path}")
-            add_error("NER memory error", file_path)
-        except Exception as e:
-            # Unerwartete Fehler
-            config.ner_stats.errors += 1
-            config.logger.error(
-                f"Unexpected NER error for {file_path}: {type(e).__name__}: {e}",
-                exc_info=config.verbose
-            )
-            add_error(f"NER error: {type(e).__name__}", file_path)
+# Initialize text processor for PII detection
+text_processor = TextProcessor(config, pmc)
 
 
 """ MAIN PROGRAM LOOP """
@@ -219,57 +140,13 @@ def process_text(text: str, file_path: str, pmc: PiiMatchContainer, config: Conf
 scanner = FileScanner(config)
 
 # Define callback function for processing each file
-# This will be moved to a separate Processor class in the next step
 def process_file(file_info: FileInfo) -> None:
     """Process a single file: extract text and detect PII.
     
     Args:
         file_info: FileInfo object with file path and metadata
     """
-    full_path = file_info.path
-    ext = file_info.extension
-    
-    # Get appropriate processor for this file type
-    processor = get_file_processor(ext, full_path)
-    
-    if processor is not None:
-        try:
-            # PDF processor yields text chunks, others return full text
-            if isinstance(processor, PdfProcessor):
-                for text_chunk in processor.extract_text(full_path):
-                    if text_chunk.strip():  # Only process non-empty chunks
-                        process_text(text_chunk, full_path, pmc, config)
-            else:
-                text = processor.extract_text(full_path)
-                if text.strip():  # Only process if there's actual text
-                    process_text(text, full_path, pmc, config)
-            
-            if config.verbose:
-                config.logger.debug(f"Successfully processed: {full_path}")
-                
-        except docx.opc.exceptions.PackageNotFoundError:
-            error_msg = "DOCX Empty Or Protected"
-            config.logger.warning(f"{error_msg}: {full_path}")
-            add_error(error_msg, full_path)
-        except UnicodeDecodeError:
-            error_msg = "Unicode Decode Error"
-            config.logger.warning(f"{error_msg}: {full_path}")
-            add_error(error_msg, full_path)
-        except PermissionError:
-            error_msg = "Permission denied"
-            config.logger.warning(f"{error_msg}: {full_path}")
-            add_error(error_msg, full_path)
-        except FileNotFoundError:
-            error_msg = "File not found"
-            config.logger.warning(f"{error_msg}: {full_path}")
-            add_error(error_msg, full_path)
-        except Exception as excpt:
-            error_msg = f"Unexpected error: {type(excpt).__name__}: {str(excpt)}"
-            config.logger.error(f"{error_msg}: {full_path}", exc_info=config.verbose)
-            add_error(error_msg, full_path)
-    else:
-        if config.verbose:
-            config.logger.debug(f"Skipping unsupported file type: {full_path}")
+    text_processor.process_file(file_info, error_callback=add_error)
 
 # Scan directory and process files
 scan_result = scanner.scan(
