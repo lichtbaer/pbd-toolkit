@@ -9,6 +9,7 @@ import docx.opc.exceptions
 from config import Config
 from core.exceptions import ProcessingError
 from core.scanner import FileInfo
+from core.statistics import Statistics
 from file_processors import BaseFileProcessor, FileProcessorRegistry, PdfProcessor
 from matches import PiiMatchContainer
 
@@ -23,15 +24,18 @@ class TextProcessor:
     - Error handling
     """
     
-    def __init__(self, config: Config, match_container: PiiMatchContainer):
+    def __init__(self, config: Config, match_container: PiiMatchContainer, 
+                 statistics: Optional[Statistics] = None):
         """Initialize text processor.
         
         Args:
             config: Configuration object with detection settings
             match_container: Container for storing detected PII matches
+            statistics: Optional statistics tracker (uses config.ner_stats if None)
         """
         self.config = config
         self.match_container = match_container
+        self.statistics = statistics
         
         # Thread locks for thread-safe operations
         self._process_lock = threading.Lock()
@@ -64,9 +68,16 @@ class TextProcessor:
                 
                 # Update statistics
                 with self._process_lock:
+                    # Update NER stats (backward compatibility with config.ner_stats)
                     self.config.ner_stats.total_chunks_processed += 1
                     self.config.ner_stats.total_processing_time += processing_time
                     self.config.ner_stats.total_entities_found += len(entities) if entities else 0
+                    
+                    # Update central statistics if available
+                    if self.statistics:
+                        self.statistics.ner_stats.total_chunks_processed += 1
+                        self.statistics.ner_stats.total_processing_time += processing_time
+                        self.statistics.ner_stats.total_entities_found += len(entities) if entities else 0
                     
                     # Count entities by type
                     if entities:
@@ -74,21 +85,31 @@ class TextProcessor:
                             entity_type = entity.get("label", "unknown")
                             self.config.ner_stats.entities_by_type[entity_type] = \
                                 self.config.ner_stats.entities_by_type.get(entity_type, 0) + 1
+                            
+                            if self.statistics:
+                                self.statistics.ner_stats.entities_by_type[entity_type] = \
+                                    self.statistics.ner_stats.entities_by_type.get(entity_type, 0) + 1
                     
                     self.match_container.add_matches_ner(entities, file_path)
             except RuntimeError as e:
                 # GPU/Model-specific errors
                 self.config.ner_stats.errors += 1
+                if self.statistics:
+                    self.statistics.ner_stats.errors += 1
                 self.config.logger.warning(f"NER processing error for {file_path}: {e}")
                 self._add_error("NER processing error", file_path)
             except MemoryError as e:
                 # Memory issues
                 self.config.ner_stats.errors += 1
+                if self.statistics:
+                    self.statistics.ner_stats.errors += 1
                 self.config.logger.error(f"Out of memory during NER processing: {file_path}")
                 self._add_error("NER memory error", file_path)
             except Exception as e:
                 # Unexpected errors
                 self.config.ner_stats.errors += 1
+                if self.statistics:
+                    self.statistics.ner_stats.errors += 1
                 self.config.logger.error(
                     f"Unexpected NER error for {file_path}: {type(e).__name__}: {e}",
                     exc_info=self.config.verbose

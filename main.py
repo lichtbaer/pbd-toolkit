@@ -17,6 +17,7 @@ import globals as g
 from core.exceptions import ConfigurationError, ProcessingError, OutputError
 from core.scanner import FileScanner, FileInfo
 from core.processor import TextProcessor
+from core.statistics import Statistics
 from output.writers import OutputWriter
 # File processor imports no longer needed in main.py
 # They are now used in core.processor
@@ -90,9 +91,9 @@ if config.whitelist_path and os.path.isfile(config.whitelist_path):
     # Pre-compile whitelist pattern for better performance
     pmc._compile_whitelist_pattern()
 
-time_start: datetime.datetime = datetime.datetime.now()
-time_end: datetime.datetime
-time_diff: datetime.timedelta
+# Initialize statistics tracker
+statistics = Statistics()
+statistics.start()
 
 config.logger.info(config._("Analysis"))
 config.logger.info("====================\n")
@@ -131,7 +132,7 @@ num_files_checked: int = 0
 
 
 # Initialize text processor for PII detection
-text_processor = TextProcessor(config, pmc)
+text_processor = TextProcessor(config, pmc, statistics=statistics)
 
 
 """ MAIN PROGRAM LOOP """
@@ -155,34 +156,38 @@ scan_result = scanner.scan(
     stop_count=config.stop_count
 )
 
-# Extract results
-num_files_all = scan_result.total_files_found
-num_files_checked = scan_result.files_processed
-exts_found = scan_result.extension_counts
+# Update statistics from scan result
+statistics.update_from_scan_result(
+    total_files=scan_result.total_files_found,
+    files_processed=scan_result.files_processed,
+    extension_counts=scan_result.extension_counts,
+    errors=scan_result.errors
+)
 
-# Merge scanner errors with existing errors
+# Merge scanner errors with existing errors (for backward compatibility)
 for error_type, file_list in scan_result.errors.items():
     if error_type not in errors:
         errors[error_type] = []
     errors[error_type].extend(file_list)
 
-# Calculate timing
-time_end = datetime.datetime.now()
-time_diff = time_end - time_start
+# Update match count in statistics
+statistics.matches_found = len(pmc.pii_matches)
 
-# Calculate performance metrics
-time_seconds = max(time_diff.total_seconds(), 0.001)  # Avoid division by zero
-files_per_second = round(num_files_checked / time_seconds, 2)
+# Stop timing
+statistics.stop()
+
+# Calculate total errors (for backward compatibility with errors dict)
 total_errors = sum(len(v) for v in errors.values())
+statistics.total_errors = total_errors
 
 """ Output all results. """
 # Always log detailed information
 config.logger.info(config._("Statistics"))
 config.logger.info("----------\n")
 config.logger.info(config._("The following file extensions have been found:"))
-for k, v in sorted(exts_found.items(), key=lambda item: item[1], reverse=True):
+for k, v in sorted(statistics.extension_counts.items(), key=lambda item: item[1], reverse=True):
     config.logger.info("{:>10}: {:>10} Dateien".format(k, v))
-config.logger.info(config._("TOTAL: {} files.\nQUALIFIED: {} files (supported file extension)\n\n").format(num_files_all, num_files_checked))
+config.logger.info(config._("TOTAL: {} files.\nQUALIFIED: {} files (supported file extension)\n\n").format(statistics.total_files_found, statistics.files_processed))
 
 config.logger.info(config._("Findings"))
 config.logger.info("--------\n")
@@ -196,49 +201,41 @@ for k, v in errors.items():
         config.logger.info("\t\t{}".format(f))
 
 config.logger.info("\n")
-config.logger.info(config._("Analysis finished at {}").format(time_end))
-config.logger.info(config._("Performance of analysis: {} analyzed files per second").format(files_per_second))
+config.logger.info(config._("Analysis finished at {}").format(statistics.end_time))
+config.logger.info(config._("Performance of analysis: {} analyzed files per second").format(statistics.files_per_second))
 
 # Output NER statistics if NER was used
-if config.use_ner and config.ner_stats.total_chunks_processed > 0:
+if config.use_ner and statistics.ner_stats.total_chunks_processed > 0:
     config.logger.info("\n" + config._("NER Statistics"))
     config.logger.info("------------")
-    avg_time = (config.ner_stats.total_processing_time / 
-                config.ner_stats.total_chunks_processed)
-    config.logger.info(config._("Chunks processed: {}").format(config.ner_stats.total_chunks_processed))
-    config.logger.info(config._("Entities found: {}").format(config.ner_stats.total_entities_found))
-    config.logger.info(config._("Total NER processing time: {:.2f}s").format(config.ner_stats.total_processing_time))
-    config.logger.info(config._("Average time per chunk: {:.3f}s").format(avg_time))
-    if config.ner_stats.entities_by_type:
+    config.logger.info(config._("Chunks processed: {}").format(statistics.ner_stats.total_chunks_processed))
+    config.logger.info(config._("Entities found: {}").format(statistics.ner_stats.total_entities_found))
+    config.logger.info(config._("Total NER processing time: {:.2f}s").format(statistics.ner_stats.total_processing_time))
+    config.logger.info(config._("Average time per chunk: {:.3f}s").format(statistics.avg_ner_time_per_chunk))
+    if statistics.ner_stats.entities_by_type:
         config.logger.info(config._("Entities by type:"))
-        for entity_type, count in sorted(config.ner_stats.entities_by_type.items(), 
+        for entity_type, count in sorted(statistics.ner_stats.entities_by_type.items(), 
                                          key=lambda x: x[1], reverse=True):
             config.logger.info(f"  {entity_type}: {count}")
-    if config.ner_stats.errors > 0:
-        config.logger.warning(config._("NER errors encountered: {}").format(config.ner_stats.errors))
+    if statistics.ner_stats.errors > 0:
+        config.logger.warning(config._("NER errors encountered: {}").format(statistics.ner_stats.errors))
 
 # Prepare metadata for output writers
 output_metadata = {
-    "start_time": time_start.isoformat(),
-    "end_time": time_end.isoformat(),
-    "duration_seconds": time_diff.total_seconds(),
+    "start_time": statistics.start_time.isoformat() if statistics.start_time else None,
+    "end_time": statistics.end_time.isoformat() if statistics.end_time else None,
+    "duration_seconds": statistics.duration_seconds,
     "path": config.path,
     "methods": {
         "regex": config.use_regex,
         "ner": config.use_ner
     },
-    "total_files": num_files_all,
-    "analyzed_files": num_files_checked,
-    "matches_found": len(pmc.pii_matches),
-    "errors": total_errors,
-    "statistics": {
-        "files_scanned": num_files_all,
-        "files_analyzed": num_files_checked,
-        "matches_found": len(pmc.pii_matches),
-        "errors": total_errors,
-        "throughput_files_per_sec": files_per_second
-    },
-    "file_extensions": dict(sorted(exts_found.items(), key=lambda item: item[1], reverse=True)),
+    "total_files": statistics.total_files_found,
+    "analyzed_files": statistics.files_processed,
+    "matches_found": statistics.matches_found,
+    "errors": statistics.total_errors,
+    "statistics": statistics.get_summary_dict(),
+    "file_extensions": dict(sorted(statistics.extension_counts.items(), key=lambda item: item[1], reverse=True)),
     "errors": [
         {
             "type": error_type,
@@ -274,18 +271,20 @@ if not (g.args and hasattr(g.args, 'quiet') and g.args.quiet):
     print("\n" + "=" * 50)
     print(config._("Analysis Summary"))
     print("=" * 50)
-    print(f"{config._('Started:')}     {time_start.strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"{config._('Finished:')}    {time_end.strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"{config._('Duration:')}    {time_diff}")
+    if statistics.start_time:
+        print(f"{config._('Started:')}     {statistics.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    if statistics.end_time:
+        print(f"{config._('Finished:')}    {statistics.end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"{config._('Duration:')}    {statistics.duration}")
     print()
     print(config._("Statistics:"))
-    print(f"  {config._('Files scanned:')}      {num_files_all:,}")
-    print(f"  {config._('Files analyzed:')}     {num_files_checked:,}")
-    print(f"  {config._('Matches found:')}      {len(pmc.pii_matches):,}")
-    print(f"  {config._('Errors:')}             {total_errors:,}")
+    print(f"  {config._('Files scanned:')}      {statistics.total_files_found:,}")
+    print(f"  {config._('Files analyzed:')}     {statistics.files_processed:,}")
+    print(f"  {config._('Matches found:')}      {statistics.matches_found:,}")
+    print(f"  {config._('Errors:')}             {statistics.total_errors:,}")
     print()
     print(config._("Performance:"))
-    print(f"  {config._('Throughput:')}         {files_per_second} {config._('files/sec')}")
+    print(f"  {config._('Throughput:')}         {statistics.files_per_second} {config._('files/sec')}")
     print()
     if errors:
         print(config._("Errors Summary:"))
