@@ -38,6 +38,7 @@ Then open `http://127.0.0.1:8000` in your browser.
 - **Wide File Format Support**: PDF, DOCX, HTML, TXT, CSV, JSON, XLSX, and more
 - **Flexible Output Formats**: CSV, JSON, and Excel (XLSX)
 - **Advanced Features**: Whitelist support, multi-threaded processing, progress tracking
+- **CLI Options**: Verbose mode (`-v`), quiet mode (`-q`), standardized exit codes
 
 ## Installation
 

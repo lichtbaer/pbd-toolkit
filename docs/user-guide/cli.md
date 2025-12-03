@@ -130,6 +130,20 @@ Includes:
 - Debug messages
 - Console output in addition to log file
 
+### `--quiet`, `-q`
+
+Suppress all output except errors. Useful for automation and scripts where only errors are relevant.
+
+```bash
+python main.py --path /data --regex --quiet
+```
+
+**Note**: When `--quiet` is specified:
+- Only error messages are shown to console
+- Summary output is suppressed
+- Log file still contains all information
+- Exit codes are still returned for automation
+
 ### `--version`, `-V`
 
 Display version information and exit.
@@ -202,8 +216,15 @@ The tool generates:
 
 ## Exit Codes
 
-- `0`: Success
-- `1`: Error (configuration, validation, or runtime error)
+The tool uses standardized exit codes for automation and scripting:
+
+- `0` (`EXIT_SUCCESS`): Analysis completed successfully
+- `1` (`EXIT_GENERAL_ERROR`): General error occurred
+- `2` (`EXIT_INVALID_ARGUMENTS`): Invalid command-line arguments
+- `3` (`EXIT_FILE_ACCESS_ERROR`): File access error (reserved for future use)
+- `4` (`EXIT_CONFIGURATION_ERROR`): Configuration error or NER model loading failed
+
+See [Exit Codes Documentation](../EXIT_CODES.md) for detailed information and usage examples.
 
 ## Getting Help
 

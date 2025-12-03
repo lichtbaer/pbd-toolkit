@@ -7,6 +7,7 @@ import os
 
 import globals
 import constants
+from output.writers import create_output_writer
 
 """ Setup language handling by referring to the environment variable LANGUAGE and loading the corresponding
     locales file. """
@@ -58,6 +59,8 @@ def __setup_args() -> None:
     # Output options
     parser.add_argument("--verbose", "-v", action="store_true", 
                        help=globals._("Enable verbose output with detailed logging"))
+    parser.add_argument("--quiet", "-q", action="store_true",
+                       help=globals._("Suppress all output except errors"))
     
     globals.args = parser.parse_args()
 
@@ -66,8 +69,13 @@ def __setup_args() -> None:
     Logs are written to the output/ directory with the same name prefix as the findings file.
     Also outputs to console if verbose mode is enabled. """
 def __setup_logger(outslug: str = "") -> None:
-    # Determine log level based on verbose flag
-    log_level = logging.DEBUG if globals.args and globals.args.verbose else logging.INFO
+    # Determine log level based on verbose and quiet flags
+    if globals.args and globals.args.quiet:
+        log_level = logging.ERROR  # Only errors in quiet mode
+    elif globals.args and globals.args.verbose:
+        log_level = logging.DEBUG
+    else:
+        log_level = logging.INFO
     
     # Create formatter with timestamp, level, and message
     formatter = logging.Formatter(
@@ -99,9 +107,14 @@ def __setup_logger(outslug: str = "") -> None:
     globals.logger.setLevel(log_level)
     globals.logger.addHandler(file_handler)
     
-    # Only add console handler in verbose mode
-    if globals.args and globals.args.verbose:
-        globals.logger.addHandler(console_handler)
+    # Add console handler in verbose mode, or if not in quiet mode
+    if globals.args:
+        if globals.args.verbose:
+            globals.logger.addHandler(console_handler)
+        elif not globals.args.quiet:
+            # In normal mode, show INFO and above
+            console_handler.setLevel(logging.INFO)
+            globals.logger.addHandler(console_handler)
 
 """ Run all setup routines.
 
@@ -132,33 +145,33 @@ def setup() -> None:
     output_format = globals.args.format if globals.args and hasattr(globals.args, 'format') else "csv"
     globals.output_format = output_format
     
-    # Setup output file based on format
+    # Determine file extension and create output file path
+    extension_map = {"csv": ".csv", "json": ".json", "xlsx": ".xlsx"}
+    extension = extension_map.get(output_format, ".csv")
+    output_file_path = output_dir + outslug + "_findings" + extension
+    globals.output_file_path = output_file_path
+    
+    # Create output writer
+    include_header = not (globals.args and hasattr(globals.args, 'no_header') and globals.args.no_header)
+    globals.output_writer = create_output_writer(
+        output_format, 
+        output_file_path, 
+        include_header=include_header
+    )
+    
+    # Backward compatibility: Keep csvwriter and csv_file_handle for CSV format
     if output_format == "csv":
-        output_file_path = output_dir + outslug + "_findings.csv"
-        globals.output_file_path = output_file_path
-        globals.csv_file_handle = open(output_file_path, "w", encoding="utf-8")
-        globals.csvwriter = csv.writer(globals.csv_file_handle)
-        
-        # Write CSV header unless --no-header is specified
-        if not (globals.args and hasattr(globals.args, 'no_header') and globals.args.no_header):
-            globals.csvwriter.writerow(["match", "file", "type", "ner_score"])
-    elif output_format == "json":
-        output_file_path = output_dir + outslug + "_findings.json"
-        globals.output_file_path = output_file_path
-        globals.csv_file_handle = None
-        globals.csvwriter = None
-    elif output_format == "xlsx":
-        output_file_path = output_dir + outslug + "_findings.xlsx"
-        globals.output_file_path = output_file_path
-        globals.csv_file_handle = None
-        globals.csvwriter = None
+        # For CSV, we need to maintain backward compatibility
+        from output.writers import CsvWriter
+        if isinstance(globals.output_writer, CsvWriter):
+            globals.csvwriter = globals.output_writer.get_writer()
+            globals.csv_file_handle = globals.output_writer.file_handle
+        else:
+            globals.csv_file_handle = None
+            globals.csvwriter = None
     else:
-        # Fallback to CSV
-        output_file_path = output_dir + outslug + "_findings.csv"
-        globals.csv_file_handle = open(output_file_path, "w", encoding="utf-8")
-        globals.csvwriter = csv.writer(globals.csv_file_handle)
-        if not (globals.args and hasattr(globals.args, 'no_header') and globals.args.no_header):
-            globals.csvwriter.writerow(["match", "file", "type", "ner_score"])
+        globals.csv_file_handle = None
+        globals.csvwriter = None
 
     __setup_logger(outslug=outslug)
 
