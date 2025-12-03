@@ -1,10 +1,71 @@
 # Configuration
 
-The PII Toolkit can be configured through command-line arguments and configuration files.
+The PII Toolkit can be configured through command-line arguments and configuration files (YAML or JSON).
 
 ## Command-Line Configuration
 
-All configuration is done via command-line arguments. See the [CLI documentation](../user-guide/cli.md) for complete details.
+All configuration can be done via command-line arguments. See the [CLI documentation](../user-guide/cli.md) for complete details.
+
+## Configuration Files
+
+You can use a configuration file (YAML or JSON) to set default values, which can then be overridden by command-line arguments.
+
+### Usage
+
+```bash
+python main.py --config config.yaml --path /data
+```
+
+**Note**: CLI arguments take precedence over config file values. This allows you to use a config file as a base and override specific values via CLI.
+
+### YAML Configuration File
+
+Example `config.yaml`:
+
+```yaml
+path: "/path/to/scan"
+regex: true
+ner: true
+spacy_ner: false
+ollama: false
+openai_compatible: false
+format: "json"
+verbose: false
+output_dir: "./output/"
+whitelist: "./whitelist.txt"
+stop_count: 1000
+```
+
+### JSON Configuration File
+
+Example `config.json`:
+
+```json
+{
+  "path": "/path/to/scan",
+  "regex": true,
+  "ner": true,
+  "spacy_ner": false,
+  "ollama": false,
+  "openai_compatible": false,
+  "format": "json",
+  "verbose": false,
+  "output_dir": "./output/",
+  "whitelist": "./whitelist.txt",
+  "stop_count": 1000
+}
+```
+
+### Supported Configuration Options
+
+All command-line arguments can be specified in the config file using their long form (without `--`):
+- `path`, `regex`, `ner`, `spacy_ner`, `ollama`, `openai_compatible`
+- `spacy_model`, `ollama_url`, `ollama_model`
+- `openai_api_base`, `openai_api_key`, `openai_model`
+- `outname`, `whitelist`, `stop_count`, `output_dir`, `format`
+- `summary_format`, `no_header`, `verbose`, `quiet`
+
+See example files: `docs/CONFIG_FILE_EXAMPLE.yaml` and `docs/CONFIG_FILE_EXAMPLE.json`
 
 ## Configuration File: `config_types.json`
 

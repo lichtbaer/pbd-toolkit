@@ -35,7 +35,7 @@ Then open `http://127.0.0.1:8000` in your browser.
 ## Key Features
 
 - **Multiple Detection Methods**: Regular expressions and AI-powered Named Entity Recognition
-- **Wide File Format Support**: PDF, DOCX, HTML, TXT, CSV, JSON, XLSX, and more
+- **Wide File Format Support**: PDF, DOCX, HTML, TXT, CSV, JSON, XLSX, XLS, PPTX, PPT, ODT, RTF, ODS, EML, MSG, XML, YAML, and more
 - **Flexible Output Formats**: CSV, JSON, and Excel (XLSX)
 - **Advanced Features**: Whitelist support, multi-threaded processing, progress tracking
 - **CLI Options**: Verbose mode (`-v`), quiet mode (`-q`), config file support (`--config`), structured output (`--summary-format`)

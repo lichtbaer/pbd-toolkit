@@ -58,6 +58,15 @@ Microsoft Excel spreadsheets (Office Open XML format).
 - Processes all worksheets
 - Handles formulas (extracts displayed values)
 
+### XLS (`.xls`)
+
+Microsoft Excel spreadsheets (Excel 97-2003 format).
+
+**Processor**: `XlsProcessor`
+- Extracts text from all cells
+- Processes all worksheets
+- Handles older Excel file format
+
 ### ODS (`.ods`)
 
 OpenDocument Spreadsheet format.
@@ -79,12 +88,21 @@ Comma-separated values files.
 
 ### PPTX (`.pptx`)
 
-Microsoft PowerPoint presentations.
+Microsoft PowerPoint presentations (PowerPoint 2007+ format).
 
 **Processor**: `PptxProcessor`
 - Extracts text from slides
 - Processes all slides in presentation
 - Extracts text from text boxes and shapes
+- Extracts text from notes pages
+
+### PPT (`.ppt`)
+
+Microsoft PowerPoint presentations (PowerPoint 97-2003 format).
+
+**Processor**: `PptProcessor`
+- Extracts text from older PowerPoint files
+- Note: Support for older PPT format is limited
 
 ## Web Formats
 
