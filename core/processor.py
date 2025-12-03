@@ -10,18 +10,20 @@ from config import Config
 from core.exceptions import ProcessingError
 from core.scanner import FileInfo
 from core.statistics import Statistics
+from core.engines import EngineRegistry
+from core.engines.base import DetectionEngine
 from file_processors import BaseFileProcessor, FileProcessorRegistry, PdfProcessor
 from matches import PiiMatchContainer
 
 
 class TextProcessor:
-    """Processes text content for PII detection using regex and/or NER.
+    """Processes text content for PII detection using multiple engines.
     
     This class handles:
-    - Regex-based pattern matching
-    - NER-based entity recognition
+    - Multiple detection engines (regex, GLiNER, spaCy, LLMs, etc.)
     - Statistics tracking
     - Error handling
+    - Thread-safe operations
     """
     
     def __init__(self, config: Config, match_container: PiiMatchContainer, 
@@ -37,84 +39,121 @@ class TextProcessor:
         self.match_container = match_container
         self.statistics = statistics
         
+        # Initialize engines from registry
+        self.engines: list[DetectionEngine] = []
+        enabled_engines = self._get_enabled_engines()
+        
+        for engine_name in enabled_engines:
+            engine = EngineRegistry.get_engine(engine_name, config)
+            if engine and engine.is_available():
+                self.engines.append(engine)
+                if config.verbose:
+                    config.logger.debug(f"Engine '{engine_name}' loaded and enabled")
+        
         # Thread locks for thread-safe operations
         self._process_lock = threading.Lock()
-        # Separate lock for NER model calls (GLiNER may not be thread-safe)
-        self._ner_lock = threading.Lock()
+        # Separate locks for each engine (some may not be thread-safe)
+        self._engine_locks: dict[str, threading.Lock] = {
+            engine.name: threading.Lock() for engine in self.engines
+        }
+    
+    def _get_enabled_engines(self) -> list[str]:
+        """Get list of enabled engine names from config.
+        
+        Returns:
+            List of engine names to use
+        """
+        engines = []
+        if self.config.use_regex:
+            engines.append("regex")
+        if self.config.use_ner:
+            engines.append("gliner")
+        # Additional engines will be added via config.enabled_engines in future
+        return engines
     
     def process_text(self, text: str, file_path: str) -> None:
-        """Process text content with regex and/or NER-based PII detection.
+        """Process text content with all enabled detection engines.
         
         Args:
             text: Text content to analyze
             file_path: Path to the file containing the text
         """
-        if self.config.use_regex and self.config.regex_pattern:
-            # Use finditer to find ALL matches, not just the first one
-            for match in self.config.regex_pattern.finditer(text):
-                with self._process_lock:
-                    self.match_container.add_matches_regex(match, file_path)
+        if not text.strip():
+            return
         
-        if self.config.use_ner and self.config.ner_model:
+        all_results = []
+        
+        # Run all enabled engines
+        for engine in self.engines:
             start_time = time.time()
             try:
-                # Serialize NER model calls to ensure thread-safety
-                # GLiNER model may not be thread-safe, so we use a separate lock
-                with self._ner_lock:
-                    entities = self.config.ner_model.predict_entities(
-                        text, self.config.ner_labels, threshold=self.config.ner_threshold
-                    )
-                processing_time = time.time() - start_time
+                # Get appropriate lock for this engine
+                engine_lock = self._engine_locks.get(engine.name, self._process_lock)
                 
-                # Update statistics
-                with self._process_lock:
-                    # Update NER stats (backward compatibility with config.ner_stats)
-                    self.config.ner_stats.total_chunks_processed += 1
-                    self.config.ner_stats.total_processing_time += processing_time
-                    self.config.ner_stats.total_entities_found += len(entities) if entities else 0
-                    
-                    # Update central statistics if available
-                    if self.statistics:
-                        self.statistics.ner_stats.total_chunks_processed += 1
-                        self.statistics.ner_stats.total_processing_time += processing_time
-                        self.statistics.ner_stats.total_entities_found += len(entities) if entities else 0
-                    
-                    # Count entities by type
-                    if entities:
-                        for entity in entities:
-                            entity_type = entity.get("label", "unknown")
+                with engine_lock:
+                    results = engine.detect(text, self.config.ner_labels)
+                
+                processing_time = time.time() - start_time
+                all_results.extend(results)
+                
+                # Update statistics for GLiNER (backward compatibility)
+                if engine.name == "gliner":
+                    with self._process_lock:
+                        self.config.ner_stats.total_chunks_processed += 1
+                        self.config.ner_stats.total_processing_time += processing_time
+                        self.config.ner_stats.total_entities_found += len(results)
+                        
+                        if self.statistics:
+                            self.statistics.ner_stats.total_chunks_processed += 1
+                            self.statistics.ner_stats.total_processing_time += processing_time
+                            self.statistics.ner_stats.total_entities_found += len(results)
+                        
+                        # Count entities by type
+                        for result in results:
+                            entity_type = result.entity_type
                             self.config.ner_stats.entities_by_type[entity_type] = \
                                 self.config.ner_stats.entities_by_type.get(entity_type, 0) + 1
                             
                             if self.statistics:
                                 self.statistics.ner_stats.entities_by_type[entity_type] = \
                                     self.statistics.ner_stats.entities_by_type.get(entity_type, 0) + 1
-                    
-                    self.match_container.add_matches_ner(entities, file_path)
+                
             except RuntimeError as e:
                 # GPU/Model-specific errors
-                self.config.ner_stats.errors += 1
-                if self.statistics:
-                    self.statistics.ner_stats.errors += 1
-                self.config.logger.warning(f"NER processing error for {file_path}: {e}")
-                self._add_error("NER processing error", file_path)
+                if engine.name == "gliner":
+                    self.config.ner_stats.errors += 1
+                    if self.statistics:
+                        self.statistics.ner_stats.errors += 1
+                self.config.logger.warning(
+                    f"Engine '{engine.name}' processing error for {file_path}: {e}"
+                )
+                self._add_error(f"{engine.name} processing error", file_path)
             except MemoryError as e:
                 # Memory issues
-                self.config.ner_stats.errors += 1
-                if self.statistics:
-                    self.statistics.ner_stats.errors += 1
-                self.config.logger.error(f"Out of memory during NER processing: {file_path}")
-                self._add_error("NER memory error", file_path)
+                if engine.name == "gliner":
+                    self.config.ner_stats.errors += 1
+                    if self.statistics:
+                        self.statistics.ner_stats.errors += 1
+                self.config.logger.error(
+                    f"Out of memory during {engine.name} processing: {file_path}"
+                )
+                self._add_error(f"{engine.name} memory error", file_path)
             except Exception as e:
                 # Unexpected errors
-                self.config.ner_stats.errors += 1
-                if self.statistics:
-                    self.statistics.ner_stats.errors += 1
+                if engine.name == "gliner":
+                    self.config.ner_stats.errors += 1
+                    if self.statistics:
+                        self.statistics.ner_stats.errors += 1
                 self.config.logger.error(
-                    f"Unexpected NER error for {file_path}: {type(e).__name__}: {e}",
+                    f"Unexpected {engine.name} error for {file_path}: {type(e).__name__}: {e}",
                     exc_info=self.config.verbose
                 )
-                self._add_error(f"NER error: {type(e).__name__}", file_path)
+                self._add_error(f"{engine.name} error: {type(e).__name__}", file_path)
+        
+        # Add all results to match container
+        if all_results:
+            with self._process_lock:
+                self.match_container.add_detection_results(all_results, file_path)
     
     def process_file(self, file_info: FileInfo, error_callback: Optional[Callable[[str, str], None]] = None) -> bool:
         """Process a single file: extract text and detect PII.

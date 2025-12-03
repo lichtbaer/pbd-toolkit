@@ -42,6 +42,11 @@ class Config:
     whitelist_path: str | None = None
     stop_count: int | None = None
     
+    # New engine flags
+    use_spacy_ner: bool = False
+    use_ollama: bool = False
+    use_openai_compatible: bool = False
+    
     # Dependencies
     logger: Optional[logging.Logger] = field(default=None)
     csv_writer: Optional[csv.writer] = field(default=None)
@@ -53,6 +58,16 @@ class Config:
     ner_labels: list[str] = field(default_factory=list)
     ner_threshold: float = field(default=constants.NER_THRESHOLD)
     ner_stats: NerStats = field(default_factory=NerStats)
+    
+    # Engine-specific configuration
+    spacy_model_name: str = "de_core_news_lg"
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "llama3.2"
+    ollama_timeout: int = 30
+    openai_api_base: str = "https://api.openai.com/v1"
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-3.5-turbo"
+    openai_timeout: int = 30
     
     # Resource limits
     max_file_size_mb: float = 500.0
@@ -140,11 +155,28 @@ class Config:
             outname=args.outname,
             whitelist_path=args.whitelist,
             stop_count=args.stop_count,
+            use_spacy_ner=getattr(args, 'spacy_ner', False),
+            use_ollama=getattr(args, 'ollama', False),
+            use_openai_compatible=getattr(args, 'openai_compatible', False),
             logger=logger,
             csv_writer=csv_writer,
             csv_file_handle=csv_file_handle,
             _=translate_func
         )
+        
+        # Set engine-specific configuration from args
+        if hasattr(args, 'spacy_model'):
+            config.spacy_model_name = args.spacy_model
+        if hasattr(args, 'ollama_url'):
+            config.ollama_base_url = args.ollama_url
+        if hasattr(args, 'ollama_model'):
+            config.ollama_model = args.ollama_model
+        if hasattr(args, 'openai_api_base'):
+            config.openai_api_base = args.openai_api_base
+        if hasattr(args, 'openai_api_key'):
+            config.openai_api_key = args.openai_api_key
+        if hasattr(args, 'openai_model'):
+            config.openai_model = args.openai_model
         
         # Load regex pattern
         config._load_regex_pattern()
