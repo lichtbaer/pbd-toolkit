@@ -50,6 +50,48 @@ Detects:
 
 **Note**: Requires the GLiNER model to be downloaded (see [Installation](../getting-started/installation.md)).
 
+### `--spacy-ner`
+
+Enable spaCy NER detection (optimized for German text).
+
+```bash
+python main.py --path /data --spacy-ner --spacy-model de_core_news_lg
+```
+
+**Options**:
+- `--spacy-model`: Model to use (`de_core_news_sm`, `de_core_news_md`, `de_core_news_lg`)
+
+**Note**: Requires spaCy and German model to be installed (see [Installation](../getting-started/installation.md)).
+
+### `--ollama`
+
+Enable Ollama LLM-based detection (local, offline).
+
+```bash
+python main.py --path /data --ollama --ollama-model llama3.2
+```
+
+**Options**:
+- `--ollama-url`: Ollama API base URL (default: `http://localhost:11434`)
+- `--ollama-model`: Model to use (default: `llama3.2`)
+
+**Note**: Requires Ollama server to be running (see [Installation](../getting-started/installation.md)).
+
+### `--openai-compatible`
+
+Enable OpenAI-compatible API detection.
+
+```bash
+python main.py --path /data --openai-compatible \
+    --openai-api-key YOUR_KEY \
+    --openai-model gpt-3.5-turbo
+```
+
+**Options**:
+- `--openai-api-base`: API base URL (default: `https://api.openai.com/v1`)
+- `--openai-api-key`: API key (or set `OPENAI_API_KEY` environment variable)
+- `--openai-model`: Model to use (default: `gpt-3.5-turbo`)
+
 ## Optional Arguments
 
 ### `--outname`
