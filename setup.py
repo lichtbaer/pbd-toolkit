@@ -185,12 +185,31 @@ def __setup_logger(args: Optional[argparse.Namespace], outslug: str = "") -> log
     Returns:
         Tuple of (args, logger, translate_func, output_writer, output_file_path)
     """
+def __check_telemetry_settings() -> None:
+    """Check and configure telemetry settings for privacy.
+    
+    Disables telemetry in dependencies to ensure privacy compliance.
+    This function sets environment variables that disable telemetry
+    in HuggingFace Hub, PyTorch, and other dependencies.
+    """
+    # Disable HuggingFace telemetry
+    os.environ.setdefault('HF_HUB_DISABLE_TELEMETRY', '1')
+    
+    # Disable PyTorch telemetry (if PyTorch is used)
+    os.environ.setdefault('TORCH_DISABLE_TELEMETRY', '1')
+    
+    # Note: tqdm telemetry is disabled by default in recent versions
+    # For additional privacy, users can set TQDM_DISABLE_TELEMETRY=1
+
 def setup() -> tuple[argparse.Namespace, logging.Logger, gettext.NullTranslations, Optional[OutputWriter], str]:
     """Setup application: parse arguments, setup logging, create output writer.
     
     Returns:
         Tuple of (args, logger, translate_func, output_writer, output_file_path)
     """
+    # Disable telemetry in dependencies for privacy
+    __check_telemetry_settings()
+    
     translate_func = __setup_lang()
     args = __setup_args(translate_func)
 

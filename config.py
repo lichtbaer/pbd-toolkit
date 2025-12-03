@@ -213,6 +213,10 @@ class Config:
         try:
             self.logger.info(self._("Loading NER model..."))
             
+            # Disable telemetry for privacy
+            os.environ.setdefault('HF_HUB_DISABLE_TELEMETRY', '1')
+            os.environ.setdefault('TORCH_DISABLE_TELEMETRY', '1')
+            
             # Check for GPU availability
             device = "cpu"
             if not constants.FORCE_CPU:
