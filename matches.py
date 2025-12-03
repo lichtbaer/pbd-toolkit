@@ -2,7 +2,6 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 import json
-import globals
 
 # configure support match types
 with open("config_types.json") as f:

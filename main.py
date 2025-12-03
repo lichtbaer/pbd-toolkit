@@ -13,11 +13,11 @@ from tqdm import tqdm
 from config import Config
 from matches import PiiMatchContainer
 import constants
-import globals as g
 from core.exceptions import ConfigurationError, ProcessingError, OutputError
 from core.scanner import FileScanner, FileInfo
 from core.processor import TextProcessor
 from core.statistics import Statistics
+from core.context import ApplicationContext
 from output.writers import OutputWriter
 # File processor imports no longer needed in main.py
 # They are now used in core.processor
@@ -45,10 +45,31 @@ def add_error(msg: str, path: str) -> None:
         else:
             errors[msg].append(path)
 
-# Setup and create configuration
-setup.setup()
+# Setup application
 try:
-    config: Config = setup.create_config()
+    args, logger, translate_func, output_writer, output_file_path = setup.setup()
+except Exception as e:
+    print(f"Setup error: {e}", file=sys.stderr)
+    sys.exit(constants.EXIT_CONFIGURATION_ERROR)
+
+# Create configuration
+try:
+    # Get CSV writer and handle from output writer if CSV format
+    csv_writer = None
+    csv_file_handle = None
+    if output_writer and hasattr(output_writer, 'get_writer'):
+        from output.writers import CsvWriter
+        if isinstance(output_writer, CsvWriter):
+            csv_writer = output_writer.get_writer()
+            csv_file_handle = output_writer.file_handle
+    
+    config: Config = setup.create_config(
+        args=args,
+        logger=logger,
+        csv_writer=csv_writer,
+        csv_file_handle=csv_file_handle,
+        translate_func=translate_func
+    )
 except RuntimeError as e:
     # NER model loading failed - exit with error message
     print(f"Configuration error: {e}", file=sys.stderr)
@@ -65,62 +86,67 @@ if not is_valid:
     sys.exit(constants.EXIT_INVALID_ARGUMENTS)
 
 if not config.use_ner and not config.use_regex:
-    print(config._("Regex- and/or NER-based analysis must be turned on."), file=sys.stderr)
+    print(translate_func("Regex- and/or NER-based analysis must be turned on."), file=sys.stderr)
     sys.exit(constants.EXIT_INVALID_ARGUMENTS)
 
 # Validate that NER model is loaded if NER is enabled
 if config.use_ner and config.ner_model is None:
-    print(config._("NER is enabled but model could not be loaded. Please check the error messages above."), file=sys.stderr)
+    print(translate_func("NER is enabled but model could not be loaded. Please check the error messages above."), file=sys.stderr)
     sys.exit(constants.EXIT_CONFIGURATION_ERROR)
 
-# Initialize PII match container
+# Initialize components
 pmc: PiiMatchContainer = PiiMatchContainer()
-pmc.set_csv_writer(config.csv_writer)
-# Set output format from globals
-pmc.set_output_format(g.output_format if hasattr(g, 'output_format') else "csv")
+pmc.set_csv_writer(csv_writer)
+pmc.set_output_format(args.format if hasattr(args, 'format') else "csv")
 
-# Get output writer from globals
-output_writer: Optional[OutputWriter] = None
-if hasattr(g, 'output_writer') and g.output_writer is not None:
-    output_writer = g.output_writer
+statistics = Statistics()
+statistics.start()  # Start timing before processing
+
+# Create application context
+context = ApplicationContext.from_cli_args(
+    args=args,
+    config=config,
+    logger=logger,
+    statistics=statistics,
+    match_container=pmc,
+    output_writer=output_writer,
+    translate_func=translate_func
+)
+context.output_file_path = output_file_path
 
 # Load whitelist if provided
-if config.whitelist_path and os.path.isfile(config.whitelist_path):
-    with open(config.whitelist_path, "r", encoding="utf-8") as file:
-        pmc.whitelist = file.read().splitlines()
+if context.config.whitelist_path and os.path.isfile(context.config.whitelist_path):
+    with open(context.config.whitelist_path, "r", encoding="utf-8") as file:
+        context.match_container.whitelist = file.read().splitlines()
     # Pre-compile whitelist pattern for better performance
-    pmc._compile_whitelist_pattern()
+    context.match_container._compile_whitelist_pattern()
 
-# Initialize statistics tracker
-statistics = Statistics()
-statistics.start()
+context.logger.info(context._("Analysis"))
+context.logger.info("====================\n")
+context.logger.info(context._("Analysis started at {}\n").format(context.statistics.start_time))
 
-config.logger.info(config._("Analysis"))
-config.logger.info("====================\n")
-config.logger.info(config._("Analysis started at {}\n").format(time_start))
-
-if config.use_regex:
-    config.logger.info(config._("Regex-based search is active."))
+if context.config.use_regex:
+    context.logger.info(context._("Regex-based search is active."))
 else:
-    config.logger.info(config._("Regex-based search is *not* active."))
+    context.logger.info(context._("Regex-based search is *not* active."))
 
-if config.use_ner:
-    config.logger.info(config._("AI-based search is active."))
-    if config.verbose:
-        config.logger.debug(f"NER Model: {constants.NER_MODEL_NAME}")
-        config.logger.debug(f"NER Threshold: {config.ner_threshold}")
-        config.logger.debug(f"NER Labels: {config.ner_labels}")
+if context.config.use_ner:
+    context.logger.info(context._("AI-based search is active."))
+    if context.config.verbose:
+        context.logger.debug(f"NER Model: {constants.NER_MODEL_NAME}")
+        context.logger.debug(f"NER Threshold: {context.config.ner_threshold}")
+        context.logger.debug(f"NER Labels: {context.config.ner_labels}")
 else:
-    config.logger.info(config._("AI-based search is *not* active."))
+    context.logger.info(context._("AI-based search is *not* active."))
 
-if config.verbose:
-    config.logger.debug(f"Search path: {config.path}")
-    config.logger.debug(f"Output directory: {constants.OUTPUT_DIR}")
-    if config.whitelist_path:
-        config.logger.debug(f"Whitelist file: {config.whitelist_path}")
-        config.logger.debug(f"Whitelist entries: {len(pmc.whitelist)}")
+if context.config.verbose:
+    context.logger.debug(f"Search path: {context.config.path}")
+    context.logger.debug(f"Output directory: {constants.OUTPUT_DIR}")
+    if context.config.whitelist_path:
+        context.logger.debug(f"Whitelist file: {context.config.whitelist_path}")
+        context.logger.debug(f"Whitelist entries: {len(pmc.whitelist)}")
 
-config.logger.info("\n")
+context.logger.info("\n")
 
 # Number of files found during analysis
 num_files_all: int = 0
@@ -137,8 +163,9 @@ text_processor = TextProcessor(config, pmc, statistics=statistics)
 
 """ MAIN PROGRAM LOOP """
 
-# Initialize scanner
-scanner = FileScanner(config)
+# Initialize scanner and processor
+scanner = FileScanner(context.config)
+text_processor = TextProcessor(context.config, context.match_container, statistics=context.statistics)
 
 # Define callback function for processing each file
 def process_file(file_info: FileInfo) -> None:
@@ -151,13 +178,13 @@ def process_file(file_info: FileInfo) -> None:
 
 # Scan directory and process files
 scan_result = scanner.scan(
-    path=config.path,
+    path=context.config.path,
     file_callback=process_file,
-    stop_count=config.stop_count
+    stop_count=context.config.stop_count
 )
 
 # Update statistics from scan result
-statistics.update_from_scan_result(
+context.statistics.update_from_scan_result(
     total_files=scan_result.total_files_found,
     files_processed=scan_result.files_processed,
     extension_counts=scan_result.extension_counts,
@@ -171,71 +198,71 @@ for error_type, file_list in scan_result.errors.items():
     errors[error_type].extend(file_list)
 
 # Update match count in statistics
-statistics.matches_found = len(pmc.pii_matches)
+context.statistics.matches_found = len(context.match_container.pii_matches)
 
 # Stop timing
-statistics.stop()
+context.statistics.stop()
 
 # Calculate total errors (for backward compatibility with errors dict)
 total_errors = sum(len(v) for v in errors.values())
-statistics.total_errors = total_errors
+context.statistics.total_errors = total_errors
 
 """ Output all results. """
 # Always log detailed information
-config.logger.info(config._("Statistics"))
-config.logger.info("----------\n")
-config.logger.info(config._("The following file extensions have been found:"))
-for k, v in sorted(statistics.extension_counts.items(), key=lambda item: item[1], reverse=True):
-    config.logger.info("{:>10}: {:>10} Dateien".format(k, v))
-config.logger.info(config._("TOTAL: {} files.\nQUALIFIED: {} files (supported file extension)\n\n").format(statistics.total_files_found, statistics.files_processed))
+context.logger.info(context._("Statistics"))
+context.logger.info("----------\n")
+context.logger.info(context._("The following file extensions have been found:"))
+for k, v in sorted(context.statistics.extension_counts.items(), key=lambda item: item[1], reverse=True):
+    context.logger.info("{:>10}: {:>10} Dateien".format(k, v))
+context.logger.info(context._("TOTAL: {} files.\nQUALIFIED: {} files (supported file extension)\n\n").format(context.statistics.total_files_found, context.statistics.files_processed))
 
-config.logger.info(config._("Findings"))
-config.logger.info("--------\n")
-config.logger.info(config._("--> see *_findings.csv\n\n"))
+context.logger.info(context._("Findings"))
+context.logger.info("--------\n")
+context.logger.info(context._("--> see *_findings.csv\n\n"))
 
-config.logger.info(config._("Errors"))
-config.logger.info("------\n")
+context.logger.info(context._("Errors"))
+context.logger.info("------\n")
 for k, v in errors.items():
-    config.logger.info("\t{}".format(k))
+    context.logger.info("\t{}".format(k))
     for f in v:
-        config.logger.info("\t\t{}".format(f))
+        context.logger.info("\t\t{}".format(f))
 
-config.logger.info("\n")
-config.logger.info(config._("Analysis finished at {}").format(statistics.end_time))
-config.logger.info(config._("Performance of analysis: {} analyzed files per second").format(statistics.files_per_second))
+context.logger.info("\n")
+context.logger.info(context._("Analysis finished at {}").format(context.statistics.end_time))
+context.logger.info(context._("Performance of analysis: {} analyzed files per second").format(context.statistics.files_per_second))
 
 # Output NER statistics if NER was used
-if config.use_ner and statistics.ner_stats.total_chunks_processed > 0:
-    config.logger.info("\n" + config._("NER Statistics"))
-    config.logger.info("------------")
-    config.logger.info(config._("Chunks processed: {}").format(statistics.ner_stats.total_chunks_processed))
-    config.logger.info(config._("Entities found: {}").format(statistics.ner_stats.total_entities_found))
-    config.logger.info(config._("Total NER processing time: {:.2f}s").format(statistics.ner_stats.total_processing_time))
-    config.logger.info(config._("Average time per chunk: {:.3f}s").format(statistics.avg_ner_time_per_chunk))
-    if statistics.ner_stats.entities_by_type:
-        config.logger.info(config._("Entities by type:"))
-        for entity_type, count in sorted(statistics.ner_stats.entities_by_type.items(), 
+if context.config.use_ner and context.statistics.ner_stats.total_chunks_processed > 0:
+    context.logger.info("\n" + context._("NER Statistics"))
+    context.logger.info("------------")
+    context.logger.info(context._("Chunks processed: {}").format(context.statistics.ner_stats.total_chunks_processed))
+    context.logger.info(context._("Entities found: {}").format(context.statistics.ner_stats.total_entities_found))
+    context.logger.info(context._("Total NER processing time: {:.2f}s").format(context.statistics.ner_stats.total_processing_time))
+    context.logger.info(context._("Average time per chunk: {:.3f}s").format(context.statistics.avg_ner_time_per_chunk))
+    if context.statistics.ner_stats.entities_by_type:
+        context.logger.info(context._("Entities by type:"))
+        for entity_type, count in sorted(context.statistics.ner_stats.entities_by_type.items(), 
                                          key=lambda x: x[1], reverse=True):
-            config.logger.info(f"  {entity_type}: {count}")
-    if statistics.ner_stats.errors > 0:
-        config.logger.warning(config._("NER errors encountered: {}").format(statistics.ner_stats.errors))
+            context.logger.info(f"  {entity_type}: {count}")
+    if context.statistics.ner_stats.errors > 0:
+        context.logger.warning(context._("NER errors encountered: {}").format(context.statistics.ner_stats.errors))
 
 # Prepare metadata for output writers
 output_metadata = {
-    "start_time": statistics.start_time.isoformat() if statistics.start_time else None,
-    "end_time": statistics.end_time.isoformat() if statistics.end_time else None,
-    "duration_seconds": statistics.duration_seconds,
-    "path": config.path,
+    "start_time": context.statistics.start_time.isoformat() if context.statistics.start_time else None,
+    "end_time": context.statistics.end_time.isoformat() if context.statistics.end_time else None,
+    "duration_seconds": context.statistics.duration_seconds,
+    "path": context.config.path,
     "methods": {
-        "regex": config.use_regex,
-        "ner": config.use_ner
+        "regex": context.config.use_regex,
+        "ner": context.config.use_ner
     },
-    "total_files": statistics.total_files_found,
-    "analyzed_files": statistics.files_processed,
-    "matches_found": statistics.matches_found,
-    "errors": statistics.total_errors,
-    "statistics": statistics.get_summary_dict(),
-    "file_extensions": dict(sorted(statistics.extension_counts.items(), key=lambda item: item[1], reverse=True)),
+    "total_files": context.statistics.total_files_found,
+    "analyzed_files": context.statistics.files_processed,
+    "matches_found": context.statistics.matches_found,
+    "errors": context.statistics.total_errors,
+    "statistics": context.statistics.get_summary_dict(),
+    "file_extensions": dict(sorted(context.statistics.extension_counts.items(), key=lambda item: item[1], reverse=True)),
     "errors": [
         {
             "type": error_type,
@@ -248,63 +275,55 @@ output_metadata = {
 # Write output using writer
 # For CSV: matches are already written during processing (streaming)
 # For JSON/XLSX: we need to write all matches at the end
-if output_writer:
+if context.output_writer:
     # For non-streaming formats (JSON, XLSX), write all matches now
-    if not output_writer.supports_streaming:
+    if not context.output_writer.supports_streaming:
         # Write all matches that were collected during processing
-        for pm in pmc.pii_matches:
-            output_writer.write_match(pm)
+        for pm in context.match_container.pii_matches:
+            context.output_writer.write_match(pm)
     
     # Finalize output (writes file for JSON/XLSX, closes handle for CSV)
     try:
-        output_writer.finalize(metadata=output_metadata)
+        context.output_writer.finalize(metadata=output_metadata)
     except OutputError as e:
-        config.logger.error(f"Failed to write output: {e}")
+        context.logger.error(f"Failed to write output: {e}")
         sys.exit(constants.EXIT_GENERAL_ERROR)
 else:
     # Fallback: Close CSV file handle if it exists
-    if config.csv_file_handle:
-        config.csv_file_handle.close()
+    if context.csv_file_handle:
+        context.csv_file_handle.close()
 
 # Show summary to console (unless in quiet mode)
-if not (g.args and hasattr(g.args, 'quiet') and g.args.quiet):
+if not (args and hasattr(args, 'quiet') and args.quiet):
     print("\n" + "=" * 50)
-    print(config._("Analysis Summary"))
+    print(context._("Analysis Summary"))
     print("=" * 50)
-    if statistics.start_time:
-        print(f"{config._('Started:')}     {statistics.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-    if statistics.end_time:
-        print(f"{config._('Finished:')}    {statistics.end_time.strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"{config._('Duration:')}    {statistics.duration}")
+    if context.statistics.start_time:
+        print(f"{context._('Started:')}     {context.statistics.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    if context.statistics.end_time:
+        print(f"{context._('Finished:')}    {context.statistics.end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"{context._('Duration:')}    {context.statistics.duration}")
     print()
-    print(config._("Statistics:"))
-    print(f"  {config._('Files scanned:')}      {statistics.total_files_found:,}")
-    print(f"  {config._('Files analyzed:')}     {statistics.files_processed:,}")
-    print(f"  {config._('Matches found:')}      {statistics.matches_found:,}")
-    print(f"  {config._('Errors:')}             {statistics.total_errors:,}")
+    print(context._("Statistics:"))
+    print(f"  {context._('Files scanned:')}      {context.statistics.total_files_found:,}")
+    print(f"  {context._('Files analyzed:')}     {context.statistics.files_processed:,}")
+    print(f"  {context._('Matches found:')}      {context.statistics.matches_found:,}")
+    print(f"  {context._('Errors:')}             {context.statistics.total_errors:,}")
     print()
-    print(config._("Performance:"))
-    print(f"  {config._('Throughput:')}         {statistics.files_per_second} {config._('files/sec')}")
+    print(context._("Performance:"))
+    print(f"  {context._('Throughput:')}         {context.statistics.files_per_second} {context._('files/sec')}")
     print()
     if errors:
-        print(config._("Errors Summary:"))
+        print(context._("Errors Summary:"))
         for k, v in errors.items():
-            print(f"  {k}: {len(v)} {config._('files')}")
+            print(f"  {k}: {len(v)} {context._('files')}")
         print()
     
     # Get output file name
-    if hasattr(g, 'output_file_path') and g.output_file_path:
-        output_file = g.output_file_path
-    elif config.csv_file_handle:
-        # Fallback: get filename from file handle for CSV
-        output_file = config.csv_file_handle.name
-    else:
-        # Last resort fallback
-        output_format = g.output_format if hasattr(g, 'output_format') else "csv"
-        output_file = constants.OUTPUT_DIR + "_findings." + output_format
+    output_file = context.output_file_path or (constants.OUTPUT_DIR + "_findings." + context.output_format)
     
-    print(f"{config._('Output file:')} {output_file}")
-    print(f"{config._('Output directory:')} {constants.OUTPUT_DIR}")
+    print(f"{context._('Output file:')} {output_file}")
+    print(f"{context._('Output directory:')} {constants.OUTPUT_DIR}")
     print("=" * 50 + "\n")
 
 # Exit with success code
