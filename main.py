@@ -91,10 +91,11 @@ enabled_methods = [
     config.use_ner,
     config.use_spacy_ner,
     config.use_ollama,
-    config.use_openai_compatible
+    config.use_openai_compatible,
+    getattr(config, 'use_multimodal', False)
 ]
 if not any(enabled_methods):
-    print(translate_func("At least one detection method must be enabled (--regex, --ner, --spacy-ner, --ollama, or --openai-compatible)."), file=sys.stderr)
+    print(translate_func("At least one detection method must be enabled (--regex, --ner, --spacy-ner, --ollama, --openai-compatible, or --multimodal)."), file=sys.stderr)
     sys.exit(constants.EXIT_INVALID_ARGUMENTS)
 
 # Validate that GLiNER model is loaded if GLiNER is enabled

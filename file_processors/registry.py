@@ -38,33 +38,41 @@ class FileProcessorRegistry:
         cls.register(processor)
     
     @classmethod
-    def get_processor(cls, extension: str, file_path: str = "") -> Optional[BaseFileProcessor]:
+    def get_processor(cls, extension: str, file_path: str = "", mime_type: str = "") -> Optional[BaseFileProcessor]:
         """Get the appropriate processor for a file extension.
         
         Args:
             extension: File extension (e.g., '.pdf', '.docx')
             file_path: Full path to the file (optional, needed for some processors)
+            mime_type: Detected MIME type (optional, for magic number detection)
             
         Returns:
             Appropriate processor instance or None if no processor available
         """
-        # Check cache first (only for processors that don't need file_path)
-        if extension and extension in cls._extension_cache:
+        # Check cache first (only for processors that don't need file_path or mime_type)
+        if extension and extension in cls._extension_cache and not mime_type:
             return cls._extension_cache[extension]
         
         # Check each processor
         for processor in cls._processors:
             if hasattr(processor, 'can_process'):
-                # Check if can_process accepts file_path parameter
+                # Check if can_process accepts file_path or mime_type parameter
                 import inspect
                 try:
                     sig = inspect.signature(processor.can_process)
                     params = list(sig.parameters.keys())
                     
-                    # Check if processor needs file_path (has file_path parameter)
-                    needs_file_path = len(params) >= 2 and 'file_path' in params
+                    # Check if processor supports mime_type
+                    supports_mime = 'mime_type' in params
+                    needs_file_path = 'file_path' in params
                     
-                    if needs_file_path:
+                    # Try with all available parameters
+                    if supports_mime and mime_type:
+                        # Processor supports MIME type detection
+                        if processor.can_process(extension, file_path, mime_type):
+                            # Don't cache when using MIME type
+                            return processor
+                    elif needs_file_path:
                         # Processor needs file_path (e.g., TextProcessor)
                         if processor.can_process(extension, file_path):
                             # Don't cache processors that need file_path by extension alone
@@ -73,22 +81,34 @@ class FileProcessorRegistry:
                         # Standard can_process with just extension
                         if processor.can_process(extension):
                             # Cache by extension for processors that don't need file_path
-                            cls._extension_cache[extension] = processor
+                            if not mime_type:  # Only cache if no MIME type was used
+                                cls._extension_cache[extension] = processor
                             return processor
                 except (TypeError, ValueError):
-                    # Fallback: try with just extension if signature inspection fails
+                    # Fallback: try different parameter combinations
                     try:
+                        # Try with mime_type if available
+                        if mime_type:
+                            try:
+                                if processor.can_process(extension, file_path, mime_type):
+                                    return processor
+                            except (TypeError, ValueError):
+                                pass
+                        # Try with file_path
+                        if file_path:
+                            try:
+                                if processor.can_process(extension, file_path):
+                                    return processor
+                            except (TypeError, ValueError):
+                                pass
+                        # Try with just extension
                         if processor.can_process(extension):
-                            cls._extension_cache[extension] = processor
+                            if not mime_type:  # Only cache if no MIME type was used
+                                cls._extension_cache[extension] = processor
                             return processor
-                    except TypeError:
-                        # If that also fails, try with file_path
-                        try:
-                            if processor.can_process(extension, file_path):
-                                return processor
-                        except (TypeError, ValueError):
-                            # Skip this processor if can_process doesn't work
-                            continue
+                    except (TypeError, ValueError):
+                        # Skip this processor if can_process doesn't work
+                        continue
         
         return None
     

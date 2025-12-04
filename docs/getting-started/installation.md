@@ -28,7 +28,61 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## AI Model Setup (Optional)
+**Note**: Some dependencies are optional:
+- `python-magic` / `filetype`: For magic number file type detection (see [File Formats](../user-guide/file-formats.md#magic-number-detection-optional))
+- `Pillow`: For image processing validation (optional)
+- `spacy`: For spaCy NER engine (optional)
+- `requests`: For Ollama and OpenAI-compatible engines (optional)
+
+## Optional Features Setup
+
+### Magic Number Detection
+
+For file type detection using magic numbers (file headers), install system dependencies:
+
+**Linux**:
+```bash
+sudo apt-get install libmagic1  # Debian/Ubuntu
+sudo yum install file-devel     # RHEL/CentOS
+```
+
+**macOS**:
+```bash
+brew install libmagic
+```
+
+**Windows**:
+```bash
+pip install python-magic-bin
+```
+
+Then install Python package:
+```bash
+pip install python-magic
+```
+
+**Alternative (Pure Python, no system dependencies)**:
+```bash
+pip install filetype
+```
+
+See [File Formats Guide](../user-guide/file-formats.md#magic-number-detection-optional) for usage.
+
+### Multimodal Image Detection
+
+For PII detection in images, you have two options:
+
+**Option 1: Use OpenAI API**
+- Requires API key: Set `OPENAI_API_KEY` environment variable or use `--multimodal-api-key`
+- No additional installation needed
+
+**Option 2: Use Local Models (Recommended for Privacy)**
+- Install vLLM: `pip install vllm`
+- Or use LocalAI: See [Open-Source Models Guide](../user-guide/open-source-models.md)
+
+See [Detection Methods](../user-guide/detection-methods.md#multimodal-image-detection-engine) and [Open-Source Models](../user-guide/open-source-models.md) for detailed setup.
+
+### AI Model Setup (NER)
 
 If you plan to use the AI-based Named Entity Recognition (NER) feature, you need to download the model:
 
@@ -113,3 +167,15 @@ Then open `http://127.0.0.1:8000` in your browser.
 **Missing Dependencies**
 - Some file processors require additional libraries (e.g., `openpyxl` for Excel support)
 - Install missing packages: `pip install <package-name>`
+
+**Magic Detection Not Working**
+- Linux: Install `libmagic1` system package
+- macOS: Install via Homebrew: `brew install libmagic`
+- Windows: Use `python-magic-bin` instead of `python-magic`
+- Alternative: Use `filetype` (pure Python, no system dependencies)
+
+**Multimodal Detection Errors**
+- Check API key is set correctly
+- Verify API endpoint is accessible: `curl http://localhost:8000/v1/models` (for local servers)
+- For local models, ensure vLLM or LocalAI server is running
+- See [Open-Source Models Guide](../user-guide/open-source-models.md) for troubleshooting

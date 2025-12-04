@@ -80,6 +80,24 @@ def __setup_args(translate_func: gettext.NullTranslations) -> argparse.Namespace
     parser.add_argument("--openai-model", default="gpt-3.5-turbo",
                        help=translate_func("OpenAI model to use (default: gpt-3.5-turbo)"))
     
+    # Multimodal image detection
+    parser.add_argument("--multimodal", action="store_true",
+                       help=translate_func("Use multimodal models for image PII detection"))
+    parser.add_argument("--multimodal-api-base",
+                       help=translate_func("Multimodal API base URL (defaults to --openai-api-base)"))
+    parser.add_argument("--multimodal-api-key",
+                       help=translate_func("Multimodal API key (defaults to --openai-api-key or OPENAI_API_KEY)"))
+    parser.add_argument("--multimodal-model", default="gpt-4-vision-preview",
+                       help=translate_func("Multimodal model to use (default: gpt-4-vision-preview)"))
+    parser.add_argument("--multimodal-timeout", type=int, default=60,
+                       help=translate_func("Multimodal API timeout in seconds (default: 60)"))
+    
+    # File type detection
+    parser.add_argument("--use-magic-detection", action="store_true",
+                       help=translate_func("Enable file type detection using magic numbers (file headers)"))
+    parser.add_argument("--magic-fallback", action="store_true", default=True,
+                       help=translate_func("Use magic detection as fallback when extension doesn't match (default: True)"))
+    
     # Optional arguments
     parser.add_argument("--outname", action="store", 
                        help=translate_func("Optional parameter; string which to include in the file name of all output files"))

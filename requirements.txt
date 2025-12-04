@@ -17,6 +17,13 @@ PyYAML~=6.0.1
 spacy>=3.7.0  # For spaCy NER engine
 requests>=2.31.0  # For Ollama and OpenAI-compatible engines
 
+# Optional dependencies for file type detection
+python-magic>=0.4.27  # For magic number file type detection (requires libmagic system library)
+filetype>=1.2.0  # Pure Python fallback for file type detection
+
+# Optional dependencies for image processing
+Pillow>=10.0.0  # For image validation and processing
+
 # Documentation dependencies (optional)
 # mkdocs~=1.5.0
 # mkdocs-material~=9.5.0

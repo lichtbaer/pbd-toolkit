@@ -31,13 +31,14 @@ class BaseFileProcessor(ABC):
         pass
     
     @staticmethod
-    def can_process(extension: str, file_path: str = "") -> bool:
+    def can_process(extension: str, file_path: str = "", mime_type: str = "") -> bool:
         """Check if this processor can handle the given file extension.
         
         Args:
             extension: File extension (e.g., '.pdf', '.docx')
             file_path: Optional full path to the file (for processors that need
                       to check file content or MIME type)
+            mime_type: Optional detected MIME type (from magic number detection)
             
         Returns:
             True if this processor can handle the extension, False otherwise
@@ -45,5 +46,7 @@ class BaseFileProcessor(ABC):
         Note:
             Most processors only need the extension parameter. Some processors
             (like TextProcessor) may need the file_path to check MIME types.
+            The mime_type parameter allows processors to match based on detected
+            MIME type when magic number detection is enabled.
         """
         return False

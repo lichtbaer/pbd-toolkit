@@ -46,6 +46,11 @@ class Config:
     use_spacy_ner: bool = False
     use_ollama: bool = False
     use_openai_compatible: bool = False
+    use_multimodal: bool = False
+    
+    # File type detection
+    use_magic_detection: bool = False
+    magic_detection_fallback: bool = True
     
     # Dependencies
     logger: Optional[logging.Logger] = field(default=None)
@@ -68,6 +73,12 @@ class Config:
     openai_api_key: str | None = None
     openai_model: str = "gpt-3.5-turbo"
     openai_timeout: int = 30
+    
+    # Multimodal engine configuration
+    multimodal_api_base: str | None = None
+    multimodal_api_key: str | None = None
+    multimodal_model: str = "gpt-4-vision-preview"
+    multimodal_timeout: int = 60
     
     # Resource limits
     max_file_size_mb: float = 500.0
@@ -158,6 +169,9 @@ class Config:
             use_spacy_ner=getattr(args, 'spacy_ner', False),
             use_ollama=getattr(args, 'ollama', False),
             use_openai_compatible=getattr(args, 'openai_compatible', False),
+            use_multimodal=getattr(args, 'multimodal', False),
+            use_magic_detection=getattr(args, 'use_magic_detection', False),
+            magic_detection_fallback=getattr(args, 'magic_fallback', True),
             logger=logger,
             csv_writer=csv_writer,
             csv_file_handle=csv_file_handle,
@@ -177,6 +191,22 @@ class Config:
             config.openai_api_key = args.openai_api_key
         if hasattr(args, 'openai_model'):
             config.openai_model = args.openai_model
+        
+        # Multimodal configuration
+        if hasattr(args, 'multimodal_api_base'):
+            config.multimodal_api_base = args.multimodal_api_base
+        elif config.use_multimodal:
+            # Default to openai_api_base if not specified
+            config.multimodal_api_base = config.openai_api_base
+        if hasattr(args, 'multimodal_api_key'):
+            config.multimodal_api_key = args.multimodal_api_key
+        elif config.use_multimodal:
+            # Default to openai_api_key if not specified
+            config.multimodal_api_key = config.openai_api_key
+        if hasattr(args, 'multimodal_model'):
+            config.multimodal_model = args.multimodal_model
+        if hasattr(args, 'multimodal_timeout'):
+            config.multimodal_timeout = args.multimodal_timeout
         
         # Load regex pattern
         config._load_regex_pattern()

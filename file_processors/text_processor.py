@@ -30,19 +30,28 @@ class TextProcessor(BaseFileProcessor):
             return doc.read()
     
     @staticmethod
-    def can_process(extension: str, file_path: str) -> bool:
+    def can_process(extension: str, file_path: str = "", mime_type: str = "") -> bool:
         """Check if this processor can handle the file.
         
         Args:
             extension: File extension (may be empty for text files)
             file_path: Full path to the file (for mime type checking)
+            mime_type: Detected MIME type (from magic number detection)
             
         Returns:
             True if file is a plain text file, False otherwise
         """
+        # Check by extension
         if extension.lower() == ".txt":
             return True
-        if extension == "":
-            mime_type, _ = mimetypes.guess_type(file_path)
+        
+        # Check by detected MIME type (from magic numbers)
+        if mime_type:
             return mime_type == "text/plain"
+        
+        # Fallback: check by file_path MIME type guessing
+        if extension == "" and file_path:
+            guessed_mime, _ = mimetypes.guess_type(file_path)
+            return guessed_mime == "text/plain"
+        
         return False

@@ -30,10 +30,17 @@ try:
 except ImportError:
     pass
 
+try:
+    from core.engines.multimodal_engine import MultimodalEngine
+    EngineRegistry.register("multimodal", MultimodalEngine)
+except ImportError:
+    pass
+
 __all__ = [
     "DetectionEngine",
     "DetectionResult",
     "EngineRegistry",
     "RegexEngine",
     "GLiNEREngine",
+    "MultimodalEngine",
 ]

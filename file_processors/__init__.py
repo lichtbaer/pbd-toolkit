@@ -17,6 +17,7 @@ from file_processors.msg_processor import MsgProcessor
 from file_processors.ods_processor import OdsProcessor
 from file_processors.pptx_processor import PptxProcessor, PptProcessor
 from file_processors.yaml_processor import YamlProcessor
+from file_processors.image_processor import ImageProcessor
 
 __all__ = [
     "BaseFileProcessor",
@@ -38,6 +39,7 @@ __all__ = [
     "PptxProcessor",
     "PptProcessor",
     "YamlProcessor",
+    "ImageProcessor",
 ]
 
 # Auto-register all processors
@@ -61,6 +63,7 @@ _registered_processors = [
     PptxProcessor(),
     PptProcessor(),
     YamlProcessor(),
+    ImageProcessor(),
 ]
 
 # Register all processors with the registry

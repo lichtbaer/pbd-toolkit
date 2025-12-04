@@ -13,6 +13,7 @@ from core.statistics import Statistics
 from core.engines import EngineRegistry
 from core.engines.base import DetectionEngine
 from file_processors import BaseFileProcessor, FileProcessorRegistry, PdfProcessor
+from file_processors.image_processor import ImageProcessor
 from matches import PiiMatchContainer
 
 
@@ -68,7 +69,14 @@ class TextProcessor:
             engines.append("regex")
         if self.config.use_ner:
             engines.append("gliner")
-        # Additional engines will be added via config.enabled_engines in future
+        if getattr(self.config, 'use_spacy_ner', False):
+            engines.append("spacy-ner")
+        if getattr(self.config, 'use_ollama', False):
+            engines.append("ollama")
+        if getattr(self.config, 'use_openai_compatible', False):
+            engines.append("openai-compatible")
+        if getattr(self.config, 'use_multimodal', False):
+            engines.append("multimodal")
         return engines
     
     def process_text(self, text: str, file_path: str) -> None:
@@ -168,9 +176,10 @@ class TextProcessor:
         """
         full_path = file_info.path
         ext = file_info.extension
+        mime_type = getattr(file_info, 'mime_type', None) or ""
         
         # Get appropriate processor for this file type
-        processor = FileProcessorRegistry.get_processor(ext, full_path)
+        processor = FileProcessorRegistry.get_processor(ext, full_path, mime_type)
         
         if processor is None:
             if self.config.verbose:
@@ -178,6 +187,32 @@ class TextProcessor:
             return False
         
         try:
+            # Handle image files with multimodal engine
+            if isinstance(processor, ImageProcessor):
+                if self.config.use_multimodal:
+                    # Get multimodal engine
+                    multimodal_engine = None
+                    for engine in self.engines:
+                        if engine.name == "multimodal":
+                            multimodal_engine = engine
+                            break
+                    
+                    if multimodal_engine:
+                        # Process image with multimodal engine
+                        results = multimodal_engine.detect("", self.config.ner_labels, image_path=full_path)
+                        if results:
+                            with self._process_lock:
+                                self.match_container.add_detection_results(results, full_path)
+                        if self.config.verbose:
+                            self.config.logger.debug(f"Processed image with multimodal engine: {full_path}")
+                    else:
+                        if self.config.verbose:
+                            self.config.logger.debug(f"Multimodal engine not available, skipping image: {full_path}")
+                else:
+                    if self.config.verbose:
+                        self.config.logger.debug(f"Multimodal detection not enabled, skipping image: {full_path}")
+                return True
+            
             # PDF processor yields text chunks, others return full text
             if isinstance(processor, PdfProcessor):
                 for text_chunk in processor.extract_text(full_path):

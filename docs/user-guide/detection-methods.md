@@ -406,6 +406,73 @@ python main.py --path /data --openai-compatible \
 - Slower than local models
 - Data sent to external service
 
+### Multimodal Image Detection Engine
+
+Detection of PII in images using multimodal AI models. Supports OpenAI GPT-4 Vision, Anthropic Claude 3, and open-source models via vLLM or LocalAI.
+
+**Usage**:
+
+```bash
+# With OpenAI GPT-4 Vision
+python main.py --path /data/images --multimodal \
+    --multimodal-api-key YOUR_KEY \
+    --multimodal-model gpt-4-vision-preview
+
+# With local vLLM server
+python main.py --path /data/images --multimodal \
+    --multimodal-api-base http://localhost:8000/v1 \
+    --multimodal-model llava-v1.6-vicuna-7b
+```
+
+**Supported Image Formats**:
+- JPEG (.jpg, .jpeg)
+- PNG (.png)
+- GIF (.gif)
+- BMP (.bmp)
+- TIFF (.tiff, .tif)
+- WebP (.webp)
+
+**Configuration**:
+- `--multimodal`: Enable multimodal image detection
+- `--multimodal-api-base`: API base URL (defaults to `--openai-api-base` or `https://api.openai.com/v1`)
+- `--multimodal-api-key`: API key (defaults to `--openai-api-key` or `OPENAI_API_KEY` env var)
+- `--multimodal-model`: Model to use (default: `gpt-4-vision-preview`)
+- `--multimodal-timeout`: API timeout in seconds (default: 60)
+
+**What It Detects**:
+- Names on documents, badges, screens
+- Email addresses visible in images
+- Phone numbers
+- Addresses
+- ID numbers (passport, driver's license, etc.)
+- Credit card numbers
+- Social security numbers
+- Any other personally identifiable information visible in images
+
+**Advantages**:
+- Detects PII in images (not just text files)
+- Works with scanned documents, screenshots, photos
+- High accuracy with modern vision models
+- Supports local models for privacy
+
+**Limitations**:
+- Requires API access (OpenAI, vLLM, or LocalAI)
+- Slower than text-based detection
+- API costs may apply (depending on provider)
+- Images are sent to external service (unless using local models)
+- Requires significant API timeout for large images
+
+**Privacy Considerations**:
+- Images are sent to external APIs unless using local models
+- For sensitive data, use local models (vLLM/LocalAI)
+- See [Open-Source Models Guide](open-source-models.md) for local setup
+
+**Example Use Cases**:
+- Scanning screenshots for PII
+- Analyzing scanned documents
+- Detecting PII in photos of documents
+- Finding sensitive information in image files
+
 ## Combined Usage
 
 Use multiple engines together for comprehensive detection:
@@ -414,7 +481,7 @@ Use multiple engines together for comprehensive detection:
 # Basic combination
 python main.py --path /data --regex --ner
 
-# All engines
+# All engines (text-based)
 python main.py --path /data \
     --regex \
     --ner \
@@ -425,6 +492,12 @@ python main.py --path /data \
 python main.py --path /data \
     --regex \
     --spacy-ner --spacy-model de_core_news_lg
+
+# With image detection
+python main.py --path /data \
+    --regex \
+    --ner \
+    --multimodal --multimodal-api-key YOUR_KEY
 ```
 
 ### When to Use Each Method
@@ -456,6 +529,7 @@ python main.py --path /data \
 | spaCy | Medium | Medium | Medium | Medium | High (German) | Yes | Free |
 | Ollama | Very Slow | Very High | Very High | Medium | High | Yes | Free |
 | OpenAI | Slow | Low | Low | Medium | Very High | No | Paid |
+| Multimodal | Very Slow | Low | Low | Medium | High (Images) | Optional | Paid/Free |
 
 ## Engine Selection Guide
 

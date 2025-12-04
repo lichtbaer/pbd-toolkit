@@ -34,12 +34,18 @@ Then open `http://127.0.0.1:8000` in your browser.
 
 ## Key Features
 
-- **Multiple Detection Methods**: Regular expressions and AI-powered Named Entity Recognition
-- **Wide File Format Support**: PDF, DOCX, HTML, TXT, CSV, JSON, XLSX, XLS, PPTX, PPT, ODT, RTF, ODS, EML, MSG, XML, YAML, and more
+- **Multiple Detection Methods**: 
+  - Regular expressions for structured PII
+  - AI-powered Named Entity Recognition (GLiNER, spaCy)
+  - LLM-based detection (Ollama, OpenAI-compatible)
+  - **Multimodal image detection** (GPT-4 Vision, local models via vLLM/LocalAI)
+- **Wide File Format Support**: PDF, DOCX, HTML, TXT, CSV, JSON, XLSX, XLS, PPTX, PPT, ODT, RTF, ODS, EML, MSG, XML, YAML, and **image formats** (JPEG, PNG, GIF, BMP, TIFF, WebP)
+- **File Type Detection**: Optional magic number detection for files without or with incorrect extensions
 - **Flexible Output Formats**: CSV, JSON, and Excel (XLSX)
 - **Advanced Features**: Whitelist support, multi-threaded processing, progress tracking
 - **CLI Options**: Verbose mode (`-v`), quiet mode (`-q`), config file support (`--config`), structured output (`--summary-format`)
 - **Professional Architecture**: Modular design, dependency injection, no global variables
+- **Privacy-Focused**: Support for local models (vLLM, LocalAI) for complete data privacy
 
 ## Installation
 
@@ -48,7 +54,19 @@ See [Installation Guide](docs/getting-started/installation.md) for detailed inst
 ## Usage
 
 ```bash
+# Basic text-based detection
 python main.py --path /var/data-leak/ --regex --ner --format json --outname "scan-2024"
+
+# With magic number file type detection
+python main.py --path /var/data-leak/ --regex --use-magic-detection
+
+# With multimodal image detection (OpenAI)
+python main.py --path /var/images/ --multimodal --multimodal-api-key YOUR_KEY
+
+# With local multimodal models (vLLM)
+python main.py --path /var/images/ --multimodal \
+    --multimodal-api-base http://localhost:8000/v1 \
+    --multimodal-model microsoft/llava-1.6-vicuna-7b
 ```
 
 See [User Guide](docs/user-guide/cli.md) for complete usage documentation.
@@ -65,9 +83,11 @@ This fork is based on the **pbD-Toolkit** (Personenbezogene Daten Toolkit) devel
 This project is designed with privacy in mind:
 
 - **No telemetry**: The project code does not collect or transmit any data
-- **Local processing**: All analysis is performed locally
+- **Local processing**: All analysis is performed locally (text-based detection)
+- **Local image processing**: Support for local multimodal models (vLLM, LocalAI) - images never leave your infrastructure
 - **Telemetry disabled**: Dependencies with telemetry (HuggingFace, PyTorch) are automatically configured to disable telemetry
 - **User-initiated network calls**: Network connections are only made when explicitly using external APIs (OpenAI, Ollama) with user-provided credentials
+- **Privacy-first**: Use local models for sensitive data - see [Open-Source Models Guide](docs/user-guide/open-source-models.md)
 
 For detailed security and privacy analysis, see [Security and Privacy Analysis](docs/SECURITY_AND_PRIVACY_ANALYSIS.md).
 
