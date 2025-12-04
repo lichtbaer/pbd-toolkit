@@ -175,19 +175,83 @@ Plain text files.
 - Handles various encodings (UTF-8, Latin-1, etc.)
 - Also processes files without extension if MIME type is `text/plain`
 
+## Image Formats
+
+### Supported Image Types
+
+The toolkit can detect PII in images when multimodal detection is enabled.
+
+**Supported Formats**:
+- JPEG (`.jpg`, `.jpeg`)
+- PNG (`.png`)
+- GIF (`.gif`)
+- BMP (`.bmp`)
+- TIFF (`.tiff`, `.tif`)
+- WebP (`.webp`)
+
+**Processor**: `ImageProcessor`
+- Prepares images for multimodal model processing
+- Encodes images as base64 for API transmission
+- Extracts MIME type information
+
+**Detection**: Requires `--multimodal` flag and a compatible API (OpenAI, vLLM, or LocalAI).
+
+**Note**: Image processing is slower than text processing and requires API access. See [Detection Methods](detection-methods.md#multimodal-image-detection-engine) for details.
+
 ## File Processing
 
 ### How Files Are Identified
 
-Files are identified by their extension (case-insensitive). The registry automatically selects the appropriate processor.
+By default, files are identified by their extension (case-insensitive). The registry automatically selects the appropriate processor.
+
+### Magic Number Detection (Optional)
+
+When enabled with `--use-magic-detection`, the toolkit can identify file types using magic numbers (file headers) instead of or in addition to file extensions.
+
+**Usage**:
+
+```bash
+python main.py --path /data --regex --use-magic-detection
+```
+
+**When It's Useful**:
+- Files without extensions
+- Files with incorrect extensions
+- Verifying file type matches extension
+- Handling files where extension is unreliable
+
+**Configuration**:
+- `--use-magic-detection`: Enable magic number detection
+- `--magic-fallback`: Use magic detection as fallback when extension doesn't match (default: True)
+
+**How It Works**:
+1. File extension is checked first (if present)
+2. If magic detection is enabled, file header is analyzed
+3. MIME type is detected from magic numbers
+4. Processor is selected based on MIME type or extension
+5. If file has no extension, extension may be inferred from MIME type
+
+**Dependencies**:
+- `python-magic` (requires libmagic system library) - primary method
+- `filetype` (pure Python) - fallback if python-magic not available
+
+**System Requirements**:
+- Linux: Install `libmagic1` package
+- macOS: Install via Homebrew: `brew install libmagic`
+- Windows: Use `python-magic-bin` package
+
+**Performance**: Magic detection adds minimal overhead. It's only used when:
+- File has no extension, OR
+- `--magic-fallback` is enabled (checks all files)
 
 ### Processing Order
 
 1. File extension is extracted
-2. Registry finds matching processor
-3. Processor extracts text content
-4. Text is analyzed for PII
-5. Results are written to output file
+2. (Optional) Magic number detection identifies MIME type if enabled
+3. Registry finds matching processor (using extension and/or MIME type)
+4. Processor extracts text content (or prepares image for multimodal analysis)
+5. Text/image is analyzed for PII using enabled detection engines
+6. Results are written to output file
 
 ### Error Handling
 
