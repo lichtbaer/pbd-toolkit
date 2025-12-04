@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from config import Config
 from core.exceptions import ProcessingError
+from core.file_type_detector import FileTypeDetector
 
 
 @dataclass
@@ -35,6 +36,7 @@ class FileInfo:
     path: str
     extension: str
     size_mb: Optional[float] = None
+    mime_type: Optional[str] = None
 
 
 class FileScanner:
@@ -58,6 +60,10 @@ class FileScanner:
         self._error_lock = threading.Lock()
         self._extension_counts: dict[str, int] = {}
         self._errors: dict[str, list[str]] = {}
+        
+        # Initialize file type detector if enabled
+        use_magic = getattr(config, 'use_magic_detection', False)
+        self.file_type_detector = FileTypeDetector(enabled=use_magic) if use_magic else None
     
     def scan(
         self,
@@ -134,6 +140,29 @@ class FileScanner:
                     except OSError:
                         pass
                     
+                    # Detect MIME type using magic numbers if enabled
+                    mime_type = None
+                    if self.file_type_detector:
+                        # Use magic detection if:
+                        # 1. File has no extension, OR
+                        # 2. magic_detection_fallback is enabled (always detect)
+                        magic_fallback = getattr(self.config, 'magic_detection_fallback', True)
+                        if not ext or magic_fallback:
+                            mime_type = self.file_type_detector.detect_type(full_path)
+                            if mime_type and self.config.verbose:
+                                self.config.logger.debug(
+                                    f"Detected MIME type for {full_path}: {mime_type}"
+                                )
+                            # If file has no extension but we detected a type, update extension
+                            if not ext and mime_type:
+                                detected_ext = self.file_type_detector.get_extension_from_mime(mime_type)
+                                if detected_ext:
+                                    ext = detected_ext
+                                    if self.config.verbose:
+                                        self.config.logger.debug(
+                                            f"Inferred extension from MIME type: {ext}"
+                                        )
+                    
                     # Log file processing in verbose mode
                     if self.config.verbose:
                         if file_size_mb is not None:
@@ -149,7 +178,8 @@ class FileScanner:
                     file_info = FileInfo(
                         path=full_path,
                         extension=ext,
-                        size_mb=file_size_mb
+                        size_mb=file_size_mb,
+                        mime_type=mime_type
                     )
                     
                     if file_callback:
