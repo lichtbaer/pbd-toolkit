@@ -3,7 +3,7 @@
 !!! warning "This is a Fork"
     **This is an unofficial fork of the HBDI PII Toolkit.** This project is not maintained by or affiliated with the Hessian Commissioner for Data Protection and Freedom of Information (HBDI). This fork may contain modifications, improvements, or changes that are not present in the original project.
 
-    For the official project, please visit the [original repository](https://github.com/hessen-datenschutz/pbd-toolkit) or the [HBDI website](https://datenschutz.hessen.de).
+   For the official project, please visit the [original repository](https://github.com/hessen-datenschutz/pbd-toolkit) or the [HBDI website](https://datenschutz.hessen.de).
 
 ## Overview
 
