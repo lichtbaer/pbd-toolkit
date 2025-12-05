@@ -117,6 +117,23 @@ Application-wide constants:
 }
 ```
 
+### Ollama Labels
+
+Ollama uses a dedicated configuration with descriptions to guide the LLM:
+
+```json
+{
+  "ollama-ner": [
+    {
+      "label": "OLLAMA_PERSON",
+      "value": "Ollama: Person",
+      "term": "Person's Name",
+      "description": "Full names of individuals, including titles if present."
+    }
+  ]
+}
+```
+
 ## Configuration Loading
 
 ### Initialization Flow

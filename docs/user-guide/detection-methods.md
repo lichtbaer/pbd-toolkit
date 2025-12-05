@@ -357,6 +357,7 @@ python main.py --path /data --ollama --ollama-model llama3.2
 **Configuration**:
 - `--ollama-url`: Ollama API base URL (default: `http://localhost:11434`)
 - `--ollama-model`: Model to use (default: `llama3.2`)
+- **Dimensions**: Configured in `config_types.json` under `ollama-ner`. Each entry defines a `term` (name) and `description` (guidance for the model).
 
 **Installation**:
 
