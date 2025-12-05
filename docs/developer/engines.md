@@ -94,7 +94,9 @@ Local LLM-based detection using Ollama.
 **Features**:
 - Completely offline
 - Configurable models
-- JSON response parsing
+- JSON response parsing with regex fallback
+- Adaptive rate limiting based on response time
+- Automatic retry mechanism with exponential backoff
 
 ### OpenAICompatibleEngine
 
@@ -240,7 +242,7 @@ def test_my_engine_detect():
 ## Performance Considerations
 
 - **Fast engines** (regex): Can run in parallel without locks
-- **Slow engines** (LLMs): Consider batching or rate limiting
+- **Slow engines** (LLMs): Consider batching or rate limiting (e.g., OllamaEngine implements adaptive rate limiting)
 - **Resource-intensive**: Check availability before processing
 - **Caching**: Consider caching for repeated patterns
 

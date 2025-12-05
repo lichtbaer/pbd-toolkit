@@ -50,7 +50,11 @@ python main.py --path /data --regex --format json
     "path": "/data",
     "methods": {
       "regex": true,
-      "ner": false
+      "ner": false,
+      "spacy_ner": false,
+      "ollama": true,
+      "openai_compatible": false,
+      "multimodal": false
     },
     "total_files": 1234,
     "analyzed_files": 567,

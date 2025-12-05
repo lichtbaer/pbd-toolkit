@@ -367,11 +367,12 @@ python main.py --path /data --ollama --ollama-model llama3.2
    ollama pull mistral
    ```
 
-**Advantages**:
+**Features**:
 - Completely local (no data leaves your system)
 - No API costs
 - Supports various models
 - Good for complex PII detection
+- **Robustness**: Includes automatic retries and adaptive rate limiting to prevent server overload
 
 **Limitations**:
 - Requires Ollama server running
@@ -527,7 +528,7 @@ python main.py --path /data \
 | Regex | Very Fast | Low | Low | High | Low | Yes | Free |
 | GLiNER | Slow | High | High | Medium | High | Yes | Free |
 | spaCy | Medium | Medium | Medium | Medium | High (German) | Yes | Free |
-| Ollama | Very Slow | Very High | Very High | Medium | High | Yes | Free |
+| Ollama | Very Slow (Adaptive) | Very High | Very High | Medium | High | Yes | Free |
 | OpenAI | Slow | Low | Low | Medium | Very High | No | Paid |
 | Multimodal | Very Slow | Low | Low | Medium | High (Images) | Optional | Paid/Free |
 
