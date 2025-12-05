@@ -118,5 +118,43 @@
             "value": "AI-NER: Religious Belief",
             "term": "Religious Belief"
         }
+    ],
+    "ollama-ner": [
+        {
+            "label": "OLLAMA_PERSON",
+            "value": "Ollama: Person",
+            "term": "Person's Name",
+            "description": "Full names of individuals, including titles if present."
+        },
+        {
+            "label": "OLLAMA_LOCATION",
+            "value": "Ollama: Location",
+            "term": "Location",
+            "description": "Physical locations, cities, countries, addresses, or specific landmarks."
+        },
+        {
+            "label": "OLLAMA_ORGANIZATION",
+            "value": "Ollama: Organization",
+            "term": "Organization",
+            "description": "Companies, government bodies, non-profits, or other institutions."
+        },
+        {
+            "label": "OLLAMA_DATE",
+            "value": "Ollama: Date",
+            "term": "Date",
+            "description": "Specific dates, deadlines, or time periods."
+        },
+        {
+            "label": "OLLAMA_MONEY",
+            "value": "Ollama: Money",
+            "term": "Money",
+            "description": "Monetary values, salaries, prices, or financial amounts."
+        },
+        {
+            "label": "OLLAMA_SENSITIVE",
+            "value": "Ollama: Sensitive Data",
+            "term": "Sensitive Personal Data",
+            "description": "Highly sensitive data like health information, political opinions, religious beliefs, or sexual orientation (GDPR Article 9)."
+        }
     ]
 }

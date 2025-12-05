@@ -65,6 +65,9 @@ class Config:
     ner_threshold: float = field(default=constants.NER_THRESHOLD)
     ner_stats: NerStats = field(default_factory=NerStats)
     
+    # Ollama configuration
+    ollama_labels: list[dict] = field(default_factory=list)
+    
     # Engine-specific configuration
     spacy_model_name: str = "de_core_news_lg"
     ollama_base_url: str = "http://localhost:11434"
@@ -285,6 +288,14 @@ class Config:
             # Load NER labels
             ner_config = config_data.get("ai-ner", [])
             self.ner_labels = [c["term"] for c in ner_config]
+            
+            # Load Ollama labels
+            ollama_config = config_data.get("ollama-ner", [])
+            # If no Ollama specific config, fallback to NER labels structure but adapted
+            if not ollama_config:
+                self.ollama_labels = [{"term": c["term"], "description": c["term"]} for c in ner_config]
+            else:
+                self.ollama_labels = ollama_config
             
             if not self.ner_labels:
                 self.logger.warning(self._("No NER labels configured"))

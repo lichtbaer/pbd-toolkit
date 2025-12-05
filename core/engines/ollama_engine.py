@@ -40,13 +40,22 @@ class OllamaEngine:
         
         Args:
             text: Text content to analyze
-            labels: Optional list of entity types to detect
+            labels: Optional list of entity types to detect. If None, uses configured Ollama labels.
         
         Returns:
             List of detection results
         """
         if not self.enabled:
             return []
+            
+        # Use configured Ollama labels if not overridden
+        # labels arg is usually passed from text_processor, which passes ner_labels.
+        # We ignore passed labels if we have specific ollama configuration
+        if hasattr(self.config, 'ollama_labels') and self.config.ollama_labels:
+            labels_config = self.config.ollama_labels
+        else:
+            # Fallback to whatever was passed or generic
+            labels_config = [{"term": l, "description": l} for l in (labels or [])]
             
         # Adaptive throttling
         import time
@@ -67,7 +76,7 @@ class OllamaEngine:
                 time.sleep(sleep_time)
         
         # Create prompt for PII detection
-        prompt = self._create_prompt(text, labels)
+        prompt = self._create_prompt(text, labels_config)
         
         # Simple retry mechanism with backoff
         max_retries = 3
@@ -129,21 +138,32 @@ class OllamaEngine:
                 return []
         return []
     
-    def _create_prompt(self, text: str, labels: list[str] | None) -> str:
+    def _create_prompt(self, text: str, labels_config: list[dict]) -> str:
         """Create prompt for LLM.
         
         Args:
             text: Text to analyze
-            labels: Optional list of entity types
+            labels_config: List of dicts with 'term' and 'description'
         
         Returns:
             Formatted prompt string
         """
-        label_list = ", ".join(labels) if labels else "all PII types"
+        # Format labels with descriptions
+        label_desc_list = []
+        for l in labels_config:
+            term = l.get("term", "")
+            desc = l.get("description", "")
+            if desc and desc != term:
+                label_desc_list.append(f"- {term}: {desc}")
+            else:
+                label_desc_list.append(f"- {term}")
+        
+        labels_str = "\n".join(label_desc_list)
         
         prompt = f"""Analyze the following text and extract all personally identifiable information (PII).
 
-Entity types to detect: {label_list}
+Entity types to detect:
+{labels_str}
 
 Text:
 {text}
