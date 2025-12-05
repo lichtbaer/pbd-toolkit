@@ -88,6 +88,18 @@ class TextProcessor:
         """
         if not text.strip():
             return
+
+        # Clean text to remove control characters that might confuse NLP models (especially spaCy)
+        # Keep newlines, tabs and carriage returns, remove other non-printables
+        text = "".join(ch for ch in text if ch.isprintable() or ch in "\n\t\r")
+        
+        if not text.strip():
+            return
+            
+        if self.config.verbose:
+            # Log a snippet of the text to debug extraction quality
+            snippet = text[:100].replace('\n', '\\n')
+            self.config.logger.debug(f"Processing text from {file_path} (len={len(text)}): '{snippet}...'")
         
         all_results = []
         
