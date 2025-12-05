@@ -10,7 +10,7 @@ from typing import Optional
 import constants
 from core.context import ApplicationContext
 from core.config_loader import ConfigLoader
-from output.writers import create_output_writer, OutputWriter
+from core.writers import create_output_writer, OutputWriter
 
 """ Setup language handling by referring to the environment variable LANGUAGE and loading the corresponding
     locales file. """

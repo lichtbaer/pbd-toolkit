@@ -9,7 +9,7 @@ from typing import Callable, Optional
 from config import Config
 from core.statistics import Statistics
 from matches import PiiMatchContainer
-from output.writers import OutputWriter
+from core.writers import OutputWriter
 
 
 @dataclass
@@ -70,7 +70,7 @@ class ApplicationContext:
         csv_file_handle = None
         
         if output_writer and output_format == "csv":
-            from output.writers import CsvWriter
+            from core.writers import CsvWriter
             if isinstance(output_writer, CsvWriter):
                 csv_writer = output_writer.get_writer()
                 csv_file_handle = output_writer.file_handle

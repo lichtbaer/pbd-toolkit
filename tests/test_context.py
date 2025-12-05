@@ -80,7 +80,7 @@ class TestApplicationContext:
     
     def test_context_with_output_writer(self, mock_config):
         """Test context with output writer."""
-        from output.writers import CsvWriter
+        from core.writers import CsvWriter
         import tempfile
         import os
         

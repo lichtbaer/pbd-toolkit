@@ -18,7 +18,7 @@ from core.scanner import FileScanner, FileInfo
 from core.processor import TextProcessor
 from core.statistics import Statistics
 from core.context import ApplicationContext
-from output.writers import OutputWriter
+from core.writers import OutputWriter
 # File processor imports no longer needed in main.py
 # They are now used in core.processor
 
@@ -58,7 +58,7 @@ try:
     csv_writer = None
     csv_file_handle = None
     if output_writer and hasattr(output_writer, 'get_writer'):
-        from output.writers import CsvWriter
+        from core.writers import CsvWriter
         if isinstance(output_writer, CsvWriter):
             csv_writer = output_writer.get_writer()
             csv_file_handle = output_writer.file_handle
