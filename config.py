@@ -48,6 +48,7 @@ class Config:
     use_ollama: bool = False
     use_openai_compatible: bool = False
     use_multimodal: bool = False
+    use_pydantic_ai: bool = False  # Unified LLM engine (replaces ollama, openai-compatible, multimodal)
     
     # File type detection
     use_magic_detection: bool = False
@@ -83,6 +84,12 @@ class Config:
     multimodal_api_key: str | None = None
     multimodal_model: str = "gpt-4-vision-preview"
     multimodal_timeout: int = 60
+    
+    # PydanticAI unified engine configuration
+    pydantic_ai_provider: str = "openai"  # ollama, openai, anthropic
+    pydantic_ai_model: str | None = None  # Auto-determined from provider if None
+    pydantic_ai_api_key: str | None = None
+    pydantic_ai_base_url: str | None = None
     
     # Resource limits
     max_file_size_mb: float = 500.0
@@ -174,6 +181,7 @@ class Config:
             use_ollama=getattr(args, 'ollama', False),
             use_openai_compatible=getattr(args, 'openai_compatible', False),
             use_multimodal=getattr(args, 'multimodal', False),
+            use_pydantic_ai=getattr(args, 'pydantic_ai', False),
             use_magic_detection=getattr(args, 'use_magic_detection', False),
             magic_detection_fallback=getattr(args, 'magic_fallback', True),
             logger=logger,
@@ -211,6 +219,16 @@ class Config:
             config.multimodal_model = args.multimodal_model
         if hasattr(args, 'multimodal_timeout'):
             config.multimodal_timeout = args.multimodal_timeout
+        
+        # PydanticAI configuration
+        if hasattr(args, 'pydantic_ai_provider'):
+            config.pydantic_ai_provider = args.pydantic_ai_provider
+        if hasattr(args, 'pydantic_ai_model'):
+            config.pydantic_ai_model = args.pydantic_ai_model
+        if hasattr(args, 'pydantic_ai_api_key'):
+            config.pydantic_ai_api_key = args.pydantic_ai_api_key
+        if hasattr(args, 'pydantic_ai_base_url'):
+            config.pydantic_ai_base_url = args.pydantic_ai_base_url
         
         # Load regex pattern
         config._load_regex_pattern()

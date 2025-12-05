@@ -1,8 +1,14 @@
-"""Multimodal detection engine for image analysis."""
+"""Multimodal detection engine for image analysis.
+
+DEPRECATED: This engine is deprecated in favor of PydanticAIEngine.
+Use --pydantic-ai --pydantic-ai-provider openai instead of --multimodal.
+This file is kept for backward compatibility only.
+"""
 
 import base64
 import json
 import os
+import warnings
 from typing import Optional, List
 from core.engines.base import DetectionEngine, DetectionResult
 from config import Config
@@ -26,6 +32,11 @@ class MultimodalEngine:
         Args:
             config: Configuration object with API settings
         """
+        warnings.warn(
+            "MultimodalEngine is deprecated. Use PydanticAIEngine with --pydantic-ai --pydantic-ai-provider openai instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         self.config = config
         self.enabled = getattr(config, 'use_multimodal', False)
         self.api_base = getattr(config, 'multimodal_api_base', None) or \

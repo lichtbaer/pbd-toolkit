@@ -36,6 +36,13 @@ try:
 except ImportError:
     pass
 
+# PydanticAI unified engine (replaces ollama, openai-compatible, multimodal)
+try:
+    from core.engines.pydantic_ai_engine import PydanticAIEngine
+    EngineRegistry.register("pydantic-ai", PydanticAIEngine)
+except ImportError:
+    pass
+
 __all__ = [
     "DetectionEngine",
     "DetectionResult",
@@ -43,4 +50,5 @@ __all__ = [
     "RegexEngine",
     "GLiNEREngine",
     "MultimodalEngine",
+    "PydanticAIEngine",
 ]

@@ -92,10 +92,11 @@ enabled_methods = [
     config.use_spacy_ner,
     config.use_ollama,
     config.use_openai_compatible,
-    getattr(config, 'use_multimodal', False)
+    getattr(config, 'use_multimodal', False),
+    getattr(config, 'use_pydantic_ai', False)
 ]
 if not any(enabled_methods):
-    print(translate_func("At least one detection method must be enabled (--regex, --ner, --spacy-ner, --ollama, --openai-compatible, or --multimodal)."), file=sys.stderr)
+    print(translate_func("At least one detection method must be enabled (--regex, --ner, --spacy-ner, --ollama, --openai-compatible, --multimodal, or --pydantic-ai)."), file=sys.stderr)
     sys.exit(constants.EXIT_INVALID_ARGUMENTS)
 
 # Validate that GLiNER model is loaded if GLiNER is enabled
@@ -268,7 +269,8 @@ output_metadata = {
         "spacy_ner": getattr(context.config, 'use_spacy_ner', False),
         "ollama": getattr(context.config, 'use_ollama', False),
         "openai_compatible": getattr(context.config, 'use_openai_compatible', False),
-        "multimodal": getattr(context.config, 'use_multimodal', False)
+        "multimodal": getattr(context.config, 'use_multimodal', False),
+        "pydantic_ai": getattr(context.config, 'use_pydantic_ai', False)
     },
     "total_files": context.statistics.total_files_found,
     "analyzed_files": context.statistics.files_processed,

@@ -1,7 +1,13 @@
-"""Ollama-based LLM detection engine."""
+"""Ollama-based LLM detection engine.
+
+DEPRECATED: This engine is deprecated in favor of PydanticAIEngine.
+Use --pydantic-ai --pydantic-ai-provider ollama instead of --ollama.
+This file is kept for backward compatibility only.
+"""
 
 import json
 import re
+import warnings
 from typing import Optional
 from core.engines.base import DetectionEngine, DetectionResult
 from config import Config
@@ -22,6 +28,11 @@ class OllamaEngine:
         Args:
             config: Configuration object with Ollama settings
         """
+        warnings.warn(
+            "OllamaEngine is deprecated. Use PydanticAIEngine with --pydantic-ai --pydantic-ai-provider ollama instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         self.config = config
         self.enabled = getattr(config, 'use_ollama', False)
         self.base_url = getattr(config, 'ollama_base_url', 'http://localhost:11434')

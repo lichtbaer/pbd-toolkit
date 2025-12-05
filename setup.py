@@ -92,6 +92,18 @@ def __setup_args(translate_func: Callable[[str], str]) -> argparse.Namespace:
     parser.add_argument("--multimodal-timeout", type=int, default=60,
                        help=translate_func("Multimodal API timeout in seconds (default: 60)"))
     
+    # PydanticAI unified engine (replaces ollama, openai-compatible, multimodal)
+    parser.add_argument("--pydantic-ai", action="store_true",
+                       help=translate_func("Use PydanticAI unified LLM engine (recommended, replaces --ollama, --openai-compatible, --multimodal)"))
+    parser.add_argument("--pydantic-ai-provider", choices=["ollama", "openai", "anthropic"], default="openai",
+                       help=translate_func("LLM provider for PydanticAI (default: openai)"))
+    parser.add_argument("--pydantic-ai-model",
+                       help=translate_func("Model name for PydanticAI (auto-determined from provider if not specified)"))
+    parser.add_argument("--pydantic-ai-api-key",
+                       help=translate_func("API key for PydanticAI (or use provider-specific env vars)"))
+    parser.add_argument("--pydantic-ai-base-url",
+                       help=translate_func("Base URL for PydanticAI (for custom endpoints)"))
+    
     # File type detection
     parser.add_argument("--use-magic-detection", action="store_true",
                        help=translate_func("Enable file type detection using magic numbers (file headers)"))

@@ -71,12 +71,13 @@ class TextProcessor:
             engines.append("gliner")
         if getattr(self.config, 'use_spacy_ner', False):
             engines.append("spacy-ner")
-        if getattr(self.config, 'use_ollama', False):
-            engines.append("ollama")
-        if getattr(self.config, 'use_openai_compatible', False):
-            engines.append("openai-compatible")
-        if getattr(self.config, 'use_multimodal', False):
-            engines.append("multimodal")
+        # Use PydanticAI unified engine if explicitly enabled or if any legacy LLM engine is enabled
+        # PydanticAI engine automatically handles ollama, openai-compatible, and multimodal
+        if (getattr(self.config, 'use_pydantic_ai', False) or
+            getattr(self.config, 'use_ollama', False) or
+            getattr(self.config, 'use_openai_compatible', False) or
+            getattr(self.config, 'use_multimodal', False)):
+            engines.append("pydantic-ai")
         return engines
     
     def process_text(self, text: str, file_path: str) -> None:
@@ -117,7 +118,7 @@ class TextProcessor:
                 all_results.extend(results)
                 
                 # Update statistics for all AI/NER engines
-                if engine.name in ["gliner", "spacy-ner", "ollama", "openai-compatible", "multimodal"]:
+                if engine.name in ["gliner", "spacy-ner", "ollama", "openai-compatible", "multimodal", "pydantic-ai"]:
                     with self._process_lock:
                         self.config.ner_stats.total_chunks_processed += 1
                         self.config.ner_stats.total_processing_time += processing_time
