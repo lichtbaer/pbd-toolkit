@@ -1,6 +1,7 @@
 """Ollama-based LLM detection engine."""
 
 import json
+import re
 from typing import Optional
 from core.engines.base import DetectionEngine, DetectionResult
 from config import Config
@@ -110,21 +111,33 @@ Only return the JSON array, nothing else."""
             List of detection results
         """
         try:
-            # Try to extract JSON from response (might have markdown code blocks)
-            response_text = response_text.strip()
-            if response_text.startswith("```"):
-                # Remove markdown code blocks
-                lines = response_text.split("\n")
-                response_text = "\n".join(lines[1:-1]) if len(lines) > 2 else response_text
-            if response_text.startswith("```json"):
-                response_text = response_text[7:].strip()
-            if response_text.endswith("```"):
-                response_text = response_text[:-3].strip()
+            # Try to extract JSON from response using regex
+            # Look for a JSON array [ ... ]
+            match = re.search(r'\[.*\]', response_text, re.DOTALL)
+            if match:
+                response_text = match.group(0)
+            else:
+                # If no array found, try to clean up markdown code blocks as fallback
+                response_text = response_text.strip()
+                if response_text.startswith("```"):
+                    lines = response_text.split("\n")
+                    # Remove first line (```json or ```) and last line (```)
+                    if len(lines) >= 2:
+                        response_text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+                
+                if response_text.startswith("```json"):
+                    response_text = response_text[7:]
+                if response_text.endswith("```"):
+                    response_text = response_text[:-3]
             
             entities = json.loads(response_text)
             if not isinstance(entities, list):
                 # If it's a dict with "entities" key
-                entities = entities.get("entities", [])
+                if isinstance(entities, dict):
+                    entities = entities.get("entities", [])
+                else:
+                    self.config.logger.debug(f"Ollama response is valid JSON but not a list/dict: {type(entities)}")
+                    return []
             
             results = []
             for entity in entities:
@@ -139,10 +152,14 @@ Only return the JSON array, nothing else."""
             
             return results
         except json.JSONDecodeError as e:
-            self.config.logger.debug(f"Failed to parse Ollama JSON response: {e}")
+            self.config.logger.warning(f"Failed to parse Ollama JSON response: {e}")
+            if self.config.verbose:
+                self.config.logger.debug(f"Raw response: {response_text}")
             return []
         except Exception as e:
             self.config.logger.warning(f"Error parsing Ollama response: {e}")
+            if self.config.verbose:
+                self.config.logger.debug(f"Raw response: {response_text}")
             return []
     
     def is_available(self) -> bool:

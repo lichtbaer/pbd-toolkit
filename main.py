@@ -264,7 +264,11 @@ output_metadata = {
     "path": context.config.path,
     "methods": {
         "regex": context.config.use_regex,
-        "ner": context.config.use_ner
+        "ner": context.config.use_ner,
+        "spacy_ner": getattr(context.config, 'use_spacy_ner', False),
+        "ollama": getattr(context.config, 'use_ollama', False),
+        "openai_compatible": getattr(context.config, 'use_openai_compatible', False),
+        "multimodal": getattr(context.config, 'use_multimodal', False)
     },
     "total_files": context.statistics.total_files_found,
     "analyzed_files": context.statistics.files_processed,

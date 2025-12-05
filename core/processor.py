@@ -116,8 +116,8 @@ class TextProcessor:
                 processing_time = time.time() - start_time
                 all_results.extend(results)
                 
-                # Update statistics for GLiNER (backward compatibility)
-                if engine.name == "gliner":
+                # Update statistics for all AI/NER engines
+                if engine.name in ["gliner", "spacy-ner", "ollama", "openai-compatible", "multimodal"]:
                     with self._process_lock:
                         self.config.ner_stats.total_chunks_processed += 1
                         self.config.ner_stats.total_processing_time += processing_time
