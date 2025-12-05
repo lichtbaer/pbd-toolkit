@@ -5,7 +5,7 @@ import gettext
 import logging
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any, Callable
 
 import constants
 from core.context import ApplicationContext
@@ -14,7 +14,7 @@ from core.writers import create_output_writer, OutputWriter
 
 """ Setup language handling by referring to the environment variable LANGUAGE and loading the corresponding
     locales file. """
-def __setup_lang() -> gettext.NullTranslations:
+def __setup_lang() -> Callable[[str], str]:
     """Initialize internationalization based on LANGUAGE environment variable.
     
     Returns:
@@ -25,10 +25,10 @@ def __setup_lang() -> gettext.NullTranslations:
 
     lang = gettext.translation("base", localedir="locales", languages=[lenv])
     lang.install()
-    return lang
+    return lang.gettext
 
 """ Setup CLI argument parsing. """
-def __setup_args(translate_func: gettext.NullTranslations) -> argparse.Namespace:
+def __setup_args(translate_func: Callable[[str], str]) -> argparse.Namespace:
     """Parse command line arguments.
     
     Args:
@@ -219,7 +219,7 @@ def __check_telemetry_settings() -> None:
     # Note: tqdm telemetry is disabled by default in recent versions
     # For additional privacy, users can set TQDM_DISABLE_TELEMETRY=1
 
-def setup() -> tuple[argparse.Namespace, logging.Logger, gettext.NullTranslations, Optional[OutputWriter], str]:
+def setup() -> tuple[argparse.Namespace, logging.Logger, Callable[[str], str], Optional[OutputWriter], str]:
     """Setup application: parse arguments, setup logging, create output writer.
     
     Returns:
@@ -272,7 +272,7 @@ def setup() -> tuple[argparse.Namespace, logging.Logger, gettext.NullTranslation
 
 def create_config(args: argparse.Namespace, logger: logging.Logger,
                  csv_writer: Any, csv_file_handle: Any,
-                 translate_func: gettext.NullTranslations) -> "config.Config":
+                 translate_func: Callable[[str], str]) -> "config.Config":
     """Create Config object from setup.
     
     Args:

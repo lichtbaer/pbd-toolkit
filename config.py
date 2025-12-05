@@ -8,9 +8,10 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, TYPE_CHECKING, Any
 
-from gliner import GLiNER
+if TYPE_CHECKING:
+    from gliner import GLiNER
 
 import constants
 
@@ -59,7 +60,7 @@ class Config:
     
     # Processing configuration
     regex_pattern: re.Pattern | None = field(default=None)
-    ner_model: GLiNER | None = field(default=None)
+    ner_model: "GLiNER | None" = field(default=None)
     ner_labels: list[str] = field(default_factory=list)
     ner_threshold: float = field(default=constants.NER_THRESHOLD)
     ner_stats: NerStats = field(default_factory=NerStats)
@@ -265,6 +266,7 @@ class Config:
             else:
                 self.logger.info(self._("CPU forced for NER processing (FORCE_CPU=True)"))
             
+            from gliner import GLiNER
             self.ner_model = GLiNER.from_pretrained(constants.NER_MODEL_NAME)
             
             # Move model to device if supported
