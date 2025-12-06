@@ -117,6 +117,27 @@ class FileTypeDetector:
             # Email
             'message/rfc822': '.eml',
             'application/vnd.ms-outlook': '.msg',
+            'application/mbox': '.mbox',
+            'text/mbox': '.mbox',
+            # Archives
+            'application/zip': '.zip',
+            'application/x-zip-compressed': '.zip',
+            # Databases
+            'application/x-sqlite3': '.sqlite',
+            'application/vnd.sqlite3': '.sqlite',
+            'application/x-sqlite': '.sqlite',
+            # Contacts
+            'text/vcard': '.vcf',
+            'text/x-vcard': '.vcf',
+            'text/directory': '.vcf',
+            # Configuration
+            'text/x-properties': '.properties',
+            # Calendar
+            'text/calendar': '.ics',
+            'text/x-calendar': '.ics',
+            # Markdown
+            'text/markdown': '.md',
+            'text/x-markdown': '.md',
             # Images
             'image/jpeg': '.jpg',
             'image/png': '.png',

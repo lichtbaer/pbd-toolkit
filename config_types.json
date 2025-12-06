@@ -4,7 +4,7 @@
         "min_pdf_text_length": 10,
         "max_file_size_mb": 500.0,
         "max_processing_time_seconds": 300,
-        "supported_extensions": [".pdf", ".docx", ".html", ".txt", ".csv", ".json", ".rtf", ".odt", ".eml"],
+        "supported_extensions": [".pdf", ".docx", ".html", ".txt", ".csv", ".json", ".rtf", ".odt", ".eml", ".zip", ".sqlite", ".sqlite3", ".db", ".vcf", ".mbox", ".properties", ".ini", ".cfg", ".conf", ".env", ".ics", ".ical", ".md", ".markdown"],
         "logging": {
             "level": "INFO",
             "format": "detailed"
@@ -83,6 +83,42 @@
             "regex_compiled_pos": 11,
             "expression": "\\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|3[0-9]{13}|6(?:011|5[0-9]{2})[0-9]{12})\\b",
             "validation": "luhn"
+        },
+        {
+            "label": "REGEX_PASSPORT",
+            "value": "Regex: Passport Number",
+            "regex_compiled_pos": 12,
+            "expression": "\\b[A-Z]{1,2}[0-9]{6,9}\\b"
+        },
+        {
+            "label": "REGEX_PERSONALAUSWEIS",
+            "value": "Regex: Personalausweis Number (DE)",
+            "regex_compiled_pos": 13,
+            "expression": "\\b[CFGHJKLMNPRTVWXYZ0-9]{9}\\b"
+        },
+        {
+            "label": "REGEX_SSN_US",
+            "value": "Regex: Social Security Number (US)",
+            "regex_compiled_pos": 14,
+            "expression": "\\b(?!000|666|9[0-9]{2})[0-9]{3}-?(?!00)[0-9]{2}-?(?!0000)[0-9]{4}\\b"
+        },
+        {
+            "label": "REGEX_SSN_AT",
+            "value": "Regex: Social Security Number (AT)",
+            "regex_compiled_pos": 15,
+            "expression": "\\b[0-9]{3}\\.[0-9]{2}\\.[0-9]{4}\\b"
+        },
+        {
+            "label": "REGEX_SSN_CH",
+            "value": "Regex: AHV Number (CH)",
+            "regex_compiled_pos": 16,
+            "expression": "\\b756\\.[0-9]{4}\\.[0-9]{4}\\.[0-9]{2}\\b"
+        },
+        {
+            "label": "REGEX_MRN",
+            "value": "Regex: Medical Record Number",
+            "regex_compiled_pos": 17,
+            "expression": "\\b(?:MRN|Medical Record Number|Patient ID)[\\s:]*[A-Z0-9]{6,12}\\b"
         }
     ],
     "ai-ner": [
@@ -117,6 +153,36 @@
             "label": "NER_RELIGIOUS",
             "value": "AI-NER: Religious Belief",
             "term": "Religious Belief"
+        },
+        {
+            "label": "NER_SEXUAL_ORIENTATION",
+            "value": "AI-NER: Sexual Orientation",
+            "term": "Sexual Orientation"
+        },
+        {
+            "label": "NER_ETHNIC_ORIGIN",
+            "value": "AI-NER: Ethnic Origin",
+            "term": "Ethnic Origin"
+        },
+        {
+            "label": "NER_CRIMINAL_CONVICTION",
+            "value": "AI-NER: Criminal Conviction",
+            "term": "Criminal Conviction"
+        },
+        {
+            "label": "NER_FINANCIAL",
+            "value": "AI-NER: Financial Information",
+            "term": "Financial Information"
+        },
+        {
+            "label": "NER_MEDICAL_CONDITION",
+            "value": "AI-NER: Medical Condition",
+            "term": "Medical Condition"
+        },
+        {
+            "label": "NER_MEDICATION",
+            "value": "AI-NER: Medication",
+            "term": "Medication"
         }
     ],
     "ollama-ner": [

@@ -171,6 +171,79 @@ Detects credit card numbers with automatic validation using the Luhn algorithm.
 
 **Security Note**: Credit card numbers are highly sensitive data. Ensure proper handling and storage of any detected numbers.
 
+#### Passport Numbers
+
+**Pattern**: `REGEX_PASSPORT`
+
+Detects passport numbers in common formats.
+
+**Format**: 1-2 letters followed by 6-9 digits
+
+**Example**: `A12345678`, `DE123456789`
+
+**Note**: Format varies by country. This pattern covers common formats but may not match all passport number formats.
+
+#### Personalausweis Number (Germany)
+
+**Pattern**: `REGEX_PERSONALAUSWEIS`
+
+Detects German ID card numbers (*Personalausweisnummer*).
+
+**Format**: 9 characters (letters and numbers)
+- First character is always a letter (C, F, G, H, J, K, L, M, N, P, R, T, V, W, X, Y, Z)
+- Followed by 8 alphanumeric characters
+
+**Example**: `C12345678`
+
+#### Social Security Numbers (US)
+
+**Pattern**: `REGEX_SSN_US`
+
+Detects US Social Security Numbers.
+
+**Format**: `XXX-XX-XXXX` or `XXXXXXXXX`
+- Area number (first 3 digits): Cannot be 000, 666, or 900-999
+- Group number (middle 2 digits): Cannot be 00
+- Serial number (last 4 digits): Cannot be 0000
+
+**Example**: `123-45-6789`
+
+**Note**: This pattern includes basic validation but may still produce false positives. Use with caution.
+
+#### Social Security Numbers (Austria)
+
+**Pattern**: `REGEX_SSN_AT`
+
+Detects Austrian Social Security Numbers (*Sozialversicherungsnummer*).
+
+**Format**: `XXX.XX.XXXX` (3 digits, 2 digits, 4 digits)
+
+**Example**: `123.45.6789`
+
+#### AHV Number (Switzerland)
+
+**Pattern**: `REGEX_SSN_CH`
+
+Detects Swiss AHV numbers (*AHV-Nummer*).
+
+**Format**: `756.XXXX.XXXX.XX`
+- Always starts with 756 (Switzerland country code)
+- Followed by 4 digits, 4 digits, and 2 digits
+
+**Example**: `756.1234.5678.90`
+
+#### Medical Record Numbers
+
+**Pattern**: `REGEX_MRN`
+
+Detects medical record numbers (MRN) or patient IDs.
+
+**Format**: Looks for keywords "MRN", "Medical Record Number", or "Patient ID" followed by 6-12 alphanumeric characters
+
+**Example**: `MRN: ABC123456`, `Patient ID: 1234567890`
+
+**Note**: Format varies by institution. This pattern is context-aware and looks for common keywords.
+
 ### Configuration
 
 Regex patterns are defined in `config_types.json`. Each pattern includes:
@@ -273,6 +346,70 @@ Detects religious affiliations and beliefs.
 **Relevance**: Very high - Religious beliefs are considered special category data under GDPR Article 9.
 
 **Warning**: This is a new feature and detection quality may vary. Results should be reviewed carefully.
+
+#### Sexual Orientation
+
+**Label**: `NER_SEXUAL_ORIENTATION`
+
+Detects mentions of sexual orientation.
+
+**Relevance**: Very high - Sexual orientation is considered special category data under GDPR Article 9.
+
+**Warning**: This is a sensitive category. Detection quality may vary. Results should be reviewed carefully. High false positive rates could cause issues.
+
+#### Ethnic Origin
+
+**Label**: `NER_ETHNIC_ORIGIN`
+
+Detects ethnic or racial information.
+
+**Relevance**: Very high - Ethnic origin is considered special category data under GDPR Article 9.
+
+**Warning**: This is a sensitive category. Detection quality may vary. Results should be reviewed carefully.
+
+#### Criminal Convictions
+
+**Label**: `NER_CRIMINAL_CONVICTION`
+
+Detects mentions of criminal convictions or criminal records.
+
+**Relevance**: Very high - Criminal conviction data is considered special category data under GDPR Article 10.
+
+**Warning**: This is a sensitive category. Detection quality may vary. Results should be reviewed carefully.
+
+#### Financial Information
+
+**Label**: `NER_FINANCIAL`
+
+Detects detailed financial information beyond simple monetary amounts.
+
+**Relevance**: High - Financial data is highly sensitive.
+
+**Examples**: Bank account details, income information, financial records, investment information, debt information.
+
+**Note**: More specific than generic "money" amounts. Focuses on financial context and detailed financial data.
+
+#### Medical Conditions
+
+**Label**: `NER_MEDICAL_CONDITION`
+
+Detects medical conditions, diagnoses, and health status information.
+
+**Relevance**: Very high - Medical conditions are considered special category data under GDPR Article 9.
+
+**Examples**: Diagnoses, symptoms, medical history, health status.
+
+**Note**: More specific than generic "health data". Focuses on medical conditions and diagnoses.
+
+#### Medication
+
+**Label**: `NER_MEDICATION`
+
+Detects medication names, prescriptions, and pharmaceutical information.
+
+**Relevance**: Very high - Medication information is considered health data under GDPR Article 9.
+
+**Examples**: Medication names, prescription information, dosage information, pharmaceutical products.
 
 ### Confidence Scores
 

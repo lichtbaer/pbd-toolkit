@@ -18,6 +18,13 @@ from file_processors.ods_processor import OdsProcessor
 from file_processors.pptx_processor import PptxProcessor, PptProcessor
 from file_processors.yaml_processor import YamlProcessor
 from file_processors.image_processor import ImageProcessor
+from file_processors.zip_processor import ZipProcessor
+from file_processors.sqlite_processor import SqliteProcessor
+from file_processors.vcf_processor import VcfProcessor
+from file_processors.mbox_processor import MboxProcessor
+from file_processors.properties_processor import PropertiesProcessor
+from file_processors.ical_processor import IcalProcessor
+from file_processors.markdown_processor import MarkdownProcessor
 
 __all__ = [
     "BaseFileProcessor",
@@ -40,6 +47,13 @@ __all__ = [
     "PptProcessor",
     "YamlProcessor",
     "ImageProcessor",
+    "ZipProcessor",
+    "SqliteProcessor",
+    "VcfProcessor",
+    "MboxProcessor",
+    "PropertiesProcessor",
+    "IcalProcessor",
+    "MarkdownProcessor",
 ]
 
 # Auto-register all processors
@@ -64,6 +78,13 @@ _registered_processors = [
     PptProcessor(),
     YamlProcessor(),
     ImageProcessor(),
+    ZipProcessor(),
+    SqliteProcessor(),
+    VcfProcessor(),
+    MboxProcessor(),
+    PropertiesProcessor(),
+    IcalProcessor(),
+    MarkdownProcessor(),
 ]
 
 # Register all processors with the registry
