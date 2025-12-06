@@ -26,6 +26,10 @@ filetype>=1.2.0  # Pure Python fallback for file type detection
 # Optional dependencies for image processing
 Pillow>=10.0.0  # For image validation and processing
 
+# CLI dependencies
+typer>=0.9.0  # Modern CLI framework with type hints
+rich>=13.0.0  # Used by Typer for enhanced output formatting
+
 # Documentation dependencies (optional)
 # mkdocs~=1.5.0
 # mkdocs-material~=9.5.0
