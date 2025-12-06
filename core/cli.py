@@ -16,6 +16,7 @@ from core.exceptions import ConfigurationError, ProcessingError, OutputError
 from core.scanner import FileScanner, FileInfo
 from core.processor import TextProcessor
 from core.statistics import Statistics
+from core.statistics_aggregator import StatisticsAggregator
 from core.context import ApplicationContext
 from core.writers import OutputWriter
 from core.config_loader import ConfigLoader
@@ -134,6 +135,10 @@ def scan(
                                        case_sensitive=False),
     no_header: bool = typer.Option(False, "--no-header",
                                    help="Don't include header row in CSV output (for backward compatibility)"),
+    statistics_mode: bool = typer.Option(False, "--statistics-mode",
+                                         help="Generate privacy-focused statistics output (aggregated by dimension and module, no PII data)"),
+    statistics_output: Optional[str] = typer.Option(None, "--statistics-output",
+                                                     help="Path for statistics JSON output file (default: auto-generated in output directory)"),
     
     # Output options
     verbose: bool = typer.Option(False, "-v", "--verbose",
@@ -189,6 +194,8 @@ def scan(
         'format': format,
         'summary_format': summary_format,
         'no_header': no_header,
+        'statistics_mode': statistics_mode,
+        'statistics_output': statistics_output,
         'verbose': verbose,
         'quiet': quiet,
         'config': config,
@@ -309,6 +316,11 @@ def scan(
     statistics = Statistics()
     statistics.start()  # Start timing before processing
     
+    # Initialize statistics aggregator if statistics mode is enabled
+    statistics_aggregator = None
+    if hasattr(args, 'statistics_mode') and args.statistics_mode:
+        statistics_aggregator = StatisticsAggregator()
+    
     # Create application context
     context = ApplicationContext.from_cli_args(
         args=args,
@@ -381,6 +393,18 @@ def scan(
     def process_file(file_info: FileInfo) -> None:
         """Process a single file: extract text and detect PII."""
         text_processor.process_file(file_info, error_callback=add_error)
+        # Track file for statistics aggregator
+        if statistics_aggregator:
+            statistics_aggregator.add_file_scanned(file_info.path, was_analyzed=True)
+            # Track which engines processed this file
+            if context.config.use_regex:
+                statistics_aggregator.add_file_processed(file_info.path, "regex")
+            if context.config.use_ner:
+                statistics_aggregator.add_file_processed(file_info.path, "gliner")
+            if getattr(context.config, 'use_spacy_ner', False):
+                statistics_aggregator.add_file_processed(file_info.path, "spacy-ner")
+            if getattr(context.config, 'use_pydantic_ai', False):
+                statistics_aggregator.add_file_processed(file_info.path, "pydantic-ai")
     
     # Scan directory and process files
     scan_result = scanner.scan(
@@ -405,6 +429,11 @@ def scan(
     
     # Update match count in statistics
     context.statistics.matches_found = len(context.match_container.pii_matches)
+    
+    # Aggregate matches for statistics mode
+    if statistics_aggregator:
+        for match in context.match_container.pii_matches:
+            statistics_aggregator.add_match(match)
     
     # Stop timing
     context.statistics.stop()
@@ -504,6 +533,74 @@ def scan(
         # Fallback: Close CSV file handle if it exists
         if csv_file_handle:
             csv_file_handle.close()
+    
+    # Generate and write statistics output if statistics mode is enabled
+    if statistics_aggregator:
+        # Determine statistics output file path
+        if hasattr(args, 'statistics_output') and args.statistics_output:
+            statistics_file_path = args.statistics_output
+        else:
+            # Auto-generate path in output directory
+            statistics_file_path = output_dir + outslug + "_statistics.json"
+        
+        # Get aggregated statistics
+        aggregated_stats = statistics_aggregator.get_statistics()
+        
+        # Prepare scan metadata
+        scan_metadata = {
+            "scan_id": outslug,
+            "start_time": context.statistics.start_time.isoformat() if context.statistics.start_time else None,
+            "end_time": context.statistics.end_time.isoformat() if context.statistics.end_time else None,
+            "duration_seconds": round(context.statistics.duration_seconds, 2),
+            "scan_path": context.config.path,
+            "detection_methods": {
+                "regex": context.config.use_regex,
+                "ner": context.config.use_ner,
+                "spacy_ner": getattr(context.config, 'use_spacy_ner', False),
+                "ollama": getattr(context.config, 'use_ollama', False),
+                "openai_compatible": getattr(context.config, 'use_openai_compatible', False),
+                "multimodal": getattr(context.config, 'use_multimodal', False),
+                "pydantic_ai": getattr(context.config, 'use_pydantic_ai', False)
+            },
+            "total_files_scanned": context.statistics.total_files_found,
+            "total_files_analyzed": context.statistics.files_processed,
+            "total_matches_found": context.statistics.matches_found
+        }
+        
+        # Prepare performance metrics
+        performance_metrics = {
+            "files_per_second": context.statistics.files_per_second,
+            "matches_per_second": round(
+                context.statistics.matches_found / context.statistics.duration_seconds
+                if context.statistics.duration_seconds > 0 else 0, 2
+            ),
+            "processing_time_seconds": round(context.statistics.duration_seconds, 2)
+        }
+        
+        # Add NER statistics if available
+        if context.statistics.ner_stats.total_chunks_processed > 0:
+            performance_metrics["ner_statistics"] = {
+                "chunks_processed": context.statistics.ner_stats.total_chunks_processed,
+                "entities_found": context.statistics.ner_stats.total_entities_found,
+                "avg_time_per_chunk": round(context.statistics.avg_ner_time_per_chunk, 3),
+                "errors": context.statistics.ner_stats.errors
+            }
+        
+        # Create statistics writer
+        from core.writers import PrivacyStatisticsWriter
+        stats_writer = PrivacyStatisticsWriter(statistics_file_path)
+        
+        # Write statistics
+        try:
+            stats_writer.finalize(metadata={
+                "statistics": aggregated_stats,
+                "scan_metadata": scan_metadata,
+                "performance_metrics": performance_metrics
+            })
+            context.logger.info(f"Privacy-focused statistics written to: {statistics_file_path}")
+        except OutputError as e:
+            context.logger.error(f"Failed to write statistics output: {e}")
+            # Don't fail the entire scan if statistics writing fails
     
     # Show summary to console (unless in quiet mode)
     if not (hasattr(args, 'quiet') and args.quiet):

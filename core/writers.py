@@ -163,12 +163,74 @@ class XlsxWriter(OutputWriter):
         return False
 
 
+class PrivacyStatisticsWriter(OutputWriter):
+    """Writes privacy-focused statistics to a JSON file.
+    
+    This writer generates aggregated statistics by privacy dimensions and
+    detection modules without storing individual PII instances or file paths.
+    """
+    
+    def __init__(self, file_path: str, include_header: bool = True):
+        super().__init__(file_path, include_header)
+        # This writer doesn't collect matches, but we need to implement write_match
+        # for compatibility with the abstract base class
+        self._match_count = 0
+    
+    def write_match(self, match: PiiMatch) -> None:
+        """Write a match (for compatibility).
+        
+        Note: This writer doesn't actually store matches, but tracks count
+        for validation purposes.
+        
+        Args:
+            match: PiiMatch object (not stored, only counted)
+        """
+        self._match_count += 1
+    
+    def finalize(self, metadata: Optional[dict] = None) -> None:
+        """Write aggregated statistics to JSON file.
+        
+        Args:
+            metadata: Dictionary containing:
+                - statistics: Aggregated statistics from StatisticsAggregator
+                - scan_metadata: Scan metadata (start_time, end_time, etc.)
+        """
+        if metadata is None:
+            metadata = {}
+        
+        # Extract statistics and scan metadata
+        statistics = metadata.get("statistics", {})
+        scan_metadata = metadata.get("scan_metadata", {})
+        
+        # Build output structure
+        output_data = {
+            "metadata": scan_metadata,
+            "statistics_by_dimension": statistics.get("statistics_by_dimension", {}),
+            "statistics_by_module": statistics.get("statistics_by_module", {}),
+            "statistics_by_file_type": statistics.get("statistics_by_file_type", {}),
+            "summary": statistics.get("summary", {}),
+            "performance_metrics": metadata.get("performance_metrics", {})
+        }
+        
+        try:
+            with open(self.file_path, 'w', encoding='utf-8') as f:
+                json.dump(output_data, f, indent=2, ensure_ascii=False)
+        except IOError as e:
+            raise OutputError(f"Failed to write statistics JSON output: {e}")
+    
+    @property
+    def supports_streaming(self) -> bool:
+        return False
+
+
 def create_output_writer(output_format: str, file_path: str, include_header: bool = True) -> OutputWriter:
     """Factory function to create the appropriate output writer."""
     if output_format == "json":
         return JsonWriter(file_path, include_header)
     elif output_format == "xlsx":
         return XlsxWriter(file_path, include_header)
+    elif output_format == "statistics":
+        return PrivacyStatisticsWriter(file_path, include_header)
     
     # Default to CSV
     return CsvWriter(file_path, include_header)
