@@ -144,6 +144,29 @@ Microsoft Outlook message files.
 - Handles Outlook-specific format
 - Extracts attachments metadata
 
+### MBOX (`.mbox`)
+
+Unix mailbox format files.
+
+**Processor**: `MboxProcessor`
+- Extracts emails from MBOX mailboxes
+- Processes multiple emails in a single file
+- Used by Thunderbird, Gmail exports, and other mail clients
+- Extracts headers and body content from each email
+
+## Calendar Formats
+
+### iCalendar (`.ics`, `.ical`)
+
+iCalendar format files.
+
+**Processor**: `IcalProcessor`
+- Extracts calendar event information
+- Processes participants, locations, descriptions, and notes
+- May contain PII in event details, attendees, and locations
+
+**Note**: Calendar files often contain contact information, meeting participants, and location data.
+
 ## Data Formats
 
 ### JSON (`.json`)
@@ -174,6 +197,85 @@ Plain text files.
 - Reads plain text files
 - Handles various encodings (UTF-8, Latin-1, etc.)
 - Also processes files without extension if MIME type is `text/plain`
+
+### Markdown (`.md`, `.markdown`)
+
+Markdown documentation files.
+
+**Processor**: `MarkdownProcessor`
+- Extracts text content from Markdown files
+- Strips Markdown syntax while preserving text
+- Handles code blocks (may contain sensitive data)
+- Removes formatting but keeps all text content
+
+## Archive Formats
+
+### ZIP (`.zip`)
+
+ZIP archive files.
+
+**Processor**: `ZipProcessor`
+- Extracts and processes all files within ZIP archives
+- Recursively scans archive contents
+- Handles nested archives
+- Skips binary files and password-protected entries
+
+**Limitations**:
+- Password-protected archives are skipped
+- Very large archives may take time to process
+
+## Database Formats
+
+### SQLite (`.sqlite`, `.sqlite3`, `.db`)
+
+SQLite database files.
+
+**Processor**: `SqliteProcessor`
+- Extracts text from all tables in the database
+- Processes text columns and BLOB fields (if text)
+- Handles multiple tables and schemas
+
+**Limitations**:
+- Encrypted databases are reported as errors
+- Binary BLOB fields are skipped
+
+## Contact Formats
+
+### VCF (`.vcf`)
+
+vCard contact files.
+
+**Processor**: `VcfProcessor`
+- Extracts contact information from vCard files
+- High PII density (names, phones, emails, addresses)
+- Handles vCard formatting and escaping
+
+**Note**: vCard files typically contain extensive personal information.
+
+## Email Formats (Additional)
+
+### MBOX (`.mbox`)
+
+Unix mailbox format files.
+
+**Processor**: `MboxProcessor`
+- Extracts emails from MBOX mailboxes
+- Processes multiple emails in a single file
+- Used by Thunderbird, Gmail exports, and other mail clients
+- Extracts headers and body content from each email
+
+## Configuration Formats
+
+### Properties/INI (`.properties`, `.ini`, `.cfg`, `.conf`, `.env`)
+
+Configuration files.
+
+**Processor**: `PropertiesProcessor`
+- Extracts key-value pairs from configuration files
+- Handles Java properties format and INI format
+- Processes environment files (`.env`)
+
+**Note**: Configuration files often contain credentials, API keys, and sensitive settings. Handle with care.
 
 ## Image Formats
 
