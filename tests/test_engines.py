@@ -222,89 +222,9 @@ class TestSpacyNEREngine:
             assert engine.is_available() is False
 
 
-class TestOllamaEngine:
-    """Tests for OllamaEngine."""
-    
-    def test_ollama_engine_initialization(self):
-        """Test Ollama engine initialization."""
-        mock_config = Mock(spec=Config)
-        mock_config.use_ollama = True
-        mock_config.ollama_base_url = "http://localhost:11434"
-        mock_config.ollama_model = "llama3.2"
-        mock_config.ollama_timeout = 30
-        mock_config.logger = Mock()
-        
-        from core.engines.ollama_engine import OllamaEngine
-        engine = OllamaEngine(mock_config)
-        assert engine.name == "ollama"
-    
-    @patch('core.engines.ollama_engine.requests')
-    def test_ollama_engine_detect(self, mock_requests):
-        """Test Ollama engine detection."""
-        mock_config = Mock(spec=Config)
-        mock_config.use_ollama = True
-        mock_config.ollama_base_url = "http://localhost:11434"
-        mock_config.ollama_model = "llama3.2"
-        mock_config.ollama_timeout = 30
-        mock_config.logger = Mock()
-        
-        # Mock API response
-        mock_response = Mock()
-        mock_response.json.return_value = {
-            "response": '[{"text": "John Doe", "type": "NER_PERSON", "confidence": 0.9}]'
-        }
-        mock_response.raise_for_status = Mock()
-        mock_requests.post.return_value = mock_response
-        
-        from core.engines.ollama_engine import OllamaEngine
-        engine = OllamaEngine(mock_config)
-        results = engine.detect("John Doe is here")
-        
-        assert len(results) >= 0  # May be empty if parsing fails
-        mock_requests.post.assert_called()
-    
-    @patch('core.engines.ollama_engine.requests')
-    def test_ollama_engine_not_available(self, mock_requests):
-        """Test Ollama engine availability check."""
-        mock_config = Mock(spec=Config)
-        mock_config.use_ollama = True
-        mock_config.ollama_base_url = "http://localhost:11434"
-        mock_config.logger = Mock()
-        
-        mock_requests.get.side_effect = Exception("Connection error")
-        
-        from core.engines.ollama_engine import OllamaEngine
-        engine = OllamaEngine(mock_config)
-        assert engine.is_available() is False
-
-
-class TestOpenAICompatibleEngine:
-    """Tests for OpenAICompatibleEngine."""
-    
-    def test_openai_engine_initialization(self):
-        """Test OpenAI engine initialization."""
-        mock_config = Mock(spec=Config)
-        mock_config.use_openai_compatible = True
-        mock_config.openai_api_base = "https://api.openai.com/v1"
-        mock_config.openai_api_key = "test-key"
-        mock_config.openai_model = "gpt-3.5-turbo"
-        mock_config.openai_timeout = 30
-        mock_config.logger = Mock()
-        
-        from core.engines.openai_engine import OpenAICompatibleEngine
-        engine = OpenAICompatibleEngine(mock_config)
-        assert engine.name == "openai-compatible"
-    
-    def test_openai_engine_no_api_key(self):
-        """Test OpenAI engine without API key."""
-        mock_config = Mock(spec=Config)
-        mock_config.use_openai_compatible = True
-        mock_config.openai_api_base = "https://api.openai.com/v1"
-        mock_config.openai_api_key = None
-        mock_config.logger = Mock()
-        
-        from core.engines.openai_engine import OpenAICompatibleEngine
-        engine = OpenAICompatibleEngine(mock_config)
+# Tests for old engines (OllamaEngine, OpenAICompatibleEngine) removed
+# These engines have been replaced by PydanticAIEngine
+# See tests for PydanticAIEngine instead
         results = engine.detect("test")
         
         assert len(results) == 0

@@ -15,7 +15,9 @@ PyYAML~=6.0.1
 
 # Optional dependencies for additional engines
 spacy>=3.7.0  # For spaCy NER engine
-requests>=2.31.0  # For Ollama and OpenAI-compatible engines
+requests>=2.31.0  # For Ollama and OpenAI-compatible engines (legacy)
+pydantic-ai>=0.0.10  # Unified LLM engine (replaces ollama, openai-compatible, multimodal)
+pydantic>=2.0.0  # Required by pydantic-ai
 
 # Optional dependencies for file type detection
 python-magic>=0.4.27  # For magic number file type detection (requires libmagic system library)

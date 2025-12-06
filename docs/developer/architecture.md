@@ -62,7 +62,7 @@ Modular file processor system:
 The detection system consists of:
 - **TextProcessor** (`core/processor.py`): Coordinates text extraction and PII detection
 - **Engine Registry** (`core/engines/registry.py`): Manages multiple detection engines
-- **Detection Engines**: RegexEngine, GLiNEREngine, SpacyNEREngine, OllamaEngine, OpenAICompatibleEngine
+- **Detection Engines**: RegexEngine, GLiNEREngine, SpacyNEREngine, PydanticAIEngine
 - **PiiMatchContainer** (`matches.py`): Stores detected PII matches, handles whitelist filtering
 
 **Note**: Output writing is now handled by `output/writers.py`, not `matches.py`.
