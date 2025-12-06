@@ -46,8 +46,7 @@ Engines are registered in `core/engines/__init__.py`:
 EngineRegistry.register("regex", RegexEngine)
 EngineRegistry.register("gliner", GLiNEREngine)
 EngineRegistry.register("spacy-ner", SpacyNEREngine)
-EngineRegistry.register("ollama", OllamaEngine)
-EngineRegistry.register("openai-compatible", OpenAICompatibleEngine)
+EngineRegistry.register("pydantic-ai", PydanticAIEngine)
 ```
 
 ## Available Engines
@@ -85,29 +84,21 @@ German-optimized NER using spaCy models.
 - German-specific optimization
 - Local execution
 
-### OllamaEngine
+### PydanticAIEngine
 
-**Location**: `core/engines/ollama_engine.py`
+**Location**: `core/engines/pydantic_ai_engine.py`
 
-Local LLM-based detection using Ollama.
-
-**Features**:
-- Completely offline
-- Configurable models
-- JSON response parsing with regex fallback
-- Adaptive rate limiting based on response time
-- Automatic retry mechanism with exponential backoff
-
-### OpenAICompatibleEngine
-
-**Location**: `core/engines/openai_engine.py`
-
-Cloud-based detection using OpenAI API or compatible endpoints.
+Unified LLM-based detection using PydanticAI. Replaces the old OllamaEngine, OpenAICompatibleEngine, and MultimodalEngine.
 
 **Features**:
-- Multiple provider support
-- Configurable API endpoints
-- Environment variable support
+- Type-safe structured outputs with Pydantic models
+- Supports multiple providers: Ollama, OpenAI, Anthropic
+- Completely offline (with Ollama)
+- Cloud-based (with OpenAI/Anthropic)
+- Multimodal image detection support
+- Adaptive rate limiting (preserved from OllamaEngine)
+- Automatic retry mechanism
+- Unified interface for all LLM providers
 
 ## Adding a New Engine
 
@@ -242,7 +233,7 @@ def test_my_engine_detect():
 ## Performance Considerations
 
 - **Fast engines** (regex): Can run in parallel without locks
-- **Slow engines** (LLMs): Consider batching or rate limiting (e.g., OllamaEngine implements adaptive rate limiting)
+- **Slow engines** (LLMs): Consider batching or rate limiting (e.g., PydanticAIEngine implements adaptive rate limiting)
 - **Resource-intensive**: Check availability before processing
 - **Caching**: Consider caching for repeated patterns
 

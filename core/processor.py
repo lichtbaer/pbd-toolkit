@@ -200,27 +200,30 @@ class TextProcessor:
             return False
         
         try:
-            # Handle image files with multimodal engine
+            # Handle image files with PydanticAI engine (supports multimodal)
             if isinstance(processor, ImageProcessor):
-                if self.config.use_multimodal:
-                    # Get multimodal engine
-                    multimodal_engine = None
+                if (self.config.use_multimodal or 
+                    getattr(self.config, 'use_pydantic_ai', False) or
+                    getattr(self.config, 'use_ollama', False) or
+                    getattr(self.config, 'use_openai_compatible', False)):
+                    # Get PydanticAI engine (handles multimodal detection)
+                    pydantic_ai_engine = None
                     for engine in self.engines:
-                        if engine.name == "multimodal":
-                            multimodal_engine = engine
+                        if engine.name == "pydantic-ai":
+                            pydantic_ai_engine = engine
                             break
                     
-                    if multimodal_engine:
-                        # Process image with multimodal engine
-                        results = multimodal_engine.detect("", self.config.ner_labels, image_path=full_path)
+                    if pydantic_ai_engine:
+                        # Process image with PydanticAI engine
+                        results = pydantic_ai_engine.detect("", self.config.ner_labels, image_path=full_path)
                         if results:
                             with self._process_lock:
                                 self.match_container.add_detection_results(results, full_path)
                         if self.config.verbose:
-                            self.config.logger.debug(f"Processed image with multimodal engine: {full_path}")
+                            self.config.logger.debug(f"Processed image with PydanticAI engine: {full_path}")
                     else:
                         if self.config.verbose:
-                            self.config.logger.debug(f"Multimodal engine not available, skipping image: {full_path}")
+                            self.config.logger.debug(f"PydanticAI engine not available, skipping image: {full_path}")
                 else:
                     if self.config.verbose:
                         self.config.logger.debug(f"Multimodal detection not enabled, skipping image: {full_path}")
