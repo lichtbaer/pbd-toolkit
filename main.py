@@ -11,7 +11,6 @@ Usage:
     pii-toolkit --path /data --regex  # After installation
 """
 
-import sys
 
 # Import Typer CLI
 from core.cli import cli

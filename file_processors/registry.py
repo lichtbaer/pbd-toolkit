@@ -6,19 +6,19 @@ from file_processors.base_processor import BaseFileProcessor
 
 class FileProcessorRegistry:
     """Registry for file processors with automatic registration.
-    
+
     This registry allows processors to be automatically discovered and registered,
     making it easy to add new file format support without modifying main.py.
     """
-    
+
     _processors: list[BaseFileProcessor] = []
     _extension_cache: dict[str, BaseFileProcessor] = {}
     _initialized: bool = False
-    
+
     @classmethod
     def register(cls, processor: BaseFileProcessor) -> None:
         """Register a file processor.
-        
+
         Args:
             processor: Processor instance to register
         """
@@ -26,46 +26,49 @@ class FileProcessorRegistry:
             cls._processors.append(processor)
             # Clear cache when new processor is registered
             cls._extension_cache.clear()
-    
+
     @classmethod
     def register_class(cls, processor_class: Type[BaseFileProcessor]) -> None:
         """Register a processor class (creates instance automatically).
-        
+
         Args:
             processor_class: Processor class to register
         """
         processor = processor_class()
         cls.register(processor)
-    
+
     @classmethod
-    def get_processor(cls, extension: str, file_path: str = "", mime_type: str = "") -> Optional[BaseFileProcessor]:
+    def get_processor(
+        cls, extension: str, file_path: str = "", mime_type: str = ""
+    ) -> Optional[BaseFileProcessor]:
         """Get the appropriate processor for a file extension.
-        
+
         Args:
             extension: File extension (e.g., '.pdf', '.docx')
             file_path: Full path to the file (optional, needed for some processors)
             mime_type: Detected MIME type (optional, for magic number detection)
-            
+
         Returns:
             Appropriate processor instance or None if no processor available
         """
         # Check cache first (only for processors that don't need file_path or mime_type)
         if extension and extension in cls._extension_cache and not mime_type:
             return cls._extension_cache[extension]
-        
+
         # Check each processor
         for processor in cls._processors:
-            if hasattr(processor, 'can_process'):
+            if hasattr(processor, "can_process"):
                 # Check if can_process accepts file_path or mime_type parameter
                 import inspect
+
                 try:
                     sig = inspect.signature(processor.can_process)
                     params = list(sig.parameters.keys())
-                    
+
                     # Check if processor supports mime_type
-                    supports_mime = 'mime_type' in params
-                    needs_file_path = 'file_path' in params
-                    
+                    supports_mime = "mime_type" in params
+                    needs_file_path = "file_path" in params
+
                     # Try with all available parameters
                     if supports_mime and mime_type:
                         # Processor supports MIME type detection
@@ -90,7 +93,9 @@ class FileProcessorRegistry:
                         # Try with mime_type if available
                         if mime_type:
                             try:
-                                if processor.can_process(extension, file_path, mime_type):
+                                if processor.can_process(
+                                    extension, file_path, mime_type
+                                ):
                                     return processor
                             except (TypeError, ValueError):
                                 pass
@@ -109,29 +114,29 @@ class FileProcessorRegistry:
                     except (TypeError, ValueError):
                         # Skip this processor if can_process doesn't work
                         continue
-        
+
         return None
-    
+
     @classmethod
     def get_all_processors(cls) -> list[BaseFileProcessor]:
         """Get all registered processors.
-        
+
         Returns:
             List of all registered processor instances
         """
         return cls._processors.copy()
-    
+
     @classmethod
     def clear(cls) -> None:
         """Clear all registered processors (mainly for testing)."""
         cls._processors.clear()
         cls._extension_cache.clear()
         cls._initialized = False
-    
+
     @classmethod
     def get_supported_extensions(cls) -> list[str]:
         """Get list of all supported file extensions.
-        
+
         Returns:
             List of supported extensions (e.g., ['.pdf', '.docx', ...])
         """
@@ -139,12 +144,29 @@ class FileProcessorRegistry:
         for processor in cls._processors:
             # Try to determine supported extensions from processor
             # This is a heuristic - processors should ideally expose this
-            if hasattr(processor, 'can_process'):
+            if hasattr(processor, "can_process"):
                 # Test common extensions
                 common_extensions = [
-                    '.pdf', '.docx', '.html', '.htm', '.txt', '.csv', '.json',
-                    '.rtf', '.odt', '.xlsx', '.xls', '.xml', '.pptx', '.ppt',
-                    '.eml', '.msg', '.ods', '.yaml', '.yml', '.md'
+                    ".pdf",
+                    ".docx",
+                    ".html",
+                    ".htm",
+                    ".txt",
+                    ".csv",
+                    ".json",
+                    ".rtf",
+                    ".odt",
+                    ".xlsx",
+                    ".xls",
+                    ".xml",
+                    ".pptx",
+                    ".ppt",
+                    ".eml",
+                    ".msg",
+                    ".ods",
+                    ".yaml",
+                    ".yml",
+                    ".md",
                 ]
                 for ext in common_extensions:
                     if processor.can_process(ext):

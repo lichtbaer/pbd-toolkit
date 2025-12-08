@@ -6,37 +6,37 @@ from core.engines.base import DetectionEngine
 
 class EngineRegistry:
     """Registry for detection engines.
-    
+
     Similar to FileProcessorRegistry, this allows automatic discovery
     and instantiation of detection engines.
     """
-    
+
     _engines: Dict[str, Type[DetectionEngine]] = {}
-    
+
     @classmethod
     def register(cls, name: str, engine_class: Type[DetectionEngine]) -> None:
         """Register an engine class.
-        
+
         Args:
             name: Unique name identifier for the engine
             engine_class: Engine class implementing DetectionEngine protocol
         """
         cls._engines[name] = engine_class
-    
+
     @classmethod
     def get_engine(cls, name: str, config: Any) -> Optional[DetectionEngine]:
         """Get an engine instance.
-        
+
         Args:
             name: Engine name
             config: Configuration object to pass to engine constructor
-        
+
         Returns:
             Engine instance if found and available, None otherwise
         """
         if name not in cls._engines:
             return None
-        
+
         try:
             engine = cls._engines[name](config)
             if engine.is_available():
@@ -44,23 +44,23 @@ class EngineRegistry:
             return None
         except Exception:
             return None
-    
+
     @classmethod
     def list_engines(cls) -> list[str]:
         """List all registered engine names.
-        
+
         Returns:
             List of registered engine names
         """
         return list(cls._engines.keys())
-    
+
     @classmethod
     def is_registered(cls, name: str) -> bool:
         """Check if an engine is registered.
-        
+
         Args:
             name: Engine name to check
-        
+
         Returns:
             True if engine is registered, False otherwise
         """

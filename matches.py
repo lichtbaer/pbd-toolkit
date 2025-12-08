@@ -30,6 +30,8 @@ for conf in config_ainer:
 """ Class for holding a singular found PII match.
 
     An __init__ method is implied by the @dataclass decorator. """
+
+
 @dataclass
 class PiiMatch:
     # The text that represents PII
@@ -50,6 +52,8 @@ class PiiMatch:
     and managing these matches.
 
     An __init__ method is implied by the @dataclass decorator. """
+
+
 @dataclass
 class PiiMatchContainer:
     pii_matches: list[PiiMatch] = field(default_factory=list)
@@ -61,18 +65,18 @@ class PiiMatchContainer:
     _csv_writer: Optional[csv.writer] = field(default=None, init=False, repr=False)
     # Output format (csv, json, xlsx)
     _output_format: str = field(default="csv", init=False, repr=False)
-    
+
     def set_csv_writer(self, csv_writer: Optional[csv.writer]) -> None:
         """Set the CSV writer for output.
-        
+
         Args:
             csv_writer: CSV writer instance
         """
         self._csv_writer = csv_writer
-    
+
     def set_output_format(self, output_format: str) -> None:
         """Set the output format.
-        
+
         Args:
             output_format: Output format (csv, json, xlsx)
         """
@@ -80,7 +84,7 @@ class PiiMatchContainer:
 
     def by_file(self) -> dict[str, list[PiiMatch]]:
         """Group PII matches by file path.
-        
+
         Returns:
             Dictionary mapping file paths to lists of PiiMatch objects found in each file.
         """
@@ -103,36 +107,45 @@ class PiiMatchContainer:
 
     """ Helper function for adding matches to the matches container. This generic, internal method is
         called by the other methods intended for public use, its aim is to reduce redundancy. """
-    def __add_match(self, text: str, file: str, type: str, ner_score: float | None = None, 
-                    engine: str | None = None, metadata: dict | None = None) -> None:
-            whitelisted: bool = False
 
-            # Use compiled regex pattern for efficient whitelist checking
-            if self.whitelist:
-                if self._whitelist_pattern is None:
-                    self._compile_whitelist_pattern()
-                if self._whitelist_pattern and self._whitelist_pattern.search(text):
-                    whitelisted = True
+    def __add_match(
+        self,
+        text: str,
+        file: str,
+        type: str,
+        ner_score: float | None = None,
+        engine: str | None = None,
+        metadata: dict | None = None,
+    ) -> None:
+        whitelisted: bool = False
 
-            if not whitelisted:
-                pm: PiiMatch = PiiMatch(
-                    text=text, 
-                    file=file, 
-                    type=type, 
-                    ner_score=ner_score,
-                    engine=engine,
-                    metadata=metadata or {}
-                )
-                self.pii_matches.append(pm)
-                # Only write directly for CSV format
-                if self._output_format == "csv" and self._csv_writer:
-                    # Include engine in CSV output if available
-                    row = [pm.text, pm.file, pm.type, pm.ner_score]
-                    if pm.engine:
-                        row.append(pm.engine)
-                    self._csv_writer.writerow(row)
+        # Use compiled regex pattern for efficient whitelist checking
+        if self.whitelist:
+            if self._whitelist_pattern is None:
+                self._compile_whitelist_pattern()
+            if self._whitelist_pattern and self._whitelist_pattern.search(text):
+                whitelisted = True
+
+        if not whitelisted:
+            pm: PiiMatch = PiiMatch(
+                text=text,
+                file=file,
+                type=type,
+                ner_score=ner_score,
+                engine=engine,
+                metadata=metadata or {},
+            )
+            self.pii_matches.append(pm)
+            # Only write directly for CSV format
+            if self._output_format == "csv" and self._csv_writer:
+                # Include engine in CSV output if available
+                row = [pm.text, pm.file, pm.type, pm.ner_score]
+                if pm.engine:
+                    row.append(pm.engine)
+                self._csv_writer.writerow(row)
 
     """ Helper function for adding regex-based matches to the matches container. """
+
     def add_matches_regex(self, matches: re.Match | None, path: str) -> None:
         if matches is not None:
             type: str | None = None
@@ -147,27 +160,25 @@ class PiiMatchContainer:
             # Validate if validation is required
             if config_entry and "validation" in config_entry:
                 validation_type = config_entry["validation"]
-                
+
                 if validation_type == "luhn":
                     # Credit card validation using Luhn algorithm
                     try:
                         from validators.credit_card_validator import CreditCardValidator
-                        is_valid, card_type = CreditCardValidator.validate(matches.group())
+
+                        is_valid, card_type = CreditCardValidator.validate(
+                            matches.group()
+                        )
                         if not is_valid:
                             return  # Skip invalid credit card numbers
                     except ImportError:
                         # If validator module not available, skip validation
                         pass
 
-            self.__add_match(
-                text=matches.group(), 
-                file=path, 
-                type=type, 
-                engine="regex"
-            )
-
+            self.__add_match(text=matches.group(), file=path, type=type, engine="regex")
 
     """ Helper function for adding AI-based NER matches to the matches container. """
+
     def add_matches_ner(self, matches: list[dict] | None, path: str) -> None:
         if matches is not None:
             for match in matches:
@@ -176,18 +187,19 @@ class PiiMatchContainer:
                 type = config_ainer_sorted[match["label"]]["label"]
 
                 self.__add_match(
-                    text=match["text"], 
-                    file=path, 
-                    type=type, 
+                    text=match["text"],
+                    file=path,
+                    type=type,
                     ner_score=match["score"],
                     engine="gliner",
-                    metadata={"gliner_label": match.get("label", "")}
+                    metadata={"gliner_label": match.get("label", "")},
                 )
-    
+
     """ Helper function for adding detection results from engines. """
+
     def add_detection_results(self, results: list, file_path: str) -> None:
         """Add detection results from engine registry.
-        
+
         Args:
             results: List of DetectionResult objects
             file_path: Path to the file where matches were found
@@ -199,5 +211,5 @@ class PiiMatchContainer:
                 type=result.entity_type,
                 ner_score=result.confidence,
                 engine=result.engine_name,
-                metadata=result.metadata
+                metadata=result.metadata,
             )
