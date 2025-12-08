@@ -3,7 +3,6 @@
 import os
 import tempfile
 import pytest
-from pathlib import Path
 from unittest.mock import Mock
 from config import Config
 
@@ -20,7 +19,9 @@ def sample_text_file(temp_dir):
     """Create a sample text file for testing."""
     file_path = os.path.join(temp_dir, "test.txt")
     with open(file_path, "w", encoding="utf-8") as f:
-        f.write("This is a test file with email test@example.com and IBAN DE89 3704 0044 0532 0130 00.")
+        f.write(
+            "This is a test file with email test@example.com and IBAN DE89 3704 0044 0532 0130 00."
+        )
     return file_path
 
 
@@ -29,14 +30,16 @@ def sample_html_file(temp_dir):
     """Create a sample HTML file for testing."""
     file_path = os.path.join(temp_dir, "test.html")
     with open(file_path, "w", encoding="utf-8") as f:
-        f.write("""
+        f.write(
+            """
         <html>
         <body>
             <p>Contact: user@example.com</p>
             <p>IBAN: DE89 3704 0044 0532 0130 00</p>
         </body>
         </html>
-        """)
+        """
+        )
     return file_path
 
 
@@ -63,12 +66,12 @@ def mock_config():
     config.logger.warning = Mock()
     config.logger.error = Mock()
     config.logger.info = Mock()
-    
+
     # Mock validate_file_path to always return valid
     def validate_file_path(path):
         return True, None
-    
+
     config.validate_file_path = validate_file_path
     config.max_file_size_mb = 500.0
-    
+
     return config

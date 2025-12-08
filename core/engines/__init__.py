@@ -14,6 +14,7 @@ EngineRegistry.register("gliner", GLiNEREngine)
 # Optional engines (will be registered if dependencies are available)
 try:
     from core.engines.spacy_engine import SpacyNEREngine
+
     EngineRegistry.register("spacy-ner", SpacyNEREngine)
 except ImportError:
     pass
@@ -21,6 +22,7 @@ except ImportError:
 # PydanticAI unified engine (replaces ollama, openai-compatible, multimodal)
 try:
     from core.engines.pydantic_ai_engine import PydanticAIEngine
+
     EngineRegistry.register("pydantic-ai", PydanticAIEngine)
 except ImportError:
     pass

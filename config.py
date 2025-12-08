@@ -7,8 +7,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Callable, Optional, TYPE_CHECKING, Any
+from typing import Callable, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from gliner import GLiNER
@@ -19,6 +18,7 @@ import constants
 @dataclass
 class NerStats:
     """Statistics for NER processing."""
+
     total_chunks_processed: int = 0
     total_entities_found: int = 0
     total_processing_time: float = 0.0
@@ -29,11 +29,11 @@ class NerStats:
 @dataclass
 class Config:
     """Configuration object for PII Toolkit.
-    
+
     This class centralizes all configuration and dependencies,
     enabling dependency injection and better testability.
     """
-    
+
     # CLI Arguments
     path: str
     use_regex: bool
@@ -42,33 +42,35 @@ class Config:
     outname: str | None = None
     whitelist_path: str | None = None
     stop_count: int | None = None
-    
+
     # New engine flags
     use_spacy_ner: bool = False
     use_ollama: bool = False
     use_openai_compatible: bool = False
     use_multimodal: bool = False
-    use_pydantic_ai: bool = False  # Unified LLM engine (replaces ollama, openai-compatible, multimodal)
-    
+    use_pydantic_ai: bool = (
+        False  # Unified LLM engine (replaces ollama, openai-compatible, multimodal)
+    )
+
     # File type detection
     use_magic_detection: bool = False
     magic_detection_fallback: bool = True
-    
+
     # Dependencies
     logger: Optional[logging.Logger] = field(default=None)
     csv_writer: Optional[csv.writer] = field(default=None)
     csv_file_handle: Optional[object] = field(default=None)
-    
+
     # Processing configuration
     regex_pattern: re.Pattern | None = field(default=None)
     ner_model: "GLiNER | None" = field(default=None)
     ner_labels: list[str] = field(default_factory=list)
     ner_threshold: float = field(default=constants.NER_THRESHOLD)
     ner_stats: NerStats = field(default_factory=NerStats)
-    
+
     # Ollama configuration
     ollama_labels: list[dict] = field(default_factory=list)
-    
+
     # Engine-specific configuration
     spacy_model_name: str = "de_core_news_lg"
     ollama_base_url: str = "http://localhost:11434"
@@ -78,58 +80,58 @@ class Config:
     openai_api_key: str | None = None
     openai_model: str = "gpt-3.5-turbo"
     openai_timeout: int = 30
-    
+
     # Multimodal engine configuration
     multimodal_api_base: str | None = None
     multimodal_api_key: str | None = None
     multimodal_model: str = "gpt-4-vision-preview"
     multimodal_timeout: int = 60
-    
+
     # PydanticAI unified engine configuration
     pydantic_ai_provider: str = "openai"  # ollama, openai, anthropic
     pydantic_ai_model: str | None = None  # Auto-determined from provider if None
     pydantic_ai_api_key: str | None = None
     pydantic_ai_base_url: str | None = None
-    
+
     # Resource limits
     max_file_size_mb: float = 500.0
     max_processing_time_seconds: int = 300
-    
+
     # Translation function
     _: Callable[[str], str] = field(default=lambda x: x)
-    
+
     def __post_init__(self):
         """Initialize derived configuration after object creation."""
         if self._ is None or not callable(self._):
             # Fallback if translation not set
             self._ = lambda x: x
-    
+
     def validate_path(self) -> tuple[bool, str | None]:
         """Validate the search path.
-        
+
         Returns:
             Tuple of (is_valid, error_message)
         """
         if not self.path:
             return False, self._("--path parameter cannot be empty")
-        
+
         if not os.path.exists(self.path):
             return False, self._("Path does not exist: {}").format(self.path)
-        
+
         if not os.path.isdir(self.path):
             return False, self._("Path is not a directory: {}").format(self.path)
-        
+
         if not os.access(self.path, os.R_OK):
             return False, self._("Path is not readable: {}").format(self.path)
-        
+
         return True, None
-    
+
     def validate_file_path(self, file_path: str) -> tuple[bool, str | None]:
         """Validate file path and check for path traversal.
-        
+
         Args:
             file_path: Path to validate
-            
+
         Returns:
             Tuple of (is_valid, error_message)
         """
@@ -137,35 +139,42 @@ class Config:
             # Resolve to absolute paths to prevent path traversal
             real_base = os.path.realpath(self.path)
             real_file = os.path.realpath(file_path)
-            
+
             # Check if file is within base directory
             if not real_file.startswith(real_base + os.sep) and real_file != real_base:
                 return False, "Path traversal attempt detected"
-            
+
             # Check file size limit
             if os.path.isfile(file_path):
                 file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
                 if file_size_mb > self.max_file_size_mb:
-                    return False, f"File too large: {file_size_mb:.2f} MB (max: {self.max_file_size_mb} MB)"
-            
+                    return (
+                        False,
+                        f"File too large: {file_size_mb:.2f} MB (max: {self.max_file_size_mb} MB)",
+                    )
+
             return True, None
         except (OSError, ValueError) as e:
             return False, f"Path validation error: {str(e)}"
-    
+
     @classmethod
-    def from_args(cls, args: argparse.Namespace, logger: logging.Logger, 
-                  csv_writer: Optional[csv.writer], 
-                  csv_file_handle: Optional[object], 
-                  translate_func: Callable[[str], str]) -> "Config":
+    def from_args(
+        cls,
+        args: argparse.Namespace,
+        logger: logging.Logger,
+        csv_writer: Optional[csv.writer],
+        csv_file_handle: Optional[object],
+        translate_func: Callable[[str], str],
+    ) -> "Config":
         """Create Config from command line arguments.
-        
+
         Args:
             args: Parsed command line arguments
             logger: Logger instance
             csv_writer: CSV writer instance
             csv_file_handle: CSV file handle
             translate_func: Translation function
-            
+
         Returns:
             Config instance
         """
@@ -177,103 +186,106 @@ class Config:
             outname=args.outname,
             whitelist_path=args.whitelist,
             stop_count=args.stop_count,
-            use_spacy_ner=getattr(args, 'spacy_ner', False),
-            use_ollama=getattr(args, 'ollama', False),
-            use_openai_compatible=getattr(args, 'openai_compatible', False),
-            use_multimodal=getattr(args, 'multimodal', False),
-            use_pydantic_ai=getattr(args, 'pydantic_ai', False),
-            use_magic_detection=getattr(args, 'use_magic_detection', False),
-            magic_detection_fallback=getattr(args, 'magic_fallback', True),
+            use_spacy_ner=getattr(args, "spacy_ner", False),
+            use_ollama=getattr(args, "ollama", False),
+            use_openai_compatible=getattr(args, "openai_compatible", False),
+            use_multimodal=getattr(args, "multimodal", False),
+            use_pydantic_ai=getattr(args, "pydantic_ai", False),
+            use_magic_detection=getattr(args, "use_magic_detection", False),
+            magic_detection_fallback=getattr(args, "magic_fallback", True),
             logger=logger,
             csv_writer=csv_writer,
             csv_file_handle=csv_file_handle,
-            _=translate_func
+            _=translate_func,
         )
-        
+
         # Set engine-specific configuration from args
-        if hasattr(args, 'spacy_model'):
+        if hasattr(args, "spacy_model"):
             config.spacy_model_name = args.spacy_model
-        if hasattr(args, 'ollama_url'):
+        if hasattr(args, "ollama_url"):
             config.ollama_base_url = args.ollama_url
-        if hasattr(args, 'ollama_model'):
+        if hasattr(args, "ollama_model"):
             config.ollama_model = args.ollama_model
-        if hasattr(args, 'openai_api_base'):
+        if hasattr(args, "openai_api_base"):
             config.openai_api_base = args.openai_api_base
-        if hasattr(args, 'openai_api_key'):
+        if hasattr(args, "openai_api_key"):
             config.openai_api_key = args.openai_api_key
-        if hasattr(args, 'openai_model'):
+        if hasattr(args, "openai_model"):
             config.openai_model = args.openai_model
-        
+
         # Multimodal configuration
-        if hasattr(args, 'multimodal_api_base'):
+        if hasattr(args, "multimodal_api_base"):
             config.multimodal_api_base = args.multimodal_api_base
         elif config.use_multimodal:
             # Default to openai_api_base if not specified
             config.multimodal_api_base = config.openai_api_base
-        if hasattr(args, 'multimodal_api_key'):
+        if hasattr(args, "multimodal_api_key"):
             config.multimodal_api_key = args.multimodal_api_key
         elif config.use_multimodal:
             # Default to openai_api_key if not specified
             config.multimodal_api_key = config.openai_api_key
-        if hasattr(args, 'multimodal_model'):
+        if hasattr(args, "multimodal_model"):
             config.multimodal_model = args.multimodal_model
-        if hasattr(args, 'multimodal_timeout'):
+        if hasattr(args, "multimodal_timeout"):
             config.multimodal_timeout = args.multimodal_timeout
-        
+
         # PydanticAI configuration
-        if hasattr(args, 'pydantic_ai_provider'):
+        if hasattr(args, "pydantic_ai_provider"):
             config.pydantic_ai_provider = args.pydantic_ai_provider
-        if hasattr(args, 'pydantic_ai_model'):
+        if hasattr(args, "pydantic_ai_model"):
             config.pydantic_ai_model = args.pydantic_ai_model
-        if hasattr(args, 'pydantic_ai_api_key'):
+        if hasattr(args, "pydantic_ai_api_key"):
             config.pydantic_ai_api_key = args.pydantic_ai_api_key
-        if hasattr(args, 'pydantic_ai_base_url'):
+        if hasattr(args, "pydantic_ai_base_url"):
             config.pydantic_ai_base_url = args.pydantic_ai_base_url
-        
+
         # Load regex pattern
         config._load_regex_pattern()
-        
+
         # Load NER model if needed
         if config.use_ner:
             config._load_ner_model()
-        
+
         return config
-    
+
     def _load_regex_pattern(self) -> None:
         """Load and compile regex pattern from config file."""
         try:
             with open(constants.CONFIG_FILE) as f:
                 config_data = json.load(f)
-            
+
             regex_entries = config_data.get("regex", [])
-            regex_supported = [r"{}".format(entry["expression"]) for entry in regex_entries]
-            
+            regex_supported = [
+                r"{}".format(entry["expression"]) for entry in regex_entries
+            ]
+
             if regex_supported:
                 rxstr_all = "(" + ")|(".join(regex_supported) + ")"
                 self.regex_pattern = re.compile(rxstr_all)
         except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
             self.logger.warning(f"Failed to load regex pattern: {e}")
             self.regex_pattern = None
-    
+
     def _load_ner_model(self) -> None:
         """Load NER model and labels.
-        
+
         Loads the GLiNER model from HuggingFace and configures labels and threshold
         from config_types.json. Handles various error cases with specific error messages.
         Automatically detects and uses GPU if available (unless FORCE_CPU is True).
         """
         try:
             self.logger.info(self._("Loading NER model..."))
-            
+
             # Disable telemetry for privacy
-            os.environ.setdefault('HF_HUB_DISABLE_TELEMETRY', '1')
-            os.environ.setdefault('TORCH_DISABLE_TELEMETRY', '1')
-            
+            os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
+            os.environ.setdefault("TORCH_DISABLE_TELEMETRY", "1")
+
             # Check for GPU availability
             device = "cpu"
             if not constants.FORCE_CPU:
                 try:
                     import torch
+
                     if torch.cuda.is_available():
                         device = "cuda"
                         gpu_name = torch.cuda.get_device_name(0)
@@ -283,49 +295,60 @@ class Config:
                 except ImportError:
                     self.logger.debug("PyTorch not available, using CPU")
                 except Exception as e:
-                    self.logger.warning(self._("GPU detection failed, using CPU: {}").format(e))
+                    self.logger.warning(
+                        self._("GPU detection failed, using CPU: {}").format(e)
+                    )
             else:
-                self.logger.info(self._("CPU forced for NER processing (FORCE_CPU=True)"))
-            
+                self.logger.info(
+                    self._("CPU forced for NER processing (FORCE_CPU=True)")
+                )
+
             from gliner import GLiNER
+
             self.ner_model = GLiNER.from_pretrained(constants.NER_MODEL_NAME)
-            
+
             # Move model to device if supported
-            if device == "cuda" and hasattr(self.ner_model, 'to'):
+            if device == "cuda" and hasattr(self.ner_model, "to"):
                 try:
                     self.ner_model = self.ner_model.to(device)
                     self.logger.info(self._("NER model moved to GPU"))
                 except Exception as e:
-                    self.logger.warning(self._("Failed to move model to GPU, using CPU: {}").format(e))
-            
-            self.logger.info(self._("NER model loaded: {}").format(constants.NER_MODEL_NAME))
-            
+                    self.logger.warning(
+                        self._("Failed to move model to GPU, using CPU: {}").format(e)
+                    )
+
+            self.logger.info(
+                self._("NER model loaded: {}").format(constants.NER_MODEL_NAME)
+            )
+
             with open(constants.CONFIG_FILE) as f:
                 config_data = json.load(f)
-            
+
             # Load NER labels
             ner_config = config_data.get("ai-ner", [])
             self.ner_labels = [c["term"] for c in ner_config]
-            
+
             # Load Ollama labels
             ollama_config = config_data.get("ollama-ner", [])
             # If no Ollama specific config, fallback to NER labels structure but adapted
             if not ollama_config:
-                self.ollama_labels = [{"term": c["term"], "description": c["term"]} for c in ner_config]
+                self.ollama_labels = [
+                    {"term": c["term"], "description": c["term"]} for c in ner_config
+                ]
             else:
                 self.ollama_labels = ollama_config
-            
+
             if not self.ner_labels:
                 self.logger.warning(self._("No NER labels configured"))
-            
+
             # Load threshold from config, fallback to constant
             settings = config_data.get("settings", {})
             self.ner_threshold = settings.get("ner_threshold", constants.NER_THRESHOLD)
-            
+
             if self.verbose:
                 self.logger.debug(f"NER threshold: {self.ner_threshold}")
                 self.logger.debug(f"NER labels: {self.ner_labels}")
-            
+
             # Warm-up: First call to initialize model (reduces latency on first real use)
             if self.ner_model and self.ner_labels:
                 try:
@@ -334,16 +357,14 @@ class Config:
                     warmup_labels = self.ner_labels[:1] if self.ner_labels else []
                     if warmup_labels:
                         self.ner_model.predict_entities(
-                            dummy_text,
-                            warmup_labels,
-                            threshold=self.ner_threshold
+                            dummy_text, warmup_labels, threshold=self.ner_threshold
                         )
                         if self.verbose:
                             self.logger.debug("NER model warmed up")
                 except Exception as e:
                     # Warm-up failure is not critical, just log it
                     self.logger.debug(f"NER warm-up failed (non-critical): {e}")
-                
+
         except FileNotFoundError as e:
             error_msg = (
                 self._("NER model not found. Please download it first:\n")
@@ -361,10 +382,9 @@ class Config:
             self.logger.error(error_msg)
             raise RuntimeError(error_msg) from e
         except json.JSONDecodeError as e:
-            error_msg = (
-                self._("Failed to parse configuration file: {}").format(constants.CONFIG_FILE)
-                + f"\n{self._('Original error: {}')}".format(str(e))
-            )
+            error_msg = self._("Failed to parse configuration file: {}").format(
+                constants.CONFIG_FILE
+            ) + f"\n{self._('Original error: {}')}".format(str(e))
             self.logger.error(error_msg)
             raise RuntimeError(error_msg) from e
         except Exception as e:
@@ -375,23 +395,23 @@ class Config:
 
 def load_extended_config(config_file: str = constants.CONFIG_FILE) -> dict:
     """Load extended configuration from JSON file.
-    
+
     Args:
         config_file: Path to configuration file
-        
+
     Returns:
         Dictionary with configuration
     """
     try:
         with open(config_file) as f:
             config = json.load(f)
-        
+
         # Set defaults for extended settings if not present
         if "settings" not in config:
             config["settings"] = {}
-        
+
         settings = config["settings"]
-        
+
         # Set defaults
         defaults = {
             "ner_threshold": constants.NER_THRESHOLD,
@@ -399,16 +419,13 @@ def load_extended_config(config_file: str = constants.CONFIG_FILE) -> dict:
             "max_file_size_mb": 500.0,
             "max_processing_time_seconds": 300,
             "supported_extensions": [".pdf", ".docx", ".html", ".txt"],
-            "logging": {
-                "level": "INFO",
-                "format": "detailed"
-            }
+            "logging": {"level": "INFO", "format": "detailed"},
         }
-        
+
         for key, value in defaults.items():
             if key not in settings:
                 settings[key] = value
-        
+
         return config
     except (FileNotFoundError, json.JSONDecodeError) as e:
         raise ValueError(f"Failed to load configuration: {e}")

@@ -6,24 +6,24 @@ from file_processors.base_processor import BaseFileProcessor
 
 class YamlProcessor(BaseFileProcessor):
     """Processor for YAML files.
-    
+
     Extracts text from YAML files using PyYAML library.
     Recursively extracts all string values (both keys and values) for PII detection.
     Handles nested structures, arrays, and objects.
     """
-    
+
     def extract_text(self, file_path: str) -> str:
         """Extract text from a YAML file.
-        
+
         Recursively traverses the YAML structure and extracts all string values.
         Both keys and values are extracted to maximize PII detection coverage.
-        
+
         Args:
             file_path: Path to the YAML file
-            
+
         Returns:
             Extracted text content from all string values as a single string
-            
+
         Raises:
             ImportError: If PyYAML is not installed
             yaml.YAMLError: If file is not valid YAML
@@ -39,11 +39,11 @@ class YamlProcessor(BaseFileProcessor):
                 "PyYAML is required for YAML processing. "
                 "Install it with: pip install PyYAML"
             )
-        
+
         text_parts: list[str] = []
-        
+
         try:
-            with open(file_path, 'r', encoding='utf-8', errors='replace') as yamlfile:
+            with open(file_path, "r", encoding="utf-8", errors="replace") as yamlfile:
                 try:
                     data: Any = yaml.safe_load(yamlfile)
                     if data is not None:
@@ -56,20 +56,21 @@ class YamlProcessor(BaseFileProcessor):
                     # Extract potential string values using simple heuristics
                     # Look for patterns like key: "value" or key: 'value'
                     import re
+
                     # Match quoted strings (both single and double quotes)
                     string_pattern = r'["\']([^"\']+)["\']'
                     matches = re.findall(string_pattern, content)
                     text_parts.extend(matches)
-        
+
         except Exception as e:
             # Re-raise with context
             raise Exception(f"Error processing YAML file: {str(e)}") from e
-        
-        return ' '.join(text_parts)
-    
+
+        return " ".join(text_parts)
+
     def _extract_strings(self, obj: Any, text_parts: list[str]) -> None:
         """Recursively extract all string values from a YAML object.
-        
+
         Args:
             obj: The YAML object (dict, list, or primitive)
             text_parts: List to accumulate extracted strings
@@ -89,7 +90,7 @@ class YamlProcessor(BaseFileProcessor):
             if obj.strip():
                 text_parts.append(obj.strip())
         # Numbers, booleans, None are ignored as they're not useful for PII detection
-    
+
     @staticmethod
     def can_process(extension: str) -> bool:
         """Check if this processor can handle YAML files."""

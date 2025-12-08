@@ -2,4 +2,4 @@
 
 from validators.credit_card_validator import CreditCardValidator
 
-__all__ = ['CreditCardValidator']
+__all__ = ["CreditCardValidator"]

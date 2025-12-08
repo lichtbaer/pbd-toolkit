@@ -19,7 +19,6 @@ DIMENSION_MAPPING: Dict[str, str] = {
     "REGEX_SSN_CH": "identity",
     "NER_PERSON": "identity",
     "OLLAMA_PERSON": "identity",
-    
     # Contact information dimension
     "REGEX_EMAIL": "contact_information",
     "REGEX_PHONE": "contact_information",
@@ -27,7 +26,6 @@ DIMENSION_MAPPING: Dict[str, str] = {
     "REGEX_IPV4": "contact_information",
     "NER_LOCATION": "contact_information",
     "OLLAMA_LOCATION": "contact_information",
-    
     # Financial dimension
     "REGEX_IBAN": "financial",
     "REGEX_BIC": "financial",
@@ -35,16 +33,13 @@ DIMENSION_MAPPING: Dict[str, str] = {
     "REGEX_TAX_ID": "financial",
     "NER_FINANCIAL": "financial",
     "OLLAMA_MONEY": "financial",
-    
     # Health dimension
     "NER_HEALTH": "health",
     "NER_MEDICAL_CONDITION": "health",
     "NER_MEDICATION": "health",
     "REGEX_MRN": "health",
-    
     # Biometric dimension
     "NER_BIOMETRIC": "biometric",
-    
     # Sensitive personal data dimension (GDPR Article 9)
     "NER_POLITICAL": "sensitive_personal_data",
     "NER_RELIGIOUS": "sensitive_personal_data",
@@ -52,19 +47,15 @@ DIMENSION_MAPPING: Dict[str, str] = {
     "NER_ETHNIC_ORIGIN": "sensitive_personal_data",
     "NER_CRIMINAL_CONVICTION": "sensitive_personal_data",
     "OLLAMA_SENSITIVE": "sensitive_personal_data",
-    
     # Location dimension (separate from contact information for detailed analysis)
     # Note: NER_LOCATION and OLLAMA_LOCATION are mapped to contact_information
     # but can be analyzed separately if needed
-    
     # Credentials & Security dimension
     "NER_PASSWORD": "credentials_security",
     "REGEX_PGPPRV": "credentials_security",
-    
     # Organizational dimension
     "OLLAMA_ORGANIZATION": "organizational",
     "OLLAMA_DATE": "organizational",
-    
     # Signal words dimension
     "REGEX_WORDS": "signal_words",
     "REGEX_SIGNAL_WORDS_EXTENDED": "signal_words",
@@ -88,10 +79,10 @@ SENSITIVITY_LEVELS: Dict[str, str] = {
 
 def get_dimension(detection_type: str) -> str:
     """Map detection type to privacy dimension.
-    
+
     Args:
         detection_type: Detection type label (e.g., "REGEX_EMAIL", "NER_PERSON")
-        
+
     Returns:
         Privacy dimension name (e.g., "contact_information", "identity")
         Returns "other" if type is not mapped
@@ -101,10 +92,10 @@ def get_dimension(detection_type: str) -> str:
 
 def get_sensitivity_level(dimension: str) -> str:
     """Get sensitivity level for a privacy dimension.
-    
+
     Args:
         dimension: Privacy dimension name
-        
+
     Returns:
         Sensitivity level: "very_high", "high", "medium", "low", or "variable"
     """
@@ -113,7 +104,7 @@ def get_sensitivity_level(dimension: str) -> str:
 
 def get_all_dimensions() -> list[str]:
     """Get list of all defined privacy dimensions.
-    
+
     Returns:
         List of dimension names
     """
@@ -122,10 +113,10 @@ def get_all_dimensions() -> list[str]:
 
 def get_types_for_dimension(dimension: str) -> list[str]:
     """Get all detection types that map to a specific dimension.
-    
+
     Args:
         dimension: Privacy dimension name
-        
+
     Returns:
         List of detection type labels
     """

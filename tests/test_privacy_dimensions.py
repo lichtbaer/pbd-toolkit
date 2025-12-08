@@ -1,12 +1,10 @@
 """Tests for privacy dimension mapping."""
 
-import pytest
-
 from core.privacy_dimensions import (
     get_dimension,
     get_sensitivity_level,
     get_all_dimensions,
-    get_types_for_dimension
+    get_types_for_dimension,
 )
 
 
@@ -86,7 +84,7 @@ def test_get_types_for_dimension():
     assert isinstance(identity_types, list)
     assert "REGEX_PASSPORT" in identity_types
     assert "NER_PERSON" in identity_types
-    
+
     health_types = get_types_for_dimension("health")
     assert "NER_HEALTH" in health_types
     assert "NER_MEDICAL_CONDITION" in health_types

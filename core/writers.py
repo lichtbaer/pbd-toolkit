@@ -3,11 +3,11 @@
 import abc
 import csv
 import json
-import os
 from typing import Optional, Any, TextIO
 
 from matches import PiiMatch
 from core.exceptions import OutputError
+
 
 class OutputWriter(abc.ABC):
     """Abstract base class for output writers."""
@@ -31,11 +31,11 @@ class OutputWriter(abc.ABC):
     def supports_streaming(self) -> bool:
         """Return True if the writer supports streaming (writing matches as they are found)."""
         pass
-    
+
     # Optional method for backward compatibility
     def get_writer(self) -> Any:
         return None
-    
+
     @property
     def file_handle(self) -> Optional[Any]:
         return None
@@ -47,7 +47,7 @@ class CsvWriter(OutputWriter):
     def __init__(self, file_path: str, include_header: bool = True):
         super().__init__(file_path, include_header)
         try:
-            self._file = open(file_path, 'w', newline='', encoding='utf-8')
+            self._file = open(file_path, "w", newline="", encoding="utf-8")
             self._writer = csv.writer(self._file)
             if self.include_header:
                 self._writer.writerow(["Match", "File", "Type", "Score", "Engine"])
@@ -90,17 +90,14 @@ class JsonWriter(OutputWriter):
             "type": match.type,
             "score": match.ner_score,
             "engine": match.engine,
-            "metadata": match.metadata
+            "metadata": match.metadata,
         }
         self.matches.append(match_dict)
 
     def finalize(self, metadata: Optional[dict] = None) -> None:
-        output_data = {
-            "metadata": metadata or {},
-            "findings": self.matches
-        }
+        output_data = {"metadata": metadata or {}, "findings": self.matches}
         try:
-            with open(self.file_path, 'w', encoding='utf-8') as f:
+            with open(self.file_path, "w", encoding="utf-8") as f:
                 json.dump(output_data, f, indent=2, ensure_ascii=False)
         except IOError as e:
             raise OutputError(f"Failed to write JSON output: {e}")
@@ -112,7 +109,7 @@ class JsonWriter(OutputWriter):
 
 class XlsxWriter(OutputWriter):
     """Writes findings to an Excel file."""
-    
+
     def __init__(self, file_path: str, include_header: bool = True):
         super().__init__(file_path, include_header)
         self.matches: list[dict] = []
@@ -123,7 +120,7 @@ class XlsxWriter(OutputWriter):
             "file": match.file,
             "type": match.type,
             "score": match.ner_score,
-            "engine": match.engine
+            "engine": match.engine,
         }
         self.matches.append(match_dict)
 
@@ -131,18 +128,20 @@ class XlsxWriter(OutputWriter):
         try:
             import openpyxl
         except ImportError:
-            raise OutputError("openpyxl is required for XLSX output but is not installed.")
-        
+            raise OutputError(
+                "openpyxl is required for XLSX output but is not installed."
+            )
+
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Findings"
-        
+
         if self.include_header:
             ws.append(["Match", "File", "Type", "Score", "Engine"])
-            
+
         for m in self.matches:
             ws.append([m["text"], m["file"], m["type"], m["score"], m["engine"]])
-            
+
         # Add metadata sheet
         if metadata:
             ws_meta = wb.create_sheet("Metadata")
@@ -152,7 +151,7 @@ class XlsxWriter(OutputWriter):
                 if isinstance(v, (dict, list)):
                     v = json.dumps(v)
                 ws_meta.append([k, v])
-                
+
         try:
             wb.save(self.file_path)
         except IOError as e:
@@ -165,31 +164,31 @@ class XlsxWriter(OutputWriter):
 
 class PrivacyStatisticsWriter(OutputWriter):
     """Writes privacy-focused statistics to a JSON file.
-    
+
     This writer generates aggregated statistics by privacy dimensions and
     detection modules without storing individual PII instances or file paths.
     """
-    
+
     def __init__(self, file_path: str, include_header: bool = True):
         super().__init__(file_path, include_header)
         # This writer doesn't collect matches, but we need to implement write_match
         # for compatibility with the abstract base class
         self._match_count = 0
-    
+
     def write_match(self, match: PiiMatch) -> None:
         """Write a match (for compatibility).
-        
+
         Note: This writer doesn't actually store matches, but tracks count
         for validation purposes.
-        
+
         Args:
             match: PiiMatch object (not stored, only counted)
         """
         self._match_count += 1
-    
+
     def finalize(self, metadata: Optional[dict] = None) -> None:
         """Write aggregated statistics to JSON file.
-        
+
         Args:
             metadata: Dictionary containing:
                 - statistics: Aggregated statistics from StatisticsAggregator
@@ -197,11 +196,11 @@ class PrivacyStatisticsWriter(OutputWriter):
         """
         if metadata is None:
             metadata = {}
-        
+
         # Extract statistics and scan metadata
         statistics = metadata.get("statistics", {})
         scan_metadata = metadata.get("scan_metadata", {})
-        
+
         # Build output structure
         output_data = {
             "metadata": scan_metadata,
@@ -209,21 +208,23 @@ class PrivacyStatisticsWriter(OutputWriter):
             "statistics_by_module": statistics.get("statistics_by_module", {}),
             "statistics_by_file_type": statistics.get("statistics_by_file_type", {}),
             "summary": statistics.get("summary", {}),
-            "performance_metrics": metadata.get("performance_metrics", {})
+            "performance_metrics": metadata.get("performance_metrics", {}),
         }
-        
+
         try:
-            with open(self.file_path, 'w', encoding='utf-8') as f:
+            with open(self.file_path, "w", encoding="utf-8") as f:
                 json.dump(output_data, f, indent=2, ensure_ascii=False)
         except IOError as e:
             raise OutputError(f"Failed to write statistics JSON output: {e}")
-    
+
     @property
     def supports_streaming(self) -> bool:
         return False
 
 
-def create_output_writer(output_format: str, file_path: str, include_header: bool = True) -> OutputWriter:
+def create_output_writer(
+    output_format: str, file_path: str, include_header: bool = True
+) -> OutputWriter:
     """Factory function to create the appropriate output writer."""
     if output_format == "json":
         return JsonWriter(file_path, include_header)
@@ -231,7 +232,6 @@ def create_output_writer(output_format: str, file_path: str, include_header: boo
         return XlsxWriter(file_path, include_header)
     elif output_format == "statistics":
         return PrivacyStatisticsWriter(file_path, include_header)
-    
+
     # Default to CSV
     return CsvWriter(file_path, include_header)
-
