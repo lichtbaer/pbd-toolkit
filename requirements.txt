@@ -23,6 +23,9 @@ pydantic>=2.0.0  # Required by pydantic-ai
 python-magic>=0.4.27  # For magic number file type detection (requires libmagic system library)
 filetype>=1.2.0  # Pure Python fallback for file type detection
 
+# Security dependencies
+defusedxml>=0.7.1  # Secure XML parsing to prevent XXE attacks
+
 # Optional dependencies for image processing
 Pillow>=10.0.0  # For image validation and processing
 
