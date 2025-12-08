@@ -10,6 +10,7 @@ import sys
 from typing import Dict, List, Tuple, Optional
 import urllib.request
 import urllib.error
+import urllib.parse
 
 # EUPL v1.2 compatible licenses (from the EUPL license appendix)
 EUPL_COMPATIBLE_LICENSES = [
@@ -69,7 +70,12 @@ def get_package_info(package_name: str) -> Optional[Dict]:
     """Get package information from PyPI."""
     try:
         url = f"https://pypi.org/pypi/{package_name}/json"
-        with urllib.request.urlopen(url, timeout=10) as response:
+        # Validate URL scheme to prevent file:/ or other unsafe schemes
+        parsed_url = urllib.parse.urlparse(url)
+        if parsed_url.scheme not in ("https", "http"):
+            raise ValueError(f"Unsafe URL scheme: {parsed_url.scheme}")
+        # URL scheme is validated above, only https/http allowed
+        with urllib.request.urlopen(url, timeout=10) as response:  # nosec B310
             data = json.loads(response.read())
             info = data.get("info", {})
 

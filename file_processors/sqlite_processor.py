@@ -42,14 +42,28 @@ class SqliteProcessor(BaseFileProcessor):
 
                 for (table_name,) in tables:
                     try:
+                        # Validate table name to prevent SQL injection
+                        # Table names from sqlite_master should be safe, but validate anyway
+                        if not table_name or not isinstance(table_name, str):
+                            continue
+                        # Ensure table name contains only safe characters (alphanumeric, underscore)
+                        if not all(c.isalnum() or c == "_" for c in table_name):
+                            continue
+
                         # Get column names for this table
-                        cursor.execute(f"PRAGMA table_info({table_name})")
+                        # PRAGMA doesn't support parameters, but table_name is validated above
+                        cursor.execute(f'PRAGMA table_info("{table_name}")')
                         columns = cursor.fetchall()
 
                         # Build SELECT query for text columns
                         text_columns = []
                         for col in columns:
                             col_name = col[1]
+                            # Validate column name
+                            if not col_name or not isinstance(col_name, str):
+                                continue
+                            if not all(c.isalnum() or c == "_" for c in col_name):
+                                continue
                             col_type = col[2].upper() if col[2] else ""
                             # Include TEXT, VARCHAR, CHAR, and BLOB (may contain text)
                             if any(
@@ -62,8 +76,10 @@ class SqliteProcessor(BaseFileProcessor):
                             continue
 
                         # Select all text columns
-                        columns_str = ", ".join(text_columns)
-                        cursor.execute(f"SELECT {columns_str} FROM {table_name}")
+                        # Note: SQLite doesn't support parameterized table/column names,
+                        # but table_name and column names are validated above (alphanumeric/underscore only)
+                        columns_str = ", ".join(f'"{col}"' for col in text_columns)
+                        cursor.execute(f'SELECT {columns_str} FROM "{table_name}"')  # nosec B608
 
                         rows = cursor.fetchall()
                         for row in rows:

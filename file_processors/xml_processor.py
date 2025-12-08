@@ -1,13 +1,24 @@
-"""XML file processor using Python's built-in xml.etree.ElementTree."""
+"""XML file processor using defusedxml for secure XML parsing."""
 
-import xml.etree.ElementTree as ET
+try:
+    from defusedxml.ElementTree import parse as safe_parse, ParseError as SafeParseError
+    from defusedxml.ElementTree import Element
+    DEFUSEDXML_AVAILABLE = True
+except ImportError:
+    # Fallback to standard library if defusedxml is not available
+    import xml.etree.ElementTree as ET
+    from xml.etree.ElementTree import ParseError, Element
+    safe_parse = ET.parse
+    SafeParseError = ET.ParseError
+    DEFUSEDXML_AVAILABLE = False
+
 from file_processors.base_processor import BaseFileProcessor
 
 
 class XmlProcessor(BaseFileProcessor):
     """Processor for XML files.
 
-    Extracts text from XML files using Python's built-in xml.etree.ElementTree.
+    Extracts text from XML files using defusedxml for secure XML parsing.
     Recursively extracts all text content from elements and attributes.
     Handles both small and large XML files.
     """
@@ -26,7 +37,7 @@ class XmlProcessor(BaseFileProcessor):
             Extracted text content from all elements and attributes as a string
 
         Raises:
-            xml.etree.ElementTree.ParseError: If file is not valid XML
+            defusedxml.ElementTree.ParseError: If file is not valid XML
             UnicodeDecodeError: If file encoding cannot be decoded
             PermissionError: If file cannot be accessed
             FileNotFoundError: If file does not exist
@@ -35,14 +46,14 @@ class XmlProcessor(BaseFileProcessor):
         text_parts: list[str] = []
 
         try:
-            # Parse XML file
-            tree = ET.parse(file_path)
+            # Parse XML file using defusedxml for security
+            tree = safe_parse(file_path)
             root = tree.getroot()
 
             # Extract text from root and all descendants
             self._extract_text_from_element(root, text_parts)
 
-        except ET.ParseError as e:
+        except SafeParseError as e:
             # If XML is invalid, try to extract text using simple regex
             # This handles malformed XML files that might still contain PII
             try:
@@ -59,12 +70,12 @@ class XmlProcessor(BaseFileProcessor):
                     text_parts.extend([m.strip() for m in matches if m.strip()])
             except Exception:
                 # Re-raise original parse error if fallback also fails
-                raise ET.ParseError(f"Invalid XML file: {str(e)}") from e
+                raise SafeParseError(f"Invalid XML file: {str(e)}") from e
 
         return " ".join(text_parts)
 
     def _extract_text_from_element(
-        self, element: ET.Element, text_parts: list[str]
+        self, element: Element, text_parts: list[str]
     ) -> None:
         """Recursively extract text from an XML element.
 
