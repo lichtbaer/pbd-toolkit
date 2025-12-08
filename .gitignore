@@ -26,3 +26,8 @@ output/*.txt
 # MkDocs build output
 site/
 .idea/
+
+# Bandit security reports
+bandit-report*.json
+bandit-report*.txt
+BANDIT_*.md
