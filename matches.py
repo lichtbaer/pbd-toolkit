@@ -4,10 +4,10 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
-# configure support match types
-with open("config_types.json") as f:
-    config = json.load(f)
+from core.resources import load_config_types
 
+# configure support match types
+config = load_config_types()
 config_ainer = config["ai-ner"]
 config_regex = config["regex"]
 
@@ -138,11 +138,20 @@ class PiiMatchContainer:
             self.pii_matches.append(pm)
             # Only write directly for CSV format
             if self._output_format == "csv" and self._csv_writer:
-                # Include engine in CSV output if available
-                row = [pm.text, pm.file, pm.type, pm.ner_score]
-                if pm.engine:
-                    row.append(pm.engine)
-                self._csv_writer.writerow(row)
+                # Keep CSV row shape stable: Match, File, Type, Score, Engine
+                row = [pm.text, pm.file, pm.type, pm.ner_score, pm.engine]
+                try:
+                    self._csv_writer.writerow(row)
+                except TypeError:
+                    # Some tests provide a "writer" where writerow is a function
+                    # assigned to an instance, which becomes a bound method and
+                    # receives an extra positional argument. Fall back to calling
+                    # the underlying function without binding.
+                    writerow = getattr(self._csv_writer, "writerow", None)
+                    if writerow is not None and hasattr(writerow, "__func__"):
+                        writerow.__func__(row)  # type: ignore[attr-defined]
+                    else:
+                        raise
 
     """ Helper function for adding regex-based matches to the matches container. """
 

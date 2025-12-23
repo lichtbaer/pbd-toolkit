@@ -1,39 +1,11 @@
-python-docx~=1.2.0
 beautifulsoup4
-gliner~=0.2.22
 pdfminer.six==20250506
-pytest~=8.0.0
-pytest-cov~=4.1.0
 tqdm~=4.66.0
-striprtf~=0.0.26
-odfpy~=1.4.1
-openpyxl~=3.1.0
-xlrd~=2.0.1
-extract-msg~=0.41.0
-python-pptx~=0.6.23
-PyYAML~=6.0.1
-
-# Optional dependencies for additional engines
-spacy>=3.7.0  # For spaCy NER engine
-requests>=2.31.0  # For Ollama and OpenAI-compatible engines (legacy)
-pydantic-ai>=0.0.10  # Unified LLM engine (replaces ollama, openai-compatible, multimodal)
-pydantic>=2.0.0  # Required by pydantic-ai
-
-# Optional dependencies for file type detection
-python-magic>=0.4.27  # For magic number file type detection (requires libmagic system library)
-filetype>=1.2.0  # Pure Python fallback for file type detection
-
-# Security dependencies
 defusedxml>=0.7.1  # Secure XML parsing to prevent XXE attacks
-
-# Optional dependencies for image processing
-Pillow>=10.0.0  # For image validation and processing
-
-# CLI dependencies
 typer>=0.9.0  # Modern CLI framework with type hints
 rich>=13.0.0  # Used by Typer for enhanced output formatting
 
-# Documentation dependencies (optional)
-# mkdocs~=1.5.0
-# mkdocs-material~=9.5.0
-# mkdocs-git-revision-date-localized-plugin~=1.2.0
+# Note:
+# - This file contains *minimal runtime* dependencies.
+# - For development (tests) and optional features (NER engines, extra file formats),
+#   use `requirements-dev.txt` or install extras via `pip install -e ".[dev]"`.

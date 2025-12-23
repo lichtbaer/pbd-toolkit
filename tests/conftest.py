@@ -4,7 +4,7 @@ import os
 import tempfile
 import pytest
 from unittest.mock import Mock
-from config import Config
+from config import Config, NerStats
 
 
 @pytest.fixture
@@ -66,6 +66,21 @@ def mock_config():
     config.logger.warning = Mock()
     config.logger.error = Mock()
     config.logger.info = Mock()
+
+    # Defaults used by engines/processor
+    config.use_regex = False
+    config.use_ner = False
+    config.use_spacy_ner = False
+    config.use_ollama = False
+    config.use_openai_compatible = False
+    config.use_multimodal = False
+    config.use_pydantic_ai = False
+
+    config.regex_pattern = None
+    config.ner_model = None
+    config.ner_labels = []
+    config.ner_threshold = 0.5
+    config.ner_stats = NerStats()
 
     # Mock validate_file_path to always return valid
     def validate_file_path(path):

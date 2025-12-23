@@ -269,7 +269,7 @@ class TestRtfProcessor:
         text = processor.extract_text(file_path)
         assert "test@example.com" in text
         assert "IBAN" in text
-        assert "test RTF document" in text.lower()
+        assert "test rtf document" in text.lower()
 
     def test_file_not_found(self, temp_dir):
         """Test that FileNotFoundError is raised for non-existent file."""

@@ -4,6 +4,14 @@ from typing import Optional
 from core.engines.base import DetectionResult
 from config import Config
 
+# Exposed for test patching and runtime type mapping
+from matches import config_regex_sorted
+
+try:
+    from validators.credit_card_validator import CreditCardValidator
+except Exception:  # pragma: no cover - optional dependency / import-time issues
+    CreditCardValidator = None  # type: ignore[assignment]
+
 
 class RegexEngine:
     """Regex-based detection engine.
@@ -42,19 +50,22 @@ class RegexEngine:
         results = []
         for match in self.pattern.finditer(text):
             entity_type, config_entry = self._get_entity_type(match)
-            if entity_type:
-                # Validate if required
-                if config_entry and not self._validate_match(match, config_entry):
-                    continue
+            # If this isn't the "combined" pattern with groups, fall back to a generic label
+            if not entity_type:
+                entity_type = "REGEX_MATCH"
 
-                results.append(
-                    DetectionResult(
-                        text=match.group(),
-                        entity_type=entity_type,
-                        confidence=None,  # Regex has no confidence score
-                        engine_name="regex",
-                    )
+            # Validate if required
+            if config_entry and not self._validate_match(match, config_entry):
+                continue
+
+            results.append(
+                DetectionResult(
+                    text=match.group(),
+                    entity_type=entity_type,
+                    confidence=None,  # Regex has no confidence score
+                    engine_name="regex",
                 )
+            )
 
         return results
 
@@ -67,9 +78,6 @@ class RegexEngine:
         Returns:
             Tuple of (entity_type, config_entry) or (None, None)
         """
-        # Import here to avoid circular dependency
-        from matches import config_regex_sorted
-
         for idx, item in enumerate(match.groups()):
             if item is not None:
                 if idx in config_regex_sorted:
@@ -94,14 +102,11 @@ class RegexEngine:
 
         if validation_type == "luhn":
             # Credit card validation using Luhn algorithm
-            try:
-                from validators.credit_card_validator import CreditCardValidator
-
-                is_valid, card_type = CreditCardValidator.validate(match.group())
-                return is_valid
-            except ImportError:
+            if CreditCardValidator is None:
                 # If validator module not available, skip validation
                 return True
+            is_valid, _card_type = CreditCardValidator.validate(match.group())
+            return is_valid
 
         return True
 

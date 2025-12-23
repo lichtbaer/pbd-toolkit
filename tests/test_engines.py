@@ -236,9 +236,14 @@ class TestSpacyNEREngine:
         mock_config.spacy_model_name = "de_core_news_sm"
         mock_config.logger = Mock()
 
-        with patch(
-            "builtins.__import__", side_effect=ImportError("No module named 'spacy'")
-        ):
+        real_import = __import__
+
+        def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "spacy" or name.startswith("spacy."):
+                raise ImportError("No module named 'spacy'")
+            return real_import(name, globals, locals, fromlist, level)
+
+        with patch("builtins.__import__", side_effect=fake_import):
             from core.engines.spacy_engine import SpacyNEREngine
 
             engine = SpacyNEREngine(mock_config)

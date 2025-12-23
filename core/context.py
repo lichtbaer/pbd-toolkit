@@ -40,6 +40,25 @@ class ApplicationContext:
     output_format: str = "csv"
     output_file_path: Optional[str] = None
 
+    def __post_init__(self) -> None:
+        """Derive backward-compatible CSV handles when possible.
+
+        Some parts of the codebase (and tests) still expect `csv_writer` and
+        `csv_file_handle` to be available when a CSV output writer is used.
+        """
+        if self.output_writer and self.output_format == "csv":
+            try:
+                from core.writers import CsvWriter
+
+                if isinstance(self.output_writer, CsvWriter):
+                    if self.csv_writer is None:
+                        self.csv_writer = self.output_writer.get_writer()
+                    if self.csv_file_handle is None:
+                        self.csv_file_handle = self.output_writer.file_handle
+            except Exception:
+                # Don't fail context creation if optional CSV back-compat wiring fails
+                pass
+
     @classmethod
     def from_cli_args(
         cls,

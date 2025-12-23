@@ -43,23 +43,44 @@ class TextProcessor:
         self.match_container = match_container
         self.statistics = statistics
 
-        # Initialize engines from registry
-        self.engines: list[DetectionEngine] = []
-        enabled_engines = self._get_enabled_engines()
-
-        for engine_name in enabled_engines:
-            engine = EngineRegistry.get_engine(engine_name, config)
-            if engine and engine.is_available():
-                self.engines.append(engine)
-                if config.verbose:
-                    config.logger.debug(f"Engine '{engine_name}' loaded and enabled")
-
         # Thread locks for thread-safe operations
         self._process_lock = threading.Lock()
+        # Backward-compatibility: some tests expect a dedicated NER lock
+        self._ner_lock = threading.Lock()
+
+        # Initialize engines from registry (may be refreshed if config changes)
+        self.engines: list[DetectionEngine] = []
+        self._engine_locks: dict[str, threading.Lock] = {}
+        self._enabled_engine_names: list[str] = []
+        self._init_engines()
+
+    def _init_engines(self) -> None:
+        """(Re)initialize engines and per-engine locks from current config."""
+        self.engines = []
+        enabled_engines = self._get_enabled_engines()
+        self._enabled_engine_names = enabled_engines
+
+        for engine_name in enabled_engines:
+            engine = EngineRegistry.get_engine(engine_name, self.config)
+            if engine and engine.is_available():
+                self.engines.append(engine)
+                if getattr(self.config, "verbose", False):
+                    getattr(self.config, "logger", None) and self.config.logger.debug(
+                        f"Engine '{engine_name}' loaded and enabled"
+                    )
+
         # Separate locks for each engine (some may not be thread-safe)
-        self._engine_locks: dict[str, threading.Lock] = {
-            engine.name: threading.Lock() for engine in self.engines
-        }
+        self._engine_locks = {engine.name: threading.Lock() for engine in self.engines}
+
+    def _ensure_engines_current(self) -> None:
+        """Refresh engines if config flags have changed since initialization.
+
+        This helps tests and supports scenarios where a Config is mutated after
+        processor construction.
+        """
+        enabled_engines = self._get_enabled_engines()
+        if enabled_engines != self._enabled_engine_names:
+            self._init_engines()
 
     def _get_enabled_engines(self) -> list[str]:
         """Get list of enabled engine names from config.
@@ -94,6 +115,9 @@ class TextProcessor:
         """
         if not text.strip():
             return
+
+        # Ensure engines reflect current config flags
+        self._ensure_engines_current()
 
         # Clean text to remove control characters that might confuse NLP models (especially spaCy)
         # Keep newlines, tabs and carriage returns, remove other non-printables
@@ -219,6 +243,9 @@ class TextProcessor:
         Returns:
             True if file was processed successfully, False otherwise
         """
+        # Ensure engines reflect current config flags
+        self._ensure_engines_current()
+
         full_path = file_info.path
         ext = file_info.extension
         mime_type = getattr(file_info, "mime_type", None) or ""
