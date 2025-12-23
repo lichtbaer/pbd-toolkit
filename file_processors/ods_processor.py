@@ -42,6 +42,10 @@ class OdsProcessor(BaseFileProcessor):
                         if cell_text and cell_text.strip():
                             text_parts.append(cell_text.strip())
 
+        except FileNotFoundError:
+            raise
+        except PermissionError:
+            raise
         except Exception as e:
             # Re-raise with context
             raise Exception(f"Error processing ODS file: {str(e)}") from e

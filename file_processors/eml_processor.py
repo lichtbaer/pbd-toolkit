@@ -57,6 +57,10 @@ class EmlProcessor(BaseFileProcessor):
             if body_text:
                 text_parts.append(body_text)
 
+        except FileNotFoundError:
+            raise
+        except PermissionError:
+            raise
         except Exception as e:
             # Re-raise with context
             raise Exception(f"Error processing EML file: {str(e)}") from e

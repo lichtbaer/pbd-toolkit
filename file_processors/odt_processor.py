@@ -53,8 +53,12 @@ class OdtProcessor(BaseFileProcessor):
                         if cell_text and cell_text.strip():
                             text_parts.append(cell_text.strip())
 
+        except FileNotFoundError:
+            raise
+        except PermissionError:
+            raise
         except Exception as e:
-            # Re-raise with context
+            # Re-raise with context for other errors
             raise Exception(f"Error processing ODT file: {str(e)}") from e
 
         return " ".join(text_parts)

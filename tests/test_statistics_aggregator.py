@@ -118,15 +118,13 @@ def test_aggregator_summary():
 
     assert summary["total_matches"] == 4
     assert summary["unique_files_with_matches"] == 4
-    assert (
-        summary["dimensions_detected"] == 3
-    )  # contact_information, identity, financial, health
+    assert summary["dimensions_detected"] == 4  # contact_information, identity, financial, health
     assert summary["modules_used"] == 2  # regex, gliner
 
     # Check risk assessment
     assert "risk_assessment" in summary
     assert summary["risk_assessment"]["very_high_risk_count"] == 1  # health
-    assert summary["risk_assessment"]["high_risk_count"] == 1  # identity or financial
+    assert summary["risk_assessment"]["high_risk_count"] == 2  # identity + financial
     assert summary["highest_risk_dimension"] == "health"
 
 

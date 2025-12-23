@@ -2,6 +2,13 @@
 
 from file_processors.base_processor import BaseFileProcessor
 
+try:
+    from pptx import Presentation
+    from pptx.exc import PackageNotFoundError
+except Exception:  # pragma: no cover - optional dependency
+    Presentation = None  # type: ignore[assignment]
+    PackageNotFoundError = None  # type: ignore[assignment]
+
 
 class PptxProcessor(BaseFileProcessor):
     """Processor for PPTX (PowerPoint 2007+) files.
@@ -30,9 +37,7 @@ class PptxProcessor(BaseFileProcessor):
             FileNotFoundError: If file does not exist
             Exception: For other PPTX processing errors
         """
-        try:
-            from pptx import Presentation
-        except ImportError:
+        if Presentation is None:
             raise ImportError(
                 "python-pptx is required for PPTX processing. "
                 "Install it with: pip install python-pptx"
@@ -42,7 +47,13 @@ class PptxProcessor(BaseFileProcessor):
 
         try:
             # Load presentation
-            prs = Presentation(file_path)
+            try:
+                prs = Presentation(file_path)  # type: ignore[misc]
+            except ImportError as e:
+                raise ImportError(
+                    "python-pptx is required for PPTX processing. "
+                    "Install it with: pip install python-pptx"
+                ) from e
 
             # Extract text from all slides
             for slide in prs.slides:
@@ -64,7 +75,16 @@ class PptxProcessor(BaseFileProcessor):
             # Note: Comments might not be accessible in all PPTX files
             # This is a best-effort extraction
 
+        except FileNotFoundError:
+            raise
+        except PermissionError:
+            raise
+        except ImportError:
+            raise
         except Exception as e:
+            # Map python-pptx "package not found" to a standard FileNotFoundError
+            if PackageNotFoundError is not None and isinstance(e, PackageNotFoundError):
+                raise FileNotFoundError(str(e)) from e
             raise Exception(f"Error processing PPTX file: {str(e)}") from e
 
         return " ".join(text_parts)
