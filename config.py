@@ -14,6 +14,8 @@ if TYPE_CHECKING:
 
 import constants
 
+from core.resources import load_config_types
+
 
 @dataclass
 class NerStats:
@@ -251,9 +253,7 @@ class Config:
     def _load_regex_pattern(self) -> None:
         """Load and compile regex pattern from config file."""
         try:
-            with open(constants.CONFIG_FILE) as f:
-                config_data = json.load(f)
-
+            config_data = load_config_types()
             regex_entries = config_data.get("regex", [])
             regex_supported = [
                 r"{}".format(entry["expression"]) for entry in regex_entries
@@ -321,8 +321,7 @@ class Config:
                 self._("NER model loaded: {}").format(constants.NER_MODEL_NAME)
             )
 
-            with open(constants.CONFIG_FILE) as f:
-                config_data = json.load(f)
+            config_data = load_config_types()
 
             # Load NER labels
             ner_config = config_data.get("ai-ner", [])
@@ -383,7 +382,7 @@ class Config:
             raise RuntimeError(error_msg) from e
         except json.JSONDecodeError as e:
             error_msg = self._("Failed to parse configuration file: {}").format(
-                constants.CONFIG_FILE
+                "config_types.json"
             ) + f"\n{self._('Original error: {}')}".format(str(e))
             self.logger.error(error_msg)
             raise RuntimeError(error_msg) from e
@@ -403,8 +402,11 @@ def load_extended_config(config_file: str = constants.CONFIG_FILE) -> dict:
         Dictionary with configuration
     """
     try:
-        with open(config_file) as f:
-            config = json.load(f)
+        if config_file == constants.CONFIG_FILE:
+            config = load_config_types()
+        else:
+            with open(config_file) as f:
+                config = json.load(f)
 
         # Set defaults for extended settings if not present
         if "settings" not in config:

@@ -4,10 +4,10 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
-# configure support match types
-with open("config_types.json") as f:
-    config = json.load(f)
+from core.resources import load_config_types
 
+# configure support match types
+config = load_config_types()
 config_ainer = config["ai-ner"]
 config_regex = config["regex"]
 

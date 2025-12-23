@@ -3,6 +3,7 @@
 import re
 import json
 from matches import PiiMatchContainer
+from core.resources import load_config_types
 
 
 class TestPhoneNumberDetection:
@@ -13,8 +14,7 @@ class TestPhoneNumberDetection:
         container = PiiMatchContainer()
 
         # Load phone pattern from config
-        with open("config_types.json") as f:
-            config = json.load(f)
+        config = load_config_types()
 
         phone_config = next(
             (c for c in config["regex"] if c["label"] == "REGEX_PHONE"), None
@@ -46,8 +46,7 @@ class TestPhoneNumberDetection:
         """Test detection of international phone numbers."""
         container = PiiMatchContainer()
 
-        with open("config_types.json") as f:
-            config = json.load(f)
+        config = load_config_types()
 
         phone_config = next(
             (c for c in config["regex"] if c["label"] == "REGEX_PHONE"), None
@@ -79,8 +78,7 @@ class TestTaxIdDetection:
         """Test detection of German tax ID."""
         container = PiiMatchContainer()
 
-        with open("config_types.json") as f:
-            config = json.load(f)
+        config = load_config_types()
 
         tax_config = next(
             (c for c in config["regex"] if c["label"] == "REGEX_TAX_ID"), None
@@ -113,8 +111,7 @@ class TestTaxIdDetection:
         """Test that non-tax-ID 11-digit numbers are still detected (basic pattern)."""
         container = PiiMatchContainer()
 
-        with open("config_types.json") as f:
-            config = json.load(f)
+        config = load_config_types()
 
         tax_config = next(
             (c for c in config["regex"] if c["label"] == "REGEX_TAX_ID"), None
@@ -147,8 +144,7 @@ class TestBicDetection:
         """Test detection of BIC codes."""
         container = PiiMatchContainer()
 
-        with open("config_types.json") as f:
-            config = json.load(f)
+        config = load_config_types()
 
         bic_config = next(
             (c for c in config["regex"] if c["label"] == "REGEX_BIC"), None
@@ -184,8 +180,7 @@ class TestPostalCodeDetection:
         """Test detection of German postal codes."""
         container = PiiMatchContainer()
 
-        with open("config_types.json") as f:
-            config = json.load(f)
+        config = load_config_types()
 
         postal_config = next(
             (c for c in config["regex"] if c["label"] == "REGEX_POSTAL_CODE"), None
@@ -220,8 +215,7 @@ class TestExtendedSignalWords:
         """Test detection of medical signal words."""
         container = PiiMatchContainer()
 
-        with open("config_types.json") as f:
-            config = json.load(f)
+        config = load_config_types()
 
         signal_config = next(
             (c for c in config["regex"] if c["label"] == "REGEX_SIGNAL_WORDS_EXTENDED"),
@@ -259,8 +253,7 @@ class TestExtendedSignalWords:
         """Test detection of financial signal words."""
         container = PiiMatchContainer()
 
-        with open("config_types.json") as f:
-            config = json.load(f)
+        config = load_config_types()
 
         signal_config = next(
             (c for c in config["regex"] if c["label"] == "REGEX_SIGNAL_WORDS_EXTENDED"),
@@ -294,8 +287,7 @@ class TestExtendedSignalWords:
         """Test detection of legal signal words."""
         container = PiiMatchContainer()
 
-        with open("config_types.json") as f:
-            config = json.load(f)
+        config = load_config_types()
 
         signal_config = next(
             (c for c in config["regex"] if c["label"] == "REGEX_SIGNAL_WORDS_EXTENDED"),
@@ -333,8 +325,7 @@ class TestCreditCardDetection:
         """Test detection of valid Visa card numbers."""
         container = PiiMatchContainer()
 
-        with open("config_types.json") as f:
-            config = json.load(f)
+        config = load_config_types()
 
         cc_config = next(
             (c for c in config["regex"] if c["label"] == "REGEX_CREDIT_CARD"), None
@@ -366,8 +357,7 @@ class TestCreditCardDetection:
         """Test detection of Mastercard numbers."""
         container = PiiMatchContainer()
 
-        with open("config_types.json") as f:
-            config = json.load(f)
+        config = load_config_types()
 
         cc_config = next(
             (c for c in config["regex"] if c["label"] == "REGEX_CREDIT_CARD"), None
