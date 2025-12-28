@@ -9,6 +9,7 @@ Instead of using commercial APIs like OpenAI, you can run multimodal models loca
 - **LocalAI**: OpenAI-compatible API server for local models
 
 Both solutions provide OpenAI-compatible APIs, so they work seamlessly with the PII Toolkit's multimodal detection engine.
+The toolkit sends images using the OpenAI-compatible `POST /chat/completions` schema with an `image_url` data URL payload, so your endpoint must support vision-capable chat completions.
 
 ## Why Use Open-Source Models?
 

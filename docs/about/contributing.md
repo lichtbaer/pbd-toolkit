@@ -24,7 +24,7 @@ Thank you for your interest in contributing to this fork of the PII Toolkit!
 ```bash
 # Clone repository
 git clone <your-fork-url>
-cd pii-toolkit-fork
+cd pbd-toolkit
 
 # Create virtual environment
 python3 -m venv .venv

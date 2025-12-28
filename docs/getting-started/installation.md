@@ -12,7 +12,7 @@
 
 ```bash
 git clone <repository-url>
-cd pii-toolkit-fork
+cd pbd-toolkit
 ```
 
 ### 2. Create Virtual Environment (Recommended)

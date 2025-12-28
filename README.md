@@ -92,7 +92,7 @@ This project is designed with privacy in mind:
 - **User-initiated network calls**: Network connections are only made when explicitly using external APIs (OpenAI, Ollama) with user-provided credentials
 - **Privacy-first**: Use local models for sensitive data - see [Open-Source Models Guide](docs/user-guide/open-source-models.md)
 
-For detailed security and privacy analysis, see [Security and Privacy Analysis](docs/SECURITY_AND_PRIVACY_ANALYSIS.md).
+For detailed security and privacy analysis, see [Security and Privacy Analysis](SECURITY_AND_PRIVACY_ANALYSIS.md).
 
 ## Disclaimer
 

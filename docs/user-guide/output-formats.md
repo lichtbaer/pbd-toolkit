@@ -138,8 +138,8 @@ python main.py --path /data --regex --format xlsx
 - Compatible with Microsoft Excel, LibreOffice Calc, and Google Sheets
 - UTF-8 encoding support
 
-**Requirements**: 
-- `openpyxl` library (automatically installed with `pip install -r requirements.txt`)
+**Requirements**:
+- `openpyxl` library (install via `pip install -r requirements-dev.txt` or `pip install -e ".[office]"`)
 
 ## Format Comparison
 
