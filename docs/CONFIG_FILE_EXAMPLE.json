@@ -1,4 +1,5 @@
 {
+  "_comment": "The scan path can be provided as positional PATH, via --path, or here as `path`.",
   "path": "/path/to/scan",
   "regex": true,
   "ner": true,

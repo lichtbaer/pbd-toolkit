@@ -96,14 +96,6 @@ Microsoft PowerPoint presentations (PowerPoint 2007+ format).
 - Extracts text from text boxes and shapes
 - Extracts text from notes pages
 
-### PPT (`.ppt`)
-
-Microsoft PowerPoint presentations (PowerPoint 97-2003 format).
-
-**Processor**: `PptProcessor`
-- Extracts text from older PowerPoint files
-- Note: Support for older PPT format is limited
-
 ## Web Formats
 
 ### HTML (`.html`, `.htm`)
@@ -313,7 +305,7 @@ When enabled with `--use-magic-detection`, the toolkit can identify file types u
 **Usage**:
 
 ```bash
-python main.py --path /data --regex --use-magic-detection
+python main.py scan /data --regex --use-magic-detection
 ```
 
 **When It's Useful**:
@@ -368,7 +360,6 @@ Files that cannot be processed are logged with error information:
 - Large files are processed in chunks (PDFs)
 - Text extraction is optimized for each format
 - Unsupported files are skipped quickly
-- Processing is multi-threaded for better performance
 
 ## Adding Support for New Formats
 

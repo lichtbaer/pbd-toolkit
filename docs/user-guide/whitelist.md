@@ -25,7 +25,7 @@ do-not-reply
 Specify the whitelist file with the `--whitelist` option:
 
 ```bash
-python main.py --path /data --regex --whitelist stopwords.txt
+python main.py scan /data --regex --whitelist stopwords.txt
 ```
 
 ## Common Use Cases
@@ -74,14 +74,14 @@ The whitelist uses substring matching:
 - `example.com` matches: `user@example.com`, `admin@sub.example.com`
 - `test` matches: `test@example.com`, `testuser@domain.com`
 
-**Case sensitivity**: Matching is case-sensitive by default.
+**Case sensitivity**: Matching is case-sensitive.
 
 ## Best Practices
 
 1. **Start small**: Begin with a few common patterns and expand as needed
 2. **Be specific**: Use specific patterns to avoid excluding legitimate findings
 3. **Test patterns**: Verify that patterns work as expected
-4. **Document patterns**: Add comments (if supported) or maintain a separate documentation file
+4. **Document patterns**: Maintain a separate documentation file (comments inside the whitelist file are not supported)
 5. **Regular updates**: Review and update whitelist based on false positive analysis
 
 ## Examples
@@ -97,14 +97,13 @@ example.com
 
 Usage:
 ```bash
-python main.py --path /data --regex --whitelist whitelist.txt
+python main.py scan /data --regex --whitelist whitelist.txt
 ```
 
 ### Comprehensive Whitelist
 
 `comprehensive_whitelist.txt`:
 ```
-# System emails
 info@
 noreply@
 no-reply@
@@ -112,19 +111,17 @@ donotreply@
 system@
 automated@
 
-# Test domains
 example.com
 test.com
 localhost
 
-# Company-specific
 info@company.com
 support@company.com
 ```
 
 Usage:
 ```bash
-python main.py --path /data --regex --ner --whitelist comprehensive_whitelist.txt
+python main.py scan /data --regex --ner --whitelist comprehensive_whitelist.txt
 ```
 
 ## Performance Impact

@@ -14,6 +14,47 @@ except ImportError:
 class ConfigLoader:
     """Loads configuration from YAML or JSON files."""
 
+    # Typer defaults (used to decide whether a CLI value was explicitly provided).
+    # If the CLI value equals the default, we allow the config file to override it.
+    _TYPER_DEFAULTS: dict[str, Any] = {
+        # Methods / engines
+        "regex": False,
+        "ner": False,
+        "spacy_ner": False,
+        "spacy_model": "de_core_news_lg",
+        "ollama": False,
+        "ollama_url": "http://localhost:11434",
+        "ollama_model": "llama3.2",
+        "openai_compatible": False,
+        "openai_api_base": "https://api.openai.com/v1",
+        "openai_model": "gpt-3.5-turbo",
+        "multimodal": False,
+        "multimodal_api_base": None,
+        "multimodal_api_key": None,
+        "multimodal_model": "gpt-4-vision-preview",
+        "multimodal_timeout": 60,
+        "pydantic_ai": False,
+        "pydantic_ai_provider": "openai",
+        "pydantic_ai_model": None,
+        "pydantic_ai_api_key": None,
+        "pydantic_ai_base_url": None,
+        # File type detection
+        "use_magic_detection": False,
+        "magic_fallback": True,
+        # Output / misc
+        "outname": None,
+        "whitelist": None,
+        "stop_count": None,
+        "output_dir": "./output/",
+        "format": "csv",
+        "summary_format": "human",
+        "no_header": False,
+        "statistics_mode": False,
+        "statistics_output": None,
+        "verbose": False,
+        "quiet": False,
+    }
+
     @staticmethod
     def load_config(config_path: Path) -> dict[str, Any]:
         """Load configuration from file.
@@ -69,9 +110,36 @@ class ConfigLoader:
         """
         # Map config keys to argument names
         config_mapping = {
+            # NOTE: `path` is currently a required positional CLI argument in Typer.
+            # We still accept it in the mapping for completeness, but it will not
+            # override an explicitly provided CLI path.
             "path": "path",
+            # Methods / engines
             "regex": "regex",
             "ner": "ner",
+            "spacy_ner": "spacy_ner",
+            "spacy_model": "spacy_model",
+            "ollama": "ollama",
+            "ollama_url": "ollama_url",
+            "ollama_model": "ollama_model",
+            "openai_compatible": "openai_compatible",
+            "openai_api_base": "openai_api_base",
+            "openai_api_key": "openai_api_key",
+            "openai_model": "openai_model",
+            "multimodal": "multimodal",
+            "multimodal_api_base": "multimodal_api_base",
+            "multimodal_api_key": "multimodal_api_key",
+            "multimodal_model": "multimodal_model",
+            "multimodal_timeout": "multimodal_timeout",
+            "pydantic_ai": "pydantic_ai",
+            "pydantic_ai_provider": "pydantic_ai_provider",
+            "pydantic_ai_model": "pydantic_ai_model",
+            "pydantic_ai_api_key": "pydantic_ai_api_key",
+            "pydantic_ai_base_url": "pydantic_ai_base_url",
+            # File type detection
+            "use_magic_detection": "use_magic_detection",
+            "magic_fallback": "magic_fallback",
+            # Output / misc
             "outname": "outname",
             "whitelist": "whitelist",
             "stop_count": "stop_count",
@@ -81,33 +149,34 @@ class ConfigLoader:
             "verbose": "verbose",
             "quiet": "quiet",
             "summary_format": "summary_format",
+            "statistics_mode": "statistics_mode",
+            "statistics_output": "statistics_output",
         }
 
-        # Only set values that are not already set via CLI
+        def _cli_value_is_default(arg_name: str, cli_value: Any) -> bool:
+            """Return True if cli_value equals the Typer default for arg_name."""
+            if arg_name not in ConfigLoader._TYPER_DEFAULTS:
+                return False
+            return cli_value == ConfigLoader._TYPER_DEFAULTS[arg_name]
+
+        # Only set values that are not already set via CLI (or still at default).
         for config_key, arg_name in config_mapping.items():
             if config_key in config:
-                # Check if CLI argument was provided (for flags, check if True)
                 cli_value = getattr(args, arg_name, None)
-                if arg_name in ["regex", "ner", "verbose", "quiet", "no_header"]:
-                    # For boolean flags, only set from config if not explicitly set via CLI
-                    if not cli_value:
-                        value = config[config_key]
-                        if isinstance(value, str) and value.lower() in [
-                            "true",
-                            "false",
-                        ]:
-                            value = value.lower() == "true"
-                        setattr(args, arg_name, value)
-                else:
-                    # For other arguments, only set if not provided via CLI
-                    if cli_value is None:
-                        value = config[config_key]
-                        # Convert boolean strings if needed
-                        if isinstance(value, str) and value.lower() in [
-                            "true",
-                            "false",
-                        ]:
-                            value = value.lower() == "true"
-                        setattr(args, arg_name, value)
+
+                # Decide if the config should override:
+                # - If the CLI value is None, config can set it.
+                # - If the CLI value equals the Typer default, config can override it.
+                can_override = cli_value is None or _cli_value_is_default(arg_name, cli_value)
+                if not can_override:
+                    continue
+
+                value = config[config_key]
+
+                # Convert boolean strings if needed
+                if isinstance(value, str) and value.lower() in ["true", "false"]:
+                    value = value.lower() == "true"
+
+                setattr(args, arg_name, value)
 
         return args

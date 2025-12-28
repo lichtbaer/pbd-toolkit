@@ -58,9 +58,14 @@ def _create_argparse_namespace_from_typer_args(**kwargs) -> object:
 
 @app.command()
 def scan(
-    # Required arguments
-    path: str = typer.Argument(
-        ..., help="Root directory under which to recursively search for PII"
+    # Optional path (positional or flag). If neither is provided, it can come from --config.
+    path: Optional[str] = typer.Argument(
+        None, help="Root directory under which to recursively search for PII"
+    ),
+    path_opt: Optional[str] = typer.Option(
+        None,
+        "--path",
+        help="Root directory under which to recursively search for PII (alternative to positional PATH)",
     ),
     # Analysis methods (at least one required, validated later)
     regex: bool = typer.Option(
@@ -241,8 +246,11 @@ def scan(
     translate_func = setup.__setup_lang()
 
     # Create argparse-like namespace for compatibility with existing code
+    # Prefer --path over positional PATH (if both are provided).
+    resolved_path = path_opt or path
+
     typer_args = {
-        "path": path,
+        "path": resolved_path,
         "regex": regex,
         "ner": ner,
         "spacy_ner": spacy_ner,
@@ -290,6 +298,16 @@ def scan(
         except ValueError as e:
             typer.echo(f"Configuration file error: {e}", err=True)
             raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
+
+    # Ensure a scan path exists (positional PATH, --path, or config file).
+    if not getattr(args, "path", None):
+        typer.echo(
+            translate_func(
+                "Missing scan path. Provide PATH as positional argument, via --path, or in the config file as 'path'."
+            ),
+            err=True,
+        )
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
 
     # Construct name for output files
     import datetime

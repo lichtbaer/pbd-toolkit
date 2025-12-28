@@ -21,11 +21,11 @@ The `Config` class is the central configuration object:
 from config import Config
 
 config = Config.from_args(
-    args=globals.args,
-    logger=globals.logger,
-    csv_writer=globals.csvwriter,
-    csv_file_handle=globals.csv_file_handle,
-    translate_func=globals._
+    args=args,  # argparse-like namespace (created by Typer adapter)
+    logger=logger,
+    csv_writer=csv_writer,
+    csv_file_handle=csv_file_handle,
+    translate_func=translate_func,
 )
 ```
 
@@ -33,9 +33,9 @@ config = Config.from_args(
 
 ### 1. Command-Line Arguments
 
-Parsed by `setup.py` using `argparse`:
+Parsed by `core/cli.py` using Typer (and adapted into an argparse-like namespace):
 
-- `--path`: Root directory to scan
+- `scan <path>`: Root directory to scan
 - `--regex`: Enable regex detection
 - `--ner`: Enable NER detection
 - `--outname`: Custom output name
@@ -139,12 +139,9 @@ Ollama uses a dedicated configuration with descriptions to guide the LLM:
 ### Initialization Flow
 
 1. **Setup Phase** (`setup.py`):
-   - Parse command-line arguments
-   - Setup internationalization
-   - Setup logging
-   - Create output files
+   - (Legacy) This fork now uses `core/cli.py` (Typer) + `cli_setup.py` helpers instead of `setup.py`
 
-2. **Config Creation** (`config.py`):
+2. **Config Creation** (`config.py`, invoked via `cli_setup.py`):
    - Load `config_types.json`
    - Compile regex patterns
    - Load NER model (if enabled)
@@ -208,7 +205,7 @@ def validate_file_path(self, file_path: str) -> tuple[bool, Optional[str]]:
 ```python
 from config import Config
 
-config = create_config()  # From setup.py
+config = create_config(...)  # From cli_setup.py
 
 # Access configuration
 if config.use_regex:
@@ -243,12 +240,10 @@ Translation files are in `locales/` directory.
 
 ## Logging Configuration
 
-Logging is configured in `setup.py`:
+Logging is configured via helpers in `cli_setup.py`:
 
 ```python
-def __setup_logger(outslug: str = "") -> None:
-    log_level = logging.DEBUG if verbose else logging.INFO
-    # Setup file and console handlers
+logger = __setup_logger(args, outslug=outslug)
 ```
 
 ## Extending Configuration
@@ -271,9 +266,9 @@ self.new_setting = settings.get("new_setting", default_value)
 
 ### Adding CLI Options
 
-1. Add to `setup.py`:
+1. Add to `core/cli.py` (Typer):
 ```python
-parser.add_argument("--new-option", action="store", help="...")
+new_option: str = typer.Option("default", "--new-option", help="...")
 ```
 
 2. Access via `args`:

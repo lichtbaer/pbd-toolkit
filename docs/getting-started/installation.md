@@ -32,7 +32,7 @@ pip install -r requirements.txt
 - `python-magic` / `filetype`: For magic number file type detection (see [File Formats](../user-guide/file-formats.md#magic-number-detection-optional))
 - `Pillow`: For image processing validation (optional)
 - `spacy`: For spaCy NER engine (optional)
-- `requests`: For Ollama and OpenAI-compatible engines (optional)
+- `requests`: For OpenAI-compatible multimodal image detection (included in `requirements.txt`)
 
 ## Optional Features Setup
 
@@ -132,9 +132,10 @@ Test the installation:
 
 ```bash
 python main.py --help
+python main.py scan --help
 ```
 
-You should see the help message with available command-line options.
+You should see the help message with the `scan` command and its options.
 
 ## Optional: Install MkDocs for Documentation
 

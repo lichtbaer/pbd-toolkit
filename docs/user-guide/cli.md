@@ -2,14 +2,19 @@
 
 Complete reference for all command-line options.
 
-## Required Arguments
+## Command
 
-### `--path` (Required)
+### `scan [path]` / `scan --path <path>`
 
-Path to the root directory to scan recursively.
+Path to the root directory to scan recursively. You can provide it:
+- as a positional argument (`scan /data`)
+- via `--path /data`
+- or via a config file (`path: /data`) if neither positional nor `--path` is provided
 
 ```bash
-python main.py --path /var/data
+python main.py scan /var/data
+# or, after installation:
+pii-toolkit scan /var/data
 ```
 
 **Note**: The tool will scan all subdirectories recursively.
@@ -23,7 +28,7 @@ At least one of these must be specified:
 Enable regular expression-based pattern matching.
 
 ```bash
-python main.py --path /data --regex
+python main.py scan /data --regex
 ```
 
 Detects:
@@ -39,7 +44,7 @@ Detects:
 Enable AI-based Named Entity Recognition.
 
 ```bash
-python main.py --path /data --ner
+python main.py scan /data --ner
 ```
 
 Detects:
@@ -55,7 +60,7 @@ Detects:
 Enable spaCy NER detection (optimized for German text).
 
 ```bash
-python main.py --path /data --spacy-ner --spacy-model de_core_news_lg
+python main.py scan /data --spacy-ner --spacy-model de_core_news_lg
 ```
 
 **Options**:
@@ -68,7 +73,7 @@ python main.py --path /data --spacy-ner --spacy-model de_core_news_lg
 Enable Ollama LLM-based detection (local, offline).
 
 ```bash
-python main.py --path /data --ollama --ollama-model llama3.2
+python main.py scan /data --ollama --ollama-model llama3.2
 ```
 
 **Options**:
@@ -82,7 +87,7 @@ python main.py --path /data --ollama --ollama-model llama3.2
 Enable OpenAI-compatible API detection.
 
 ```bash
-python main.py --path /data --openai-compatible \
+python main.py scan /data --openai-compatible \
     --openai-api-key YOUR_KEY \
     --openai-model gpt-3.5-turbo
 ```
@@ -99,7 +104,7 @@ python main.py --path /data --openai-compatible \
 Custom string to include in output file names.
 
 ```bash
-python main.py --path /data --regex --outname "scan-2024"
+python main.py scan /data --regex --outname "scan-2024"
 ```
 
 Output: `2024-01-15 10-30-00 scan-2024_findings.csv`
@@ -109,7 +114,7 @@ Output: `2024-01-15 10-30-00 scan-2024_findings.csv`
 Path to a text file containing exclusion patterns (one per line).
 
 ```bash
-python main.py --path /data --regex --whitelist stopwords.txt
+python main.py scan /data --regex --whitelist stopwords.txt
 ```
 
 Example `stopwords.txt`:
@@ -126,7 +131,7 @@ Any finding containing these strings will be excluded from output.
 Stop analysis after processing N files (useful for testing).
 
 ```bash
-python main.py --path /data --regex --stop-count 100
+python main.py scan /data --regex --stop-count 100
 ```
 
 ### `--output-dir`
@@ -134,7 +139,7 @@ python main.py --path /data --regex --stop-count 100
 Directory for output files (default: `./output/`).
 
 ```bash
-python main.py --path /data --regex --output-dir ./results/
+python main.py scan /data --regex --output-dir ./results/
 ```
 
 ### `--format`
@@ -147,7 +152,7 @@ Options:
 - `xlsx`: Excel spreadsheet
 
 ```bash
-python main.py --path /data --regex --format json
+python main.py scan /data --regex --format json
 ```
 
 ### `--no-header`
@@ -155,7 +160,7 @@ python main.py --path /data --regex --format json
 Don't include header row in CSV output (for backward compatibility).
 
 ```bash
-python main.py --path /data --regex --no-header
+python main.py scan /data --regex --no-header
 ```
 
 ### `--verbose`, `-v`
@@ -163,7 +168,7 @@ python main.py --path /data --regex --no-header
 Enable verbose output with detailed logging and progress bar.
 
 ```bash
-python main.py --path /data --regex --verbose
+python main.py scan /data --regex --verbose
 ```
 
 Includes:
@@ -177,7 +182,7 @@ Includes:
 Suppress all output except errors. Useful for automation and scripts where only errors are relevant.
 
 ```bash
-python main.py --path /data --regex --quiet
+python main.py scan /data --regex --quiet
 ```
 
 **Note**: When `--quiet` is specified:
@@ -186,25 +191,20 @@ python main.py --path /data --regex --quiet
 - Log file still contains all information
 - Exit codes are still returned for automation
 
-### `--version`, `-V`
+### Version
 
-Display version information and exit.
-
-```bash
-python main.py --version
-```
+Version output is not currently exposed as a dedicated CLI flag. Use `python -m pip show pii-toolkit` (installed package) or `git describe --tags` (git checkout) if you need a version string.
 
 ### `--config`
 
 Path to configuration file (YAML or JSON). CLI arguments override config file values.
 
 ```bash
-python main.py --config config.yaml --path /data
+python main.py scan /data --config config.yaml
 ```
 
 **Example config.yaml:**
 ```yaml
-path: "/path/to/scan"
 regex: true
 ner: true
 format: "json"
@@ -214,21 +214,20 @@ verbose: false
 **Example config.json:**
 ```json
 {
-  "path": "/path/to/scan",
   "regex": true,
   "ner": true,
   "format": "json"
 }
 ```
 
-**Note**: CLI arguments take precedence over config file values. This allows you to use a config file as a base and override specific values via CLI.
+**Note**: CLI arguments take precedence over config file values. The scan path can be provided as positional `<path>`, via `--path`, or inside the config file as `path: ...`.
 
 ### `--summary-format`
 
 Format for summary output. Use `json` for machine-readable output.
 
 ```bash
-python main.py --path /data --regex --summary-format json
+python main.py scan /data --regex --summary-format json
 ```
 
 **Options:**
@@ -263,7 +262,7 @@ python main.py --path /data --regex --summary-format json
 Set interface language: `de` (German, default) or `en` (English).
 
 ```bash
-LANGUAGE=en python main.py --path /data --regex
+LANGUAGE=en python main.py scan /data --regex
 ```
 
 ## Examples
@@ -271,14 +270,14 @@ LANGUAGE=en python main.py --path /data --regex
 ### Basic Scan
 
 ```bash
-python main.py --path /var/data-leak --regex
+python main.py scan /var/data-leak --regex
 ```
 
 ### Full Featured Scan
 
 ```bash
 python main.py \
-  --path /var/data-leak/ \
+  scan /var/data-leak/ \
   --regex \
   --ner \
   --format json \
@@ -291,13 +290,13 @@ python main.py \
 ### Quick Test
 
 ```bash
-python main.py --path /data --regex --stop-count 50 --verbose
+python main.py scan /data --regex --stop-count 50 --verbose
 ```
 
 ### English Interface
 
 ```bash
-LANGUAGE=en python main.py --path /data --regex --ner
+LANGUAGE=en python main.py scan /data --regex --ner
 ```
 
 ## Output

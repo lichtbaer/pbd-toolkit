@@ -13,10 +13,10 @@ You can use a configuration file (YAML or JSON) to set default values, which can
 ### Usage
 
 ```bash
-python main.py --config config.yaml --path /data
+python main.py scan /data --config config.yaml
 ```
 
-**Note**: CLI arguments take precedence over config file values. This allows you to use a config file as a base and override specific values via CLI.
+**Note**: CLI arguments take precedence over config file values. The scan path can be provided as positional `<path>`, via `--path`, or inside the config file as `path: ...`.
 
 ### YAML Configuration File
 
@@ -149,7 +149,7 @@ export LANGUAGE=de  # German (default)
 Usage:
 
 ```bash
-LANGUAGE=en python main.py --path /data --regex
+LANGUAGE=en python main.py scan /data --regex
 ```
 
 ## Default Values
