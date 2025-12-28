@@ -362,11 +362,24 @@ class PydanticAIEngine:
 
         start_time = time.time()
         try:
-            response_data = self._openai_chat_completions_with_image(
-                system_prompt=system_prompt,
-                user_prompt=prompt,
-                image_data_url=image_data_url,
-            )
+            # Hardened path: first try strict structured outputs (where supported),
+            # then fall back to best-effort parsing without response_format.
+            try:
+                response_data = self._openai_chat_completions_with_image(
+                    system_prompt=system_prompt,
+                    user_prompt=prompt,
+                    image_data_url=image_data_url,
+                    use_response_format=True,
+                )
+            except Exception:
+                # Endpoint rejected strict response_format or failed in a way where a
+                # retry without response_format might still work (OpenAI-compatible variance).
+                response_data = self._openai_chat_completions_with_image(
+                    system_prompt=system_prompt,
+                    user_prompt=prompt,
+                    image_data_url=image_data_url,
+                    use_response_format=False,
+                )
 
             duration = time.time() - start_time
             self._last_request_time = time.time()
@@ -374,7 +387,16 @@ class PydanticAIEngine:
 
             parsed = self._parse_openai_response_as_pii_detection(response_data)
             if not parsed:
-                return []
+                # Fallback: retry without strict response_format (some providers ignore/alter)
+                response_data = self._openai_chat_completions_with_image(
+                    system_prompt=system_prompt,
+                    user_prompt=prompt,
+                    image_data_url=image_data_url,
+                    use_response_format=False,
+                )
+                parsed = self._parse_openai_response_as_pii_detection(response_data)
+                if not parsed:
+                    return []
             return self._convert_results(parsed, image_path=image_path)
         except Exception as e:
             duration = time.time() - start_time
@@ -390,6 +412,7 @@ class PydanticAIEngine:
         system_prompt: str,
         user_prompt: str,
         image_data_url: str,
+        use_response_format: bool,
     ) -> dict[str, Any]:
         """Call an OpenAI-compatible /chat/completions endpoint with an image."""
         try:
@@ -419,9 +442,56 @@ class PydanticAIEngine:
             "temperature": 0,
         }
 
-        resp = requests.post(url, headers=headers, json=payload, timeout=self.timeout)
-        resp.raise_for_status()
-        return resp.json()
+        if use_response_format:
+            # OpenAI-compatible structured output (not supported everywhere).
+            # We prefer json_schema when accepted, otherwise the request may fail and we fall back.
+            payload["response_format"] = self._build_response_format()
+
+        try:
+            resp = requests.post(url, headers=headers, json=payload, timeout=self.timeout)
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as e:
+            # If strict mode is not supported by the endpoint, callers will retry without it.
+            if use_response_format and getattr(self.config, "verbose", False):
+                self.config.logger.debug(
+                    f"Multimodal strict response_format request failed, will fall back: {e}"
+                )
+            raise
+
+    @staticmethod
+    def _build_response_format() -> dict[str, Any]:
+        """Build a minimal JSON schema response_format payload for OpenAI-compatible APIs."""
+        # Keep the schema small and broadly compatible with OpenAI-compatible servers.
+        return {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "pii_detection",
+                "schema": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "entities": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {
+                                    "text": {"type": "string"},
+                                    "type": {"type": "string"},
+                                    "confidence": {"type": ["number", "null"]},
+                                    "location": {"type": ["string", "null"]},
+                                },
+                                "required": ["text", "type"],
+                            },
+                        }
+                    },
+                    "required": ["entities"],
+                },
+                # Some providers want strict=true for schema adherence.
+                "strict": True,
+            },
+        }
 
     def _parse_openai_response_as_pii_detection(
         self, response_data: dict[str, Any]
@@ -467,12 +537,43 @@ class PydanticAIEngine:
 
     @staticmethod
     def _extract_first_json_object(text: str) -> Optional[str]:
-        """Best-effort extraction of the first JSON object from a string."""
+        """Best-effort extraction of the first complete JSON object from a string.
+
+        This is a fallback for providers/models that prepend/append natural language.
+        """
         start = text.find("{")
-        end = text.rfind("}")
-        if start == -1 or end == -1 or end <= start:
+        if start == -1:
             return None
-        return text[start : end + 1]
+
+        depth = 0
+        in_string = False
+        escape = False
+        for i in range(start, len(text)):
+            ch = text[i]
+
+            if in_string:
+                if escape:
+                    escape = False
+                    continue
+                if ch == "\\":
+                    escape = True
+                    continue
+                if ch == '"':
+                    in_string = False
+                continue
+
+            if ch == '"':
+                in_string = True
+                continue
+
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[start : i + 1]
+
+        return None
 
     def _create_prompt(self, text: str, labels: Optional[List[str]]) -> str:
         """Create prompt for text analysis.
