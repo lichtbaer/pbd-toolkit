@@ -1,12 +1,26 @@
-"""Unified LLM detection engine using PydanticAI."""
+"""Unified LLM detection engine.
+
+Text detection uses PydanticAI (optional dependency).
+Multimodal image detection uses an OpenAI-compatible HTTP API (works with OpenAI,
+vLLM, LocalAI) and does NOT require PydanticAI.
+"""
 
 import os
 import time
-from typing import Optional, List
+import json
+from typing import Optional, List, Any
 from pydantic import BaseModel, Field
-from pydantic_ai import Agent
 from core.engines.base import DetectionResult
 from config import Config
+
+try:
+    # Optional dependency: used for text-only LLM detection.
+    from pydantic_ai import Agent  # type: ignore
+
+    _PYDANTIC_AI_AVAILABLE = True
+except Exception:  # pragma: no cover
+    Agent = None  # type: ignore
+    _PYDANTIC_AI_AVAILABLE = False
 
 
 class PIIDetectionEntity(BaseModel):
@@ -165,6 +179,11 @@ class PydanticAIEngine:
         Returns:
             Initialized Agent instance
         """
+        if not _PYDANTIC_AI_AVAILABLE:
+            raise RuntimeError(
+                "PydanticAI is not installed. Install with: pip install pydantic-ai"
+            )
+
         if self._agent is None:
             # Build model string for PydanticAI
             # PydanticAI uses LiteLLM format: provider/model
@@ -225,9 +244,7 @@ class PydanticAIEngine:
 
         # Handle multimodal image detection
         if image_path or (
-            getattr(self.config, "use_multimodal", False)
-            and text
-            and os.path.exists(text)
+            getattr(self.config, "use_multimodal", False) and text and os.path.exists(text)
         ):
             return self._detect_image(image_path or text, labels)
 
@@ -250,7 +267,7 @@ class PydanticAIEngine:
         # Create prompt
         prompt = self._create_prompt(text, labels)
 
-        # Run detection
+        # Run detection (text)
         start_time = time.time()
         try:
             agent = self._get_agent()
@@ -293,7 +310,11 @@ class PydanticAIEngine:
     def _detect_image(
         self, image_path: str, labels: Optional[List[str]]
     ) -> List[DetectionResult]:
-        """Detect PII in image using multimodal model.
+        """Detect PII in image using an OpenAI-compatible multimodal endpoint.
+
+        This path is "real" multimodal: it sends the image to the configured
+        OpenAI-compatible endpoint (OpenAI, vLLM, LocalAI) using the standard
+        `chat/completions` schema with `image_url`.
 
         Args:
             image_path: Path to image file
@@ -306,6 +327,14 @@ class PydanticAIEngine:
             self.config.logger.warning(f"Image file not found: {image_path}")
             return []
 
+        # Ollama doesn't (currently) support vision via this toolkit.
+        if self.provider == "ollama":
+            self.config.logger.warning(
+                "Multimodal image detection is not supported with provider 'ollama'. "
+                "Use an OpenAI-compatible provider (OpenAI, vLLM, LocalAI) with a vision-capable model."
+            )
+            return []
+
         # Read and encode image
         try:
             from file_processors.image_processor import ImageProcessor
@@ -313,47 +342,137 @@ class PydanticAIEngine:
             img_processor = ImageProcessor()
             image_base64 = img_processor.get_image_base64(image_path)
             image_mime = img_processor.get_image_mime_type(image_path)
-
-            if not image_base64 or not image_mime:
-                self.config.logger.warning(
-                    f"Failed to read or identify image: {image_path}"
-                )
-                return []
         except Exception as e:
             self.config.logger.error(f"Failed to read image {image_path}: {e}")
             return []
 
-        # Create prompt
-        prompt = self._create_image_prompt(labels)
+        if not image_base64 or not image_mime:
+            self.config.logger.warning(f"Failed to read or identify image: {image_path}")
+            return []
 
-        # Run detection with image
+        image_data_url = f"data:{image_mime};base64,{image_base64}"
+
+        prompt = self._create_image_prompt(labels)
+        system_prompt = (
+            "You are a PII detection expert. You MUST respond with ONLY valid JSON "
+            "matching this schema: {\"entities\": [{\"text\": str, \"type\": str, "
+            "\"confidence\": number|null, \"location\": str|null}]} . "
+            "No markdown, no extra text."
+        )
+
         start_time = time.time()
         try:
-            agent = self._get_agent()
-            # PydanticAI supports multimodal via message content
-            # Note: This requires PydanticAI version that supports images
-            # For now, we'll use a workaround with base64 data URL
-            image_data_url = f"data:{image_mime};base64,{image_base64}"
-
-            # Use agent with image content
-            # PydanticAI supports multimodal via message content
-            # For now, we'll include image reference in prompt
-            # Note: Full multimodal support may require PydanticAI version with image support
-            result = agent.run_sync(
-                f"{prompt}\n\nImage data: {image_data_url[:100]}..."
+            response_data = self._openai_chat_completions_with_image(
+                system_prompt=system_prompt,
+                user_prompt=prompt,
+                image_data_url=image_data_url,
             )
 
             duration = time.time() - start_time
             self._last_request_time = time.time()
             self._last_request_duration = duration
 
-            return self._convert_results(result.data, image_path=image_path)
-
+            parsed = self._parse_openai_response_as_pii_detection(response_data)
+            if not parsed:
+                return []
+            return self._convert_results(parsed, image_path=image_path)
         except Exception as e:
-            self.config.logger.warning(f"PydanticAI multimodal detection failed: {e}")
+            duration = time.time() - start_time
+            self._last_request_time = time.time()
+            self._last_request_duration = duration
+            self.config.logger.warning(f"Multimodal detection failed: {e}")
             if self.config.verbose:
-                self.config.logger.debug(f"Error details: {e}", exc_info=True)
+                self.config.logger.debug("Error details", exc_info=True)
             return []
+
+    def _openai_chat_completions_with_image(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        image_data_url: str,
+    ) -> dict[str, Any]:
+        """Call an OpenAI-compatible /chat/completions endpoint with an image."""
+        try:
+            import requests  # type: ignore
+        except ImportError as e:  # pragma: no cover
+            raise RuntimeError("requests is required for multimodal detection") from e
+
+        base_url = (self.base_url or "https://api.openai.com/v1").rstrip("/")
+        url = f"{base_url}/chat/completions"
+
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": user_prompt},
+                        {"type": "image_url", "image_url": {"url": image_data_url}},
+                    ],
+                },
+            ],
+            "temperature": 0,
+        }
+
+        resp = requests.post(url, headers=headers, json=payload, timeout=self.timeout)
+        resp.raise_for_status()
+        return resp.json()
+
+    def _parse_openai_response_as_pii_detection(
+        self, response_data: dict[str, Any]
+    ) -> Optional[PIIDetectionResponse]:
+        """Extract and validate PIIDetectionResponse from OpenAI-compatible response."""
+        try:
+            content = (
+                response_data.get("choices", [{}])[0]
+                .get("message", {})
+                .get("content", "")
+            )
+        except Exception:
+            content = ""
+
+        if not isinstance(content, str) or not content.strip():
+            if self.config.verbose:
+                self.config.logger.warning(
+                    "Multimodal response did not contain message.content"
+                )
+            return None
+
+        json_text = self._extract_first_json_object(content)
+        if not json_text:
+            if self.config.verbose:
+                self.config.logger.warning(
+                    f"Failed to extract JSON from multimodal response: {content[:200]!r}"
+                )
+            return None
+
+        try:
+            payload = json.loads(json_text)
+        except Exception as e:
+            if self.config.verbose:
+                self.config.logger.warning(f"Failed to parse JSON: {e}")
+            return None
+
+        try:
+            return PIIDetectionResponse.model_validate(payload)
+        except Exception as e:
+            if self.config.verbose:
+                self.config.logger.warning(f"Response validation failed: {e}")
+            return None
+
+    @staticmethod
+    def _extract_first_json_object(text: str) -> Optional[str]:
+        """Best-effort extraction of the first JSON object from a string."""
+        start = text.find("{")
+        end = text.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            return None
+        return text[start : end + 1]
 
     def _create_prompt(self, text: str, labels: Optional[List[str]]) -> str:
         """Create prompt for text analysis.
@@ -464,16 +583,30 @@ Extract all PII entities and return them in the structured format."""
         if self._available is not None:
             return self._available
 
-        try:
-            # Check if PydanticAI is importable
-            import pydantic_ai  # noqa: F401
+        # Availability rules:
+        # - Text LLM detection requires pydantic-ai.
+        # - Multimodal image detection requires requests + OpenAI-compatible provider.
+        if getattr(self.config, "use_multimodal", False):
+            try:
+                import requests  # noqa: F401
 
+                self._available = True
+                return True
+            except ImportError:
+                self._available = False
+                if self.config.verbose:
+                    self.config.logger.warning(
+                        "requests is required for multimodal detection. Install with: pip install requests"
+                    )
+                return False
+
+        if _PYDANTIC_AI_AVAILABLE:
             self._available = True
             return True
-        except ImportError:
-            self._available = False
-            if self.config.verbose:
-                self.config.logger.warning(
-                    "PydanticAI not installed. Install with: pip install pydantic-ai"
-                )
-            return False
+
+        self._available = False
+        if self.config.verbose:
+            self.config.logger.warning(
+                "PydanticAI not installed. Install with: pip install pydantic-ai"
+            )
+        return False

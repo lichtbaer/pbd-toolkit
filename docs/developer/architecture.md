@@ -65,7 +65,7 @@ The detection system consists of:
 - **Detection Engines**: RegexEngine, GLiNEREngine, SpacyNEREngine, PydanticAIEngine
 - **PiiMatchContainer** (`matches.py`): Stores detected PII matches, handles whitelist filtering
 
-**Note**: Output writing is now handled by `output/writers.py`, not `matches.py`.
+**Note**: Output writing is handled by `core/writers.py`, not `matches.py`.
 
 ### Constants
 
@@ -130,7 +130,7 @@ Detection methods (regex vs. NER) are implemented as strategies:
    ↓
 8. Whitelist Filtering (matches.py - PiiMatchContainer)
    ↓
-9. Output Generation (output/writers.py - OutputWriter)
+9. Output Generation (core/writers.py - OutputWriter)
    - CSV, JSON, or XLSX format
 ```
 

@@ -4,6 +4,7 @@ tqdm~=4.66.0
 defusedxml>=0.7.1  # Secure XML parsing to prevent XXE attacks
 typer>=0.9.0  # Modern CLI framework with type hints
 rich>=13.0.0  # Used by Typer for enhanced output formatting
+requests>=2.31.0  # Required for OpenAI-compatible multimodal image detection
 
 # Note:
 # - This file contains *minimal runtime* dependencies.
