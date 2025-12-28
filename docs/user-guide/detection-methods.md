@@ -535,9 +535,12 @@ python main.py --path /data --pydantic-ai --pydantic-ai-provider openai \
 python main.py --path /data --pydantic-ai --pydantic-ai-provider anthropic \
     --pydantic-ai-api-key YOUR_KEY
 
-# Multimodal image detection (with OpenAI)
-python main.py --path /data/images --pydantic-ai --pydantic-ai-provider openai \
-    --pydantic-ai-api-key YOUR_KEY --pydantic-ai-model gpt-4-vision-preview
+# Multimodal image detection (OpenAI-compatible endpoint)
+# Use --multimodal (images) and a vision-capable model on an OpenAI-compatible server (OpenAI, vLLM, LocalAI).
+python main.py --path /data/images --multimodal \
+    --multimodal-api-key YOUR_KEY \
+    --multimodal-api-base https://api.openai.com/v1 \
+    --multimodal-model gpt-4o-mini
 ```
 
 **Configuration**:
@@ -572,6 +575,22 @@ python main.py --path /data/images --pydantic-ai --pydantic-ai-provider openai \
 - API costs apply for cloud providers
 - Slower than specialized NER models
 - Local Ollama requires significant resources
+
+### Multimodal Image Detection (OpenAI-compatible)
+
+The `--multimodal` option performs **real image analysis** by sending the image to an OpenAI-compatible API using `POST /chat/completions` with an `image_url` payload.
+
+**Works with**:
+- OpenAI
+- vLLM (OpenAI-compatible server)
+- LocalAI (OpenAI-compatible server)
+
+**Does not work with**:
+- Ollama (in this toolkit, image detection requires an OpenAI-compatible vision endpoint)
+
+**Requirements**:
+- `requests` installed (included in `requirements.txt`)
+- A vision-capable model configured on your endpoint
 
 **Limitations**:
 - Requires API access (OpenAI, vLLM, or LocalAI)

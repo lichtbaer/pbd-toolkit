@@ -74,3 +74,7 @@ Contributions to this fork are welcome. See [Contributing](contributing.md) for 
 ## Version History
 
 See the repository's commit history and releases for version information.
+
+## Roadmap
+
+See [Roadmap](roadmap.md) for planned next steps and longer-term direction.

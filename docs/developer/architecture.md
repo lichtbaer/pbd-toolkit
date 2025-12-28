@@ -177,8 +177,8 @@ For regex patterns:
 ### Adding Output Formats
 
 1. Add format option to CLI arguments in `setup.py`
-2. Implement output writer class in `output/writers.py` (inherit from OutputWriter)
-3. Register in `output/writers.py` `create_output_writer()` function
+2. Implement output writer class in `core/writers.py` (inherit from OutputWriter)
+3. Register in `core/writers.py` `create_output_writer()` function
 4. No changes needed to `PiiMatchContainer` or `main.py`
 
 ## Performance Considerations

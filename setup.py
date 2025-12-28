@@ -53,7 +53,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="PII Toolkit Contributors",
-    url="https://github.com/your-org/pii-toolkit",
+    url="https://github.com/lichtbaer/pbd-toolkit",
     packages=find_packages(exclude=["tests", "tests.*"]),
     python_requires=">=3.8",
     install_requires=requirements,
