@@ -4,9 +4,12 @@ Complete reference for all command-line options.
 
 ## Command
 
-### `scan <path>` (Required)
+### `scan [path]` / `scan --path <path>`
 
-Path to the root directory to scan recursively.
+Path to the root directory to scan recursively. You can provide it:
+- as a positional argument (`scan /data`)
+- via `--path /data`
+- or via a config file (`path: /data`) if neither positional nor `--path` is provided
 
 ```bash
 python main.py scan /var/data
@@ -217,7 +220,7 @@ verbose: false
 }
 ```
 
-**Note**: CLI arguments take precedence over config file values. The scan path is currently taken from the positional `<path>` argument.
+**Note**: CLI arguments take precedence over config file values. The scan path can be provided as positional `<path>`, via `--path`, or inside the config file as `path: ...`.
 
 ### `--summary-format`
 

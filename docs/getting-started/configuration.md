@@ -16,13 +16,14 @@ You can use a configuration file (YAML or JSON) to set default values, which can
 python main.py scan /data --config config.yaml
 ```
 
-**Note**: CLI arguments take precedence over config file values. The scan path is currently taken from the positional `<path>` argument.
+**Note**: CLI arguments take precedence over config file values. The scan path can be provided as positional `<path>`, via `--path`, or inside the config file as `path: ...`.
 
 ### YAML Configuration File
 
 Example `config.yaml`:
 
 ```yaml
+path: "/path/to/scan"
 regex: true
 ner: true
 spacy_ner: false
@@ -41,6 +42,7 @@ Example `config.json`:
 
 ```json
 {
+  "path": "/path/to/scan",
   "regex": true,
   "ner": true,
   "spacy_ner": false,
@@ -57,7 +59,7 @@ Example `config.json`:
 ### Supported Configuration Options
 
 All command-line arguments can be specified in the config file using their long form (without `--`):
-- `path` (currently ignored; use the positional `<path>` argument), `regex`, `ner`, `spacy_ner`, `ollama`, `openai_compatible`
+- `path`, `regex`, `ner`, `spacy_ner`, `ollama`, `openai_compatible`
 - `spacy_model`, `ollama_url`, `ollama_model`
 - `openai_api_base`, `openai_api_key`, `openai_model`
 - `outname`, `whitelist`, `stop_count`, `output_dir`, `format`

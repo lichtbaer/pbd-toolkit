@@ -1,5 +1,6 @@
 {
-  "_comment": "The scan path is currently taken from the positional CLI argument (`scan <path>`). A `path` key in this file is ignored.",
+  "_comment": "The scan path can be provided as positional PATH, via --path, or here as `path`.",
+  "path": "/path/to/scan",
   "regex": true,
   "ner": true,
   "outname": "scan-2024",
