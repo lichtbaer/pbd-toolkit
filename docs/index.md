@@ -18,7 +18,7 @@ The PII Toolkit is a command-line tool designed to scan directories and identify
 - **Wide File Format Support**:
   - Documents: PDF, DOCX, ODT, RTF
   - Spreadsheets: XLSX, XLS, ODS, CSV
-  - Presentations: PPTX, PPT
+  - Presentations: PPTX
   - Web: HTML, XML
   - Email: EML, MSG
   - Data: JSON, YAML
@@ -31,7 +31,6 @@ The PII Toolkit is a command-line tool designed to scan directories and identify
 
 - **Advanced Features**:
   - Whitelist support for filtering false positives
-  - Multi-threaded processing
   - Progress tracking
   - Detailed logging
   - Internationalization (German/English)
@@ -42,11 +41,14 @@ The PII Toolkit is a command-line tool designed to scan directories and identify
 # Install dependencies
 pip install -r requirements.txt
 
+# Optional: dev/tests + additional processors/engines
+pip install -r requirements-dev.txt
+
 # Basic usage
-python main.py --path /path/to/scan --regex --ner
+python main.py scan /path/to/scan --regex --ner
 
 # With custom output
-python main.py --path /path/to/scan --regex --format json --outname "scan-2024"
+python main.py scan /path/to/scan --regex --format json --outname "scan-2024"
 ```
 
 ## Documentation Structure

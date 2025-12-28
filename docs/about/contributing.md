@@ -33,8 +33,11 @@ source .venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Install development dependencies
-pip install pytest pytest-cov mkdocs mkdocs-material
+# Install development/test dependencies
+pip install -r requirements-dev.txt
+
+# Optional: docs preview tooling
+pip install mkdocs mkdocs-material
 ```
 
 ## Code Style

@@ -8,13 +8,14 @@ This roadmap reflects the current direction of this fork. Items are grouped by t
 - Unified LLM engine with PydanticAI for text detection
 - **Real OpenAI-compatible multimodal image detection** (OpenAI / vLLM / LocalAI via `POST /chat/completions`)
 - Privacy-focused statistics output (aggregated, no individual PII instances)
+- Documentation updated to match the current Typer CLI (`scan <path>`) and current output schemas
 - Expanded file format coverage and improved robustness/security hardening
 
 ## Next (short-term)
 
-- **Documentation consolidation**
-  - Align detection docs to reflect the current multimodal pipeline and limitations
-  - Remove remaining legacy references and keep examples consistent (`python` vs `python3`, install paths)
+- **Documentation cleanup (remaining)**
+  - Keep installation guidance consistent with packaging/extras
+  - Consider adding a dedicated `--version` flag to the CLI
 - **CI / quality gates**
   - Add GitHub Actions for tests + basic security checks (Bandit) + lint (if adopted)
 - **Packaging polish**

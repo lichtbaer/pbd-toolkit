@@ -5,10 +5,10 @@ This module provides the main entry point for the PII Toolkit CLI.
 It can be executed directly (with shebang) or as a module.
 
 Usage:
-    ./main.py --path /data --regex
-    python main.py --path /data --regex
-    python -m main --path /data --regex
-    pii-toolkit --path /data --regex  # After installation
+    ./main.py scan /data --regex
+    python main.py scan /data --regex
+    python -m main scan /data --regex
+    pii-toolkit scan /data --regex  # After installation
 """
 
 

@@ -13,17 +13,16 @@ You can use a configuration file (YAML or JSON) to set default values, which can
 ### Usage
 
 ```bash
-python main.py --config config.yaml --path /data
+python main.py scan /data --config config.yaml
 ```
 
-**Note**: CLI arguments take precedence over config file values. This allows you to use a config file as a base and override specific values via CLI.
+**Note**: CLI arguments take precedence over config file values. The scan path is currently taken from the positional `<path>` argument.
 
 ### YAML Configuration File
 
 Example `config.yaml`:
 
 ```yaml
-path: "/path/to/scan"
 regex: true
 ner: true
 spacy_ner: false
@@ -42,7 +41,6 @@ Example `config.json`:
 
 ```json
 {
-  "path": "/path/to/scan",
   "regex": true,
   "ner": true,
   "spacy_ner": false,
@@ -59,7 +57,7 @@ Example `config.json`:
 ### Supported Configuration Options
 
 All command-line arguments can be specified in the config file using their long form (without `--`):
-- `path`, `regex`, `ner`, `spacy_ner`, `ollama`, `openai_compatible`
+- `path` (currently ignored; use the positional `<path>` argument), `regex`, `ner`, `spacy_ner`, `ollama`, `openai_compatible`
 - `spacy_model`, `ollama_url`, `ollama_model`
 - `openai_api_base`, `openai_api_key`, `openai_model`
 - `outname`, `whitelist`, `stop_count`, `output_dir`, `format`
@@ -149,7 +147,7 @@ export LANGUAGE=de  # German (default)
 Usage:
 
 ```bash
-LANGUAGE=en python main.py --path /data --regex
+LANGUAGE=en python main.py scan /data --regex
 ```
 
 ## Default Values

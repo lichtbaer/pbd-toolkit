@@ -51,7 +51,7 @@ python -m vllm.entrypoints.openai.api_server \
 ### Using with PII Toolkit
 
 ```bash
-python main.py --path /data/images \
+python main.py scan /data/images \
     --multimodal \
     --multimodal-api-base http://localhost:8000/v1 \
     --multimodal-model microsoft/llava-1.6-vicuna-7b
@@ -134,7 +134,7 @@ context_size: 4096
 ### Using with PII Toolkit
 
 ```bash
-python main.py --path /data/images \
+python main.py scan /data/images \
     --multimodal \
     --multimodal-api-base http://localhost:8080/v1 \
     --multimodal-model llava
@@ -226,7 +226,7 @@ python -m vllm.entrypoints.openai.api_server \
     --port 8000
 
 # Terminal 2: Run PII detection
-python main.py --path /data/images \
+python main.py scan /data/images \
     --multimodal \
     --multimodal-api-base http://localhost:8000/v1 \
     --multimodal-model microsoft/llava-1.6-vicuna-7b \
@@ -243,7 +243,7 @@ docker run -d -p 8080:8080 \
     localai/localai:latest-aio-cuda
 
 # Run PII detection
-python main.py --path /data/images \
+python main.py scan /data/images \
     --multimodal \
     --multimodal-api-base http://localhost:8080/v1 \
     --multimodal-model llava

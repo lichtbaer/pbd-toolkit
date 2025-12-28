@@ -11,7 +11,7 @@ Regular expression (regex) pattern matching is a fast, rule-based approach for d
 Enable regex detection:
 
 ```bash
-python main.py --path /data --regex
+python main.py scan /data --regex
 ```
 
 ### Supported Patterns
@@ -274,7 +274,7 @@ AI-powered detection using multiple analytical engines. The toolkit supports sev
 Enable NER detection:
 
 ```bash
-python main.py --path /data --ner
+python main.py scan /data --ner
 ```
 
 **Note**: Requires the GLiNER model to be downloaded (see [Installation](../getting-started/installation.md)).
@@ -456,7 +456,7 @@ German-specific Named Entity Recognition using spaCy models optimized for German
 **Usage**:
 
 ```bash
-python main.py --path /data --spacy-ner --spacy-model de_core_news_lg
+python main.py scan /data --spacy-ner --spacy-model de_core_news_lg
 ```
 
 **Available Models**:
@@ -488,7 +488,7 @@ Local LLM-based detection using Ollama. Runs completely offline.
 **Usage**:
 
 ```bash
-python main.py --path /data --ollama --ollama-model llama3.2
+python main.py scan /data --ollama --ollama-model llama3.2
 ```
 
 **Configuration**:
@@ -525,19 +525,19 @@ Unified LLM-based detection using PydanticAI. Replaces the old OpenAI-Compatible
 
 ```bash
 # With Ollama (local, offline)
-python main.py --path /data --pydantic-ai --pydantic-ai-provider ollama --pydantic-ai-model llama3.2
+python main.py scan /data --pydantic-ai --pydantic-ai-provider ollama --pydantic-ai-model llama3.2
 
 # With OpenAI
-python main.py --path /data --pydantic-ai --pydantic-ai-provider openai \
+python main.py scan /data --pydantic-ai --pydantic-ai-provider openai \
     --pydantic-ai-api-key YOUR_KEY --pydantic-ai-model gpt-3.5-turbo
 
 # With Anthropic Claude
-python main.py --path /data --pydantic-ai --pydantic-ai-provider anthropic \
+python main.py scan /data --pydantic-ai --pydantic-ai-provider anthropic \
     --pydantic-ai-api-key YOUR_KEY
 
 # Multimodal image detection (OpenAI-compatible endpoint)
 # Use --multimodal (images) and a vision-capable model on an OpenAI-compatible server (OpenAI, vLLM, LocalAI).
-python main.py --path /data/images --multimodal \
+python main.py scan /data/images --multimodal \
     --multimodal-api-key YOUR_KEY \
     --multimodal-api-base https://api.openai.com/v1 \
     --multimodal-model gpt-4o-mini
@@ -616,22 +616,23 @@ Use multiple engines together for comprehensive detection:
 
 ```bash
 # Basic combination
-python main.py --path /data --regex --ner
+python main.py scan /data --regex --ner
+python main.py scan /data --regex --ner
 
 # All engines (text-based)
-python main.py --path /data \
+python main.py scan /data \
     --regex \
     --ner \
     --spacy-ner --spacy-model de_core_news_lg \
     --ollama --ollama-model llama3.2
 
 # German-focused
-python main.py --path /data \
+python main.py scan /data \
     --regex \
     --spacy-ner --spacy-model de_core_news_lg
 
 # With image detection
-python main.py --path /data \
+python main.py scan /data \
     --regex \
     --ner \
     --multimodal --multimodal-api-key YOUR_KEY

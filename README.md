@@ -9,14 +9,17 @@ The PII Toolkit is a command-line tool for scanning directories and identifying 
 ## Quick Start
 
 ```bash
-# Install minimal runtime dependencies
+# Install runtime dependencies
 pip install -r requirements.txt
 
-# For development/tests + optional engines/file formats
+# Optional: dev/tests + additional processors/engines
 pip install -r requirements-dev.txt
 
 # Basic usage
-python main.py --path /path/to/scan --regex --ner
+python main.py scan /path/to/scan --regex --ner
+
+# Or, after installation
+pii-toolkit scan /path/to/scan --regex --ner
 ```
 
 ## Documentation
@@ -42,10 +45,10 @@ Then open `http://127.0.0.1:8000` in your browser.
   - AI-powered Named Entity Recognition (GLiNER, spaCy)
   - LLM-based detection (Ollama, OpenAI-compatible)
   - **Multimodal image detection** (GPT-4 Vision, local models via vLLM/LocalAI)
-- **Wide File Format Support**: PDF, DOCX, HTML, TXT, CSV, JSON, XLSX, XLS, PPTX, PPT, ODT, RTF, ODS, EML, MSG, XML, YAML, and **image formats** (JPEG, PNG, GIF, BMP, TIFF, WebP)
+- **Wide File Format Support**: PDF, DOCX, HTML, TXT, CSV, JSON, XLSX, XLS, PPTX, ODT, RTF, ODS, EML, MSG, XML, YAML, and **image formats** (JPEG, PNG, GIF, BMP, TIFF, WebP)
 - **File Type Detection**: Optional magic number detection for files without or with incorrect extensions
 - **Flexible Output Formats**: CSV, JSON, and Excel (XLSX)
-- **Advanced Features**: Whitelist support, multi-threaded processing, progress tracking
+- **Advanced Features**: Whitelist support, progress tracking, detailed logging
 - **CLI Options**: Verbose mode (`-v`), quiet mode (`-q`), config file support (`--config`), structured output (`--summary-format`)
 - **Professional Architecture**: Modular design, dependency injection, no global variables
 - **Privacy-Focused**: Support for local models (vLLM, LocalAI) for complete data privacy
@@ -58,16 +61,16 @@ See [Installation Guide](docs/getting-started/installation.md) for detailed inst
 
 ```bash
 # Basic text-based detection
-python main.py --path /var/data-leak/ --regex --ner --format json --outname "scan-2024"
+python main.py scan /var/data-leak/ --regex --ner --format json --outname "scan-2024"
 
 # With magic number file type detection
-python main.py --path /var/data-leak/ --regex --use-magic-detection
+python main.py scan /var/data-leak/ --regex --use-magic-detection
 
 # With multimodal image detection (OpenAI)
-python main.py --path /var/images/ --multimodal --multimodal-api-key YOUR_KEY
+python main.py scan /var/images/ --multimodal --multimodal-api-key YOUR_KEY
 
 # With local multimodal models (vLLM)
-python main.py --path /var/images/ --multimodal \
+python main.py scan /var/images/ --multimodal \
     --multimodal-api-base http://localhost:8000/v1 \
     --multimodal-model microsoft/llava-1.6-vicuna-7b
 ```

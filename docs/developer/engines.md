@@ -4,6 +4,8 @@
 
 The PII Toolkit uses a plugin-based engine architecture that allows multiple detection engines to run in parallel. This design enables easy extension with new detection methods without modifying core processing logic.
 
+In the current implementation, enabled engines are executed **sequentially per text chunk/file** (with per-engine locks to ensure thread safety). The architecture is designed so future parallel execution can be added safely, but it is not enabled today.
+
 ## Engine Architecture
 
 ### Engine Protocol

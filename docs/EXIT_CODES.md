@@ -17,7 +17,7 @@ The PII Toolkit uses standardized exit codes to indicate the result of execution
 ### Bash Script
 ```bash
 #!/bin/bash
-python main.py --path /data --regex --ner
+python main.py scan /data --regex --ner
 
 case $? in
     0) echo "Analysis completed successfully" ;;
@@ -34,7 +34,7 @@ import subprocess
 import sys
 
 result = subprocess.run(
-    ["python", "main.py", "--path", "/data", "--regex", "--ner"],
+    ["python", "main.py", "scan", "/data", "--regex", "--ner"],
     capture_output=True
 )
 
@@ -59,7 +59,7 @@ else:
 - Other unhandled exceptions
 
 ### EXIT_INVALID_ARGUMENTS (2)
-- Missing required `--path` argument
+- Missing required `scan <path>` argument
 - Invalid path (does not exist, not a directory, not readable)
 - Neither `--regex` nor `--ner` specified
 - Invalid output format specified

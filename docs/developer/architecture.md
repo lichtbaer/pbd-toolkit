@@ -10,14 +10,11 @@ The PII Toolkit is a modular, extensible system for detecting personally identif
 
 ### Main Entry Point
 
-**Files**: `main.py`, `setup.py`
+**Files**: `main.py`, `core/cli.py`, `cli_setup.py`
 
-- **setup.py**: Handles CLI argument parsing, logging setup, output writer creation
-- **main.py**: Main entry point that:
-  - Uses setup functions for initialization
-  - Creates ApplicationContext for dependency injection
-  - Coordinates file scanning via FileScanner
-  - Manages output generation via OutputWriter
+- **core/cli.py**: Typer-based CLI. Implements the `scan` command and orchestrates the scan pipeline.
+- **cli_setup.py**: Shared setup helpers (i18n, logger setup, Config construction).
+- **main.py**: Thin entry point that forwards to the Typer CLI (`core.cli.cli`).
 
 ### Core Modules
 
@@ -111,7 +108,7 @@ Detection methods (regex vs. NER) are implemented as strategies:
 ## Data Flow
 
 ```
-1. Command Line Arguments (setup.py)
+1. Command Line Arguments (core/cli.py)
    ↓
 2. Configuration Setup (config.py, core/config_loader.py)
    ↓
@@ -176,7 +173,7 @@ For regex patterns:
 
 ### Adding Output Formats
 
-1. Add format option to CLI arguments in `setup.py`
+1. Add format option to CLI arguments in `core/cli.py`
 2. Implement output writer class in `core/writers.py` (inherit from OutputWriter)
 3. Register in `core/writers.py` `create_output_writer()` function
 4. No changes needed to `PiiMatchContainer` or `main.py`

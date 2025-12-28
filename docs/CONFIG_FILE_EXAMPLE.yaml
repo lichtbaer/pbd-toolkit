@@ -1,8 +1,9 @@
 # Example configuration file for PII Toolkit
-# Save this as config.yaml and use with: python main.py --config config.yaml --path /data
+# Save this as config.yaml and use with: python main.py scan /data --config config.yaml
 
-# Required: Path to scan (can be overridden via CLI)
-path: "/path/to/scan"
+# Note: The scan path is currently taken from the positional CLI argument (`scan <path>`).
+# A `path:` key in this file is ignored.
+# path: "/path/to/scan"
 
 # Analysis methods (at least one required)
 regex: true
