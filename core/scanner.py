@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from config import Config
 from core.file_type_detector import FileTypeDetector
+from file_processors import FileProcessorRegistry
 
 
 @dataclass
@@ -87,8 +88,14 @@ class FileScanner:
         files_processed = 0
 
         # Estimate total files for progress bar (if verbose and no stop_count)
+        # This can double runtime on huge directory trees, so it's opt-in.
+        # Enable via env var: PII_TOOLKIT_PROGRESS_ESTIMATE=1
         total_files_estimate = None
-        if not stop_count and self.config.verbose:
+        if (
+            not stop_count
+            and self.config.verbose
+            and os.environ.get("PII_TOOLKIT_PROGRESS_ESTIMATE") == "1"
+        ):
             self.config.logger.debug("Counting files for progress estimation...")
             try:
                 total_files_estimate = sum(len(files) for _, _, files in os.walk(path))
@@ -150,11 +157,17 @@ class FileScanner:
                     if self.file_type_detector:
                         # Use magic detection if:
                         # 1. File has no extension, OR
-                        # 2. magic_detection_fallback is enabled (always detect)
+                        # 2. magic_detection_fallback is enabled AND the extension is unsupported
                         magic_fallback = getattr(
                             self.config, "magic_detection_fallback", True
                         )
-                        if not ext or magic_fallback:
+                        ext_supported = bool(ext) and (
+                            FileProcessorRegistry.get_processor(ext) is not None
+                        )
+                        should_detect = (not ext) or (
+                            bool(magic_fallback) and not ext_supported
+                        )
+                        if should_detect:
                             mime_type = self.file_type_detector.detect_type(full_path)
                             if mime_type and self.config.verbose:
                                 self.config.logger.debug(

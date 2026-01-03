@@ -1,7 +1,21 @@
 """File processor registry for automatic registration and discovery of processors."""
 
+from __future__ import annotations
+
+from dataclasses import dataclass
 from typing import Optional, Type
+
 from file_processors.base_processor import BaseFileProcessor
+
+
+@dataclass(frozen=True)
+class _CanProcessMeta:
+    """Cached metadata about a processor's `can_process` signature.
+
+    Avoids calling `inspect.signature` in the per-file hot path.
+    """
+
+    positional_param_count: int
 
 
 class FileProcessorRegistry:
@@ -14,6 +28,7 @@ class FileProcessorRegistry:
     _processors: list[BaseFileProcessor] = []
     _extension_cache: dict[str, BaseFileProcessor] = {}
     _initialized: bool = False
+    _can_process_meta: dict[BaseFileProcessor, _CanProcessMeta] = {}
 
     @classmethod
     def register(cls, processor: BaseFileProcessor) -> None:
@@ -26,6 +41,7 @@ class FileProcessorRegistry:
             cls._processors.append(processor)
             # Clear cache when new processor is registered
             cls._extension_cache.clear()
+            cls._can_process_meta[processor] = cls._compute_can_process_meta(processor)
 
     @classmethod
     def register_class(cls, processor_class: Type[BaseFileProcessor]) -> None:
@@ -36,6 +52,36 @@ class FileProcessorRegistry:
         """
         processor = processor_class()
         cls.register(processor)
+
+    @staticmethod
+    def _compute_can_process_meta(processor: BaseFileProcessor) -> _CanProcessMeta:
+        """Compute `can_process` signature metadata once per processor."""
+        try:
+            import inspect
+
+            sig = inspect.signature(processor.can_process)
+            # Count positional params; clamp to [1..3].
+            positional = [
+                p
+                for p in sig.parameters.values()
+                if p.kind
+                in (
+                    inspect.Parameter.POSITIONAL_ONLY,
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                )
+            ]
+            count = len(positional)
+            if any(
+                p.kind
+                in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+                for p in sig.parameters.values()
+            ):
+                count = 3
+            count = max(1, min(3, count))
+            return _CanProcessMeta(positional_param_count=count)
+        except Exception:
+            # Conservative: assume the most flexible signature.
+            return _CanProcessMeta(positional_param_count=3)
 
     @classmethod
     def get_processor(
@@ -57,63 +103,29 @@ class FileProcessorRegistry:
 
         # Check each processor
         for processor in cls._processors:
-            if hasattr(processor, "can_process"):
-                # Check if can_process accepts file_path or mime_type parameter
-                import inspect
+            meta = cls._can_process_meta.get(processor)
+            if meta is None:
+                meta = cls._compute_can_process_meta(processor)
+                cls._can_process_meta[processor] = meta
 
-                try:
-                    sig = inspect.signature(processor.can_process)
-                    params = list(sig.parameters.keys())
-
-                    # Check if processor supports mime_type
-                    supports_mime = "mime_type" in params
-                    needs_file_path = "file_path" in params
-
-                    # Try with all available parameters
-                    if supports_mime and mime_type:
-                        # Processor supports MIME type detection
-                        if processor.can_process(extension, file_path, mime_type):
-                            # Don't cache when using MIME type
-                            return processor
-                    elif needs_file_path:
-                        # Processor needs file_path (e.g., TextProcessor)
-                        if processor.can_process(extension, file_path):
-                            # Don't cache processors that need file_path by extension alone
-                            return processor
-                    else:
-                        # Standard can_process with just extension
-                        if processor.can_process(extension):
-                            # Cache by extension for processors that don't need file_path
-                            if not mime_type:  # Only cache if no MIME type was used
-                                cls._extension_cache[extension] = processor
-                            return processor
-                except (TypeError, ValueError):
-                    # Fallback: try different parameter combinations
-                    try:
-                        # Try with mime_type if available
-                        if mime_type:
-                            try:
-                                if processor.can_process(
-                                    extension, file_path, mime_type
-                                ):
-                                    return processor
-                            except (TypeError, ValueError):
-                                pass
-                        # Try with file_path
-                        if file_path:
-                            try:
-                                if processor.can_process(extension, file_path):
-                                    return processor
-                            except (TypeError, ValueError):
-                                pass
-                        # Try with just extension
-                        if processor.can_process(extension):
-                            if not mime_type:  # Only cache if no MIME type was used
-                                cls._extension_cache[extension] = processor
-                            return processor
-                    except (TypeError, ValueError):
-                        # Skip this processor if can_process doesn't work
-                        continue
+            try:
+                if meta.positional_param_count >= 3:
+                    if processor.can_process(extension, file_path, mime_type):
+                        # Safe to cache only when MIME type is not involved.
+                        if extension and not mime_type:
+                            cls._extension_cache[extension] = processor
+                        return processor
+                elif meta.positional_param_count == 2:
+                    if processor.can_process(extension, file_path):
+                        # Don't cache: may depend on file_path.
+                        return processor
+                else:
+                    if processor.can_process(extension):
+                        if extension and not mime_type:
+                            cls._extension_cache[extension] = processor
+                        return processor
+            except (TypeError, ValueError):
+                continue
 
         return None
 
@@ -132,6 +144,7 @@ class FileProcessorRegistry:
         cls._processors.clear()
         cls._extension_cache.clear()
         cls._initialized = False
+        cls._can_process_meta.clear()
 
     @classmethod
     def get_supported_extensions(cls) -> list[str]:

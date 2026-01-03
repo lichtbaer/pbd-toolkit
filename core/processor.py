@@ -2,6 +2,7 @@
 
 import threading
 import time
+import re
 from typing import Callable, Optional
 
 import docx.opc.exceptions
@@ -14,6 +15,16 @@ from core.engines.base import DetectionEngine
 from file_processors import FileProcessorRegistry, PdfProcessor
 from file_processors.image_processor import ImageProcessor
 from matches import PiiMatchContainer
+
+
+_ASCII_CONTROL_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")
+# Remove ASCII control chars (except \n, \t, \r). This is what typically breaks NLP.
+_ASCII_CONTROL_TRANSLATION = {
+    i: None for i in list(range(0x00, 0x09))
+    + [0x0B, 0x0C]
+    + list(range(0x0E, 0x20))
+    + [0x7F]
+}
 
 
 class TextProcessor:
@@ -119,9 +130,10 @@ class TextProcessor:
         # Ensure engines reflect current config flags
         self._ensure_engines_current()
 
-        # Clean text to remove control characters that might confuse NLP models (especially spaCy)
-        # Keep newlines, tabs and carriage returns, remove other non-printables
-        text = "".join(ch for ch in text if ch.isprintable() or ch in "\n\t\r")
+        # Clean text to remove ASCII control characters that confuse NLP models (especially spaCy).
+        # Fast path: if none are present, avoid O(n) Python-level filtering.
+        if _ASCII_CONTROL_RE.search(text):
+            text = text.translate(_ASCII_CONTROL_TRANSLATION)
 
         if not text.strip():
             return
