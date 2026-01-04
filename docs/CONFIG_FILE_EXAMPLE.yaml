@@ -18,6 +18,12 @@ no_header: false
 whitelist: "./whitelist.txt"
 stop_count: null  # Set to number to limit files processed
 
+# Optional: Performance / execution
+# - mode: safe | balanced | fast
+# - jobs: explicit number of file workers (overrides mode)
+mode: "balanced"
+jobs: null
+
 # Optional: Output options
 verbose: false
 quiet: false

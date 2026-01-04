@@ -9,6 +9,8 @@
   "no_header": false,
   "whitelist": "./whitelist.txt",
   "stop_count": null,
+  "mode": "balanced",
+  "jobs": null,
   "verbose": false,
   "quiet": false,
   "summary_format": "human"
