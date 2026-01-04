@@ -9,6 +9,7 @@ An output mode that generates JSON statistics files with aggregated data by priv
 - **Privacy-first**: no PII text or file paths in the statistics output
 - **Aggregated data**: statistics by dimension, module, and file type
 - **Optional mode**: can be used alongside detailed findings
+- **Strict mode**: `--statistics-strict` avoids keeping file paths in memory (some unique-file metrics become `null`)
 
 ## Privacy Dimensions
 
@@ -40,6 +41,9 @@ An output mode that generates JSON statistics files with aggregated data by priv
 ```bash
 # Statistics-only mode (still writes the normal findings output file)
 pii-toolkit scan /path --regex --ner --statistics-mode
+
+# Strict privacy statistics (no file paths kept in memory)
+pii-toolkit scan /path --regex --ner --statistics-mode --statistics-strict
 
 # Statistics + detailed findings
 pii-toolkit scan /path --regex --ner --statistics-mode --format csv

@@ -1,5 +1,4 @@
 import csv
-import json
 import re
 import threading
 from dataclasses import dataclass, field

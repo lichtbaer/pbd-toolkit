@@ -36,7 +36,7 @@ def _get_cli_version() -> str:
     editable/dev runs where metadata may be unavailable.
     """
     try:
-        from importlib.metadata import PackageNotFoundError, version  # type: ignore
+        from importlib.metadata import version  # type: ignore
 
         return version("pii-toolkit")
     except Exception:
@@ -260,6 +260,11 @@ def scan(
         "--statistics-mode",
         help="Generate privacy-focused statistics output (aggregated by dimension and module, no PII data)",
     ),
+    statistics_strict: bool = typer.Option(
+        False,
+        "--statistics-strict",
+        help="Strict privacy statistics mode: do not keep file paths in memory (some file-unique metrics become null).",
+    ),
     statistics_output: Optional[str] = typer.Option(
         None,
         "--statistics-output",
@@ -329,6 +334,7 @@ def scan(
         "jobs": jobs,
         "no_header": no_header,
         "statistics_mode": statistics_mode,
+        "statistics_strict": statistics_strict,
         "statistics_output": statistics_output,
         "verbose": verbose,
         "quiet": quiet,
@@ -376,9 +382,6 @@ def scan(
     # Ensure output directory exists
     os.makedirs(output_dir, exist_ok=True)
 
-    # Update constants.OUTPUT_DIR for use in other modules
-    constants.OUTPUT_DIR = output_dir
-
     # Get output format from args
     output_format = args.format if hasattr(args, "format") else "csv"
 
@@ -396,7 +399,7 @@ def scan(
     )
 
     # Setup logger
-    logger = setup.__setup_logger(args, outslug=outslug)
+    logger = setup.__setup_logger(args, outslug=outslug, output_dir=output_dir)
 
     # Get CSV writer and handle from output writer if CSV format
     csv_writer = None
@@ -472,7 +475,9 @@ def scan(
     # Initialize statistics aggregator if statistics mode is enabled
     statistics_aggregator = None
     if hasattr(args, "statistics_mode") and args.statistics_mode:
-        statistics_aggregator = StatisticsAggregator()
+        statistics_aggregator = StatisticsAggregator(
+            strict=bool(getattr(args, "statistics_strict", False))
+        )
 
     # Create application context
     context = ApplicationContext.from_cli_args(
@@ -515,7 +520,7 @@ def scan(
 
     if context.config.verbose:
         context.logger.debug(f"Search path: {context.config.path}")
-        context.logger.debug(f"Output directory: {constants.OUTPUT_DIR}")
+        context.logger.debug(f"Output directory: {output_dir}")
         if context.config.whitelist_path:
             context.logger.debug(f"Whitelist file: {context.config.whitelist_path}")
             context.logger.debug(f"Whitelist entries: {len(pmc.whitelist)}")
@@ -823,6 +828,7 @@ def scan(
             "total_files_scanned": context.statistics.total_files_found,
             "total_files_analyzed": context.statistics.files_processed,
             "total_matches_found": context.statistics.matches_found,
+            "statistics_strict": bool(getattr(args, "statistics_strict", False)),
         }
 
         # Prepare performance metrics
@@ -904,8 +910,8 @@ def scan(
                     "throughput_files_per_sec": context.statistics.files_per_second,
                 },
                 "output_file": context.output_file_path
-                or (constants.OUTPUT_DIR + "_findings." + context.output_format),
-                "output_directory": constants.OUTPUT_DIR,
+                or output_file_path,
+                "output_directory": output_dir,
                 "errors_summary": (
                     {k: len(v) for k, v in errors.items()} if errors else {}
                 ),
@@ -952,12 +958,10 @@ def scan(
                 typer.echo()
 
             # Get output file name
-            output_file = context.output_file_path or (
-                constants.OUTPUT_DIR + "_findings." + context.output_format
-            )
+            output_file = context.output_file_path or output_file_path
 
             typer.echo(f"{context._('Output file:')} {output_file}")
-            typer.echo(f"{context._('Output directory:')} {constants.OUTPUT_DIR}")
+            typer.echo(f"{context._('Output directory:')} {output_dir}")
             typer.echo("=" * 50 + "\n")
 
 

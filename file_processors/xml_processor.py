@@ -7,7 +7,7 @@ try:
 except ImportError:
     # Fallback to standard library if defusedxml is not available
     import xml.etree.ElementTree as ET
-    from xml.etree.ElementTree import ParseError, Element
+    from xml.etree.ElementTree import Element
     safe_parse = ET.parse
     SafeParseError = ET.ParseError
     DEFUSEDXML_AVAILABLE = False

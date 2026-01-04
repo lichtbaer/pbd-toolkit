@@ -187,6 +187,30 @@ Don't include header row in CSV output (for backward compatibility).
 python main.py scan /data --regex --no-header
 ```
 
+### `--statistics-mode`
+
+Generate privacy-focused aggregated statistics output (JSON) **without writing PII instances**.
+
+```bash
+python main.py scan /data --regex --ner --statistics-mode
+```
+
+### `--statistics-strict`
+
+Strict privacy statistics mode: do not keep file paths in memory (some unique-file metrics become `null`).
+
+```bash
+python main.py scan /data --regex --ner --statistics-mode --statistics-strict
+```
+
+### `--statistics-output`
+
+Custom output path for the statistics JSON file.
+
+```bash
+python main.py scan /data --regex --statistics-mode --statistics-output ./stats.json
+```
+
 ### `--verbose`, `-v`
 
 Enable verbose output with detailed logging and progress bar.
