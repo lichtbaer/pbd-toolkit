@@ -215,7 +215,13 @@ python main.py scan /data --regex --quiet
 
 ### Version
 
-Version output is not currently exposed as a dedicated CLI flag. Use `python -m pip show pii-toolkit` (installed package) or `git describe --tags` (git checkout) if you need a version string.
+Show the installed package version:
+
+```bash
+pii-toolkit --version
+# or
+pii-toolkit -V
+```
 
 ### `--config`
 

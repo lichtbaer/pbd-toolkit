@@ -107,16 +107,15 @@ class FileScanner:
             except Exception as e:
                 self.config.logger.warning(f"Failed to count files: {e}")
 
-        # Initialize progress bar
-        # Note: tqdm telemetry is disabled by default in recent versions
-        # For additional privacy, set TQDM_DISABLE_TELEMETRY=1 environment variable
+        # Initialize progress bar (verbose-only).
+        # Note: tqdm telemetry is disabled by default in recent versions.
+        # For additional privacy, set TQDM_DISABLE_TELEMETRY=1 environment variable.
         progress_bar = None
-        if self.config.verbose or not stop_count:
+        if self.config.verbose:
             progress_bar = tqdm(
                 total=total_files_estimate if total_files_estimate else None,
                 desc="Processing files",
                 unit="file",
-                disable=not self.config.verbose and stop_count is not None,
             )
 
         try:

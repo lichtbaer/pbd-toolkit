@@ -29,6 +29,40 @@ app = typer.Typer(
 )
 
 
+def _get_cli_version() -> str:
+    """Best-effort version string for CLI output.
+
+    Prefers installed package metadata; falls back to constants.VERSION for
+    editable/dev runs where metadata may be unavailable.
+    """
+    try:
+        from importlib.metadata import PackageNotFoundError, version  # type: ignore
+
+        return version("pii-toolkit")
+    except Exception:
+        return getattr(constants, "VERSION", "unknown")
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"pii-toolkit {_get_cli_version()}")
+        raise typer.Exit()
+
+
+@app.callback()
+def _main(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        "-V",
+        help="Show version and exit",
+        callback=_version_callback,
+        is_eager=True,
+    ),
+) -> None:
+    """Global CLI options."""
+
+
 def _create_argparse_namespace_from_typer_args(**kwargs) -> object:
     """Create an argparse-like namespace object from Typer arguments.
 

@@ -39,7 +39,7 @@
             "label": "REGEX_WORDS",
             "value": "Regex: Signal words",
             "regex_compiled_pos": 4,
-            "expression": "\b(?:Abmahnung|Bewerbung|Zeugnis|Entwicklungsbericht|Gutachten|Krankmeldung)\b"
+            "expression": "\\b(?:Abmahnung|Bewerbung|Zeugnis|Entwicklungsbericht|Gutachten|Krankmeldung)\\b"
         },
         {
             "label": "REGEX_PGPPRV",
