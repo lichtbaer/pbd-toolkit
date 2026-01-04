@@ -17,6 +17,8 @@ class GLiNEREngine:
     """
 
     name = "gliner"
+    # Treat as not thread-safe from the caller perspective (model resources).
+    thread_safe = False
 
     def __init__(self, config: Config):
         """Initialize GLiNER engine.

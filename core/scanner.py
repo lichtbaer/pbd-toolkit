@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from config import Config
 from core.file_type_detector import FileTypeDetector
+from file_processors import FileProcessorRegistry
 
 
 @dataclass
@@ -69,7 +70,7 @@ class FileScanner:
     def scan(
         self,
         path: str,
-        file_callback: Optional[Callable[[FileInfo], None]] = None,
+        file_callback: Optional[Callable[[FileInfo], object]] = None,
         stop_count: Optional[int] = None,
     ) -> ScanResult:
         """Scan directory recursively and process files.
@@ -85,10 +86,18 @@ class FileScanner:
         """
         total_files_found = 0
         files_processed = 0
+        pending_futures = []
+        future_to_path: dict[object, str] = {}
 
         # Estimate total files for progress bar (if verbose and no stop_count)
+        # This can double runtime on huge directory trees, so it's opt-in.
+        # Enable via env var: PII_TOOLKIT_PROGRESS_ESTIMATE=1
         total_files_estimate = None
-        if not stop_count and self.config.verbose:
+        if (
+            not stop_count
+            and self.config.verbose
+            and os.environ.get("PII_TOOLKIT_PROGRESS_ESTIMATE") == "1"
+        ):
             self.config.logger.debug("Counting files for progress estimation...")
             try:
                 total_files_estimate = sum(len(files) for _, _, files in os.walk(path))
@@ -150,11 +159,17 @@ class FileScanner:
                     if self.file_type_detector:
                         # Use magic detection if:
                         # 1. File has no extension, OR
-                        # 2. magic_detection_fallback is enabled (always detect)
+                        # 2. magic_detection_fallback is enabled AND the extension is unsupported
                         magic_fallback = getattr(
                             self.config, "magic_detection_fallback", True
                         )
-                        if not ext or magic_fallback:
+                        ext_supported = bool(ext) and (
+                            FileProcessorRegistry.get_processor(ext) is not None
+                        )
+                        should_detect = (not ext) or (
+                            bool(magic_fallback) and not ext_supported
+                        )
+                        if should_detect:
                             mime_type = self.file_type_detector.detect_type(full_path)
                             if mime_type and self.config.verbose:
                                 self.config.logger.debug(
@@ -195,8 +210,14 @@ class FileScanner:
 
                     if file_callback:
                         try:
-                            file_callback(file_info)
+                            ret = file_callback(file_info)
                             files_processed += 1
+                            # If the callback returns a Future-like object, wait for it
+                            # before returning from scan, otherwise the CLI may finalize
+                            # output before processing completes.
+                            if hasattr(ret, "result") and hasattr(ret, "done"):
+                                pending_futures.append(ret)
+                                future_to_path[ret] = full_path
                         except Exception as e:
                             error_msg = f"Callback error: {type(e).__name__}: {str(e)}"
                             self.config.logger.error(
@@ -229,6 +250,34 @@ class FileScanner:
             # Close progress bar
             if progress_bar is not None:
                 progress_bar.close()
+
+        # Ensure any async processing has completed before we return.
+        if pending_futures:
+            try:
+                # Import lazily to avoid overhead in the common sequential case.
+                import concurrent.futures
+
+                concurrent.futures.wait(pending_futures)
+                # Surface unexpected exceptions as scan errors (best-effort).
+                for fut in pending_futures:
+                    try:
+                        fut.result()
+                    except Exception as e:
+                        full_path = future_to_path.get(fut, "<unknown>")
+                        error_msg = (
+                            f"Callback async error: {type(e).__name__}: {str(e)}"
+                        )
+                        self.config.logger.error(
+                            f"{error_msg}: {full_path}",
+                            exc_info=self.config.verbose,
+                        )
+                        if full_path != "<unknown>":
+                            self._add_error(error_msg, full_path)
+                        else:
+                            self._add_error(error_msg, "")
+            except Exception:
+                # If waiting itself fails, continue with scan result.
+                pass
 
         # Build and return result
         return ScanResult(

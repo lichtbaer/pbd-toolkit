@@ -63,6 +63,7 @@ All command-line arguments can be specified in the config file using their long 
 - `spacy_model`, `ollama_url`, `ollama_model`
 - `openai_api_base`, `openai_api_key`, `openai_model`
 - `outname`, `whitelist`, `stop_count`, `output_dir`, `format`
+- `mode`, `jobs`
 - `summary_format`, `no_header`, `verbose`, `quiet`
 
 See example files: `docs/CONFIG_FILE_EXAMPLE.yaml` and `docs/CONFIG_FILE_EXAMPLE.json`

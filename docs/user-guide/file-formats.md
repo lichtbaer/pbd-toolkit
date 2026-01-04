@@ -336,7 +336,7 @@ python main.py scan /data --regex --use-magic-detection
 
 **Performance**: Magic detection adds minimal overhead. It's only used when:
 - File has no extension, OR
-- `--magic-fallback` is enabled (checks all files)
+- `--magic-fallback` is enabled **and** the file extension is unsupported (helps with wrong/missing extensions without scanning every file)
 
 ### Processing Order
 

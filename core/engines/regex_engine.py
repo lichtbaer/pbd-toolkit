@@ -21,6 +21,8 @@ class RegexEngine:
     """
 
     name = "regex"
+    # Regex detection is thread-safe (pure computation on inputs + shared compiled pattern).
+    thread_safe = True
 
     def __init__(self, config: Config):
         """Initialize regex engine.

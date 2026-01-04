@@ -99,6 +99,28 @@ python main.py scan /data --openai-compatible \
 
 ## Optional Arguments
 
+### `--mode`
+
+Execution mode controlling the speed/stability trade-off (default: `balanced`).
+
+**Options:**
+- `safe`: Minimal resource usage (single worker). Recommended for model-heavy scans (GLiNER/LLM) on constrained machines.
+- `balanced`: Reasonable throughput with conservative engine locking (default).
+- `fast`: Higher parallelism for maximum throughput (best for many small files + regex-heavy workloads).
+
+```bash
+python main.py scan /data --regex --mode fast
+python main.py scan /data --ner --mode safe
+```
+
+### `--jobs`
+
+Number of parallel file workers. Overrides `--mode`.
+
+```bash
+python main.py scan /data --regex --jobs 8
+```
+
 ### `--outname`
 
 Custom string to include in output file names.
@@ -173,7 +195,7 @@ python main.py scan /data --regex --verbose
 
 Includes:
 - Detailed file processing information
-- Progress bar
+- Progress bar (exact total is only shown if progress estimation is enabled; see `PII_TOOLKIT_PROGRESS_ESTIMATE`)
 - Debug messages
 - Console output in addition to log file
 
@@ -263,6 +285,16 @@ Set interface language: `de` (German, default) or `en` (English).
 
 ```bash
 LANGUAGE=en python main.py scan /data --regex
+```
+
+### `PII_TOOLKIT_PROGRESS_ESTIMATE`
+
+Enable a pre-scan pass to estimate the total number of files for an exact progress bar total.
+
+**Note**: This may significantly increase runtime on large directory trees because it performs an additional directory walk.
+
+```bash
+PII_TOOLKIT_PROGRESS_ESTIMATE=1 python main.py scan /data --regex --verbose
 ```
 
 ## Examples

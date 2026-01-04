@@ -77,6 +77,18 @@ Get detailed logging and progress information:
 python main.py scan /data --regex --verbose
 ```
 
+### 8. Performance Modes
+
+Tune the speed/stability trade-off depending on your workload:
+
+```bash
+# Safe: minimal resources (recommended for model-heavy scans)
+python main.py scan /data --ner --mode safe
+
+# Fast: higher parallelism (recommended for regex-heavy scans on many small files)
+python main.py scan /data --regex --mode fast
+```
+
 ## Complete Example
 
 A comprehensive example with all options:

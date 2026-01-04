@@ -48,6 +48,9 @@ class ConfigLoader:
         "output_dir": "./output/",
         "format": "csv",
         "summary_format": "human",
+        # Performance / execution
+        "mode": "balanced",
+        "jobs": None,
         "no_header": False,
         "statistics_mode": False,
         "statistics_output": None,
@@ -149,6 +152,9 @@ class ConfigLoader:
             "verbose": "verbose",
             "quiet": "quiet",
             "summary_format": "summary_format",
+            # Performance / execution
+            "mode": "mode",
+            "jobs": "jobs",
             "statistics_mode": "statistics_mode",
             "statistics_output": "statistics_output",
         }
