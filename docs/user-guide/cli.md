@@ -156,6 +156,8 @@ Stop analysis after processing N files (useful for testing).
 python main.py scan /data --regex --stop-count 100
 ```
 
+**Note**: The count refers to files that are eligible for analysis (supported file types), not every file encountered on disk.
+
 ### `--output-dir`
 
 Directory for output files (default: `./output/`).

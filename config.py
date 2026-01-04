@@ -255,14 +255,43 @@ class Config:
         try:
             config_data = load_config_types()
             regex_entries = config_data.get("regex", [])
+            # Validate positional mapping contract: the combined regex is compiled as a
+            # sequence of capturing groups, and match group index (0-based) is used to
+            # map back to config entries. This only works reliably when the configured
+            # regex_compiled_pos values are unique and match the entry order.
+            if self.logger and regex_entries:
+                seen: set[int] = set()
+                invalid_pos = False
+                for i, entry in enumerate(regex_entries):
+                    pos = entry.get("regex_compiled_pos")
+                    if not isinstance(pos, int):
+                        invalid_pos = True
+                        continue
+                    if pos in seen:
+                        invalid_pos = True
+                    seen.add(pos)
+                    if pos != i:
+                        # This is a soft warning: the mapping logic in matches/engines
+                        # relies on pos==index today.
+                        self.logger.warning(
+                            "Regex config mapping may be inconsistent: "
+                            f"entry '{entry.get('label', '<unknown>')}' has regex_compiled_pos={pos} "
+                            f"but appears at index {i}."
+                        )
+                if invalid_pos:
+                    self.logger.warning(
+                        "Regex config contains invalid or duplicate 'regex_compiled_pos' values. "
+                        "Match type mapping may be incorrect."
+                    )
             regex_supported = [
                 r"{}".format(entry["expression"]) for entry in regex_entries
             ]
 
             if regex_supported:
                 rxstr_all = "(" + ")|(".join(regex_supported) + ")"
-                self.regex_pattern = re.compile(rxstr_all)
-        except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+                # Make regex detection robust to case variants by default.
+                self.regex_pattern = re.compile(rxstr_all, flags=re.IGNORECASE)
+        except (FileNotFoundError, json.JSONDecodeError, KeyError, re.error) as e:
             self.logger.warning(f"Failed to load regex pattern: {e}")
             self.regex_pattern = None
 

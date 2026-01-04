@@ -34,15 +34,27 @@ class EngineRegistry:
         Returns:
             Engine instance if found and available, None otherwise
         """
+        logger = getattr(config, "logger", None)
+        verbose = bool(getattr(config, "verbose", False))
+
         if name not in cls._engines:
+            if verbose and logger:
+                logger.debug(f"Engine '{name}' is not registered")
             return None
 
         try:
             engine = cls._engines[name](config)
             if engine.is_available():
                 return engine
+            if verbose and logger:
+                logger.debug(f"Engine '{name}' is registered but not available")
             return None
-        except Exception:
+        except Exception as e:
+            if verbose and logger:
+                logger.debug(
+                    f"Failed to initialize engine '{name}': {type(e).__name__}: {e}",
+                    exc_info=True,
+                )
             return None
 
     @classmethod
