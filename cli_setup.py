@@ -291,7 +291,9 @@ def __setup_args(translate_func: Callable[[str], str]) -> argparse.Namespace:
 
 
 def __setup_logger(
-    args: Optional[argparse.Namespace], outslug: str = ""
+    args: Optional[argparse.Namespace],
+    outslug: str = "",
+    output_dir: Optional[str] = None,
 ) -> logging.Logger:
     """Setup logging.
 
@@ -315,15 +317,18 @@ def __setup_logger(
         "%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
     )
 
-    # Use constants.OUTPUT_DIR which is set in setup() before this is called
-    # Ensure output directory ends with separator
-    output_dir = constants.OUTPUT_DIR
-    if not output_dir.endswith(os.sep):
-        output_dir += os.sep
+    # Resolve output directory (avoid mutating global constants).
+    resolved_output_dir = (
+        output_dir
+        or (getattr(args, "output_dir", None) if args else None)
+        or constants.OUTPUT_DIR
+    )
+    if not resolved_output_dir.endswith(os.sep):
+        resolved_output_dir += os.sep
 
     # File handler for log file
     file_handler = logging.FileHandler(
-        output_dir + outslug + "_log.txt", encoding="utf-8"
+        resolved_output_dir + outslug + "_log.txt", encoding="utf-8"
     )
     file_handler.setLevel(log_level)
     file_handler.setFormatter(formatter)
@@ -411,9 +416,6 @@ def setup() -> tuple[
     # Ensure output directory exists
     os.makedirs(output_dir, exist_ok=True)
 
-    # Update constants.OUTPUT_DIR for use in other modules
-    constants.OUTPUT_DIR = output_dir
-
     # Get output format from args
     output_format = args.format if args and hasattr(args, "format") else "csv"
 
@@ -428,7 +430,7 @@ def setup() -> tuple[
         output_format, output_file_path, include_header=include_header
     )
 
-    logger = __setup_logger(args, outslug=outslug)
+    logger = __setup_logger(args, outslug=outslug, output_dir=output_dir)
 
     return (args, logger, translate_func, output_writer, output_file_path)
 

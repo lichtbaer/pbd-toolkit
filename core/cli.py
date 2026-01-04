@@ -11,6 +11,7 @@ import cli_setup as setup
 import constants
 from config import Config
 from matches import PiiMatchContainer
+from core.doctor import run_doctor
 from core.exceptions import OutputError
 from core.scanner import FileScanner, FileInfo
 from core.processor import TextProcessor
@@ -27,6 +28,40 @@ app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
+
+
+def _get_cli_version() -> str:
+    """Best-effort version string for CLI output.
+
+    Prefers installed package metadata; falls back to constants.VERSION for
+    editable/dev runs where metadata may be unavailable.
+    """
+    try:
+        from importlib.metadata import version  # type: ignore
+
+        return version("pii-toolkit")
+    except Exception:
+        return getattr(constants, "VERSION", "unknown")
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"pii-toolkit {_get_cli_version()}")
+        raise typer.Exit()
+
+
+@app.callback()
+def _main(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        "-V",
+        help="Show version and exit",
+        callback=_version_callback,
+        is_eager=True,
+    ),
+) -> None:
+    """Global CLI options."""
 
 
 def _create_argparse_namespace_from_typer_args(**kwargs) -> object:
@@ -226,6 +261,11 @@ def scan(
         "--statistics-mode",
         help="Generate privacy-focused statistics output (aggregated by dimension and module, no PII data)",
     ),
+    statistics_strict: bool = typer.Option(
+        False,
+        "--statistics-strict",
+        help="Strict privacy statistics mode: do not keep file paths in memory (some file-unique metrics become null).",
+    ),
     statistics_output: Optional[str] = typer.Option(
         None,
         "--statistics-output",
@@ -295,6 +335,7 @@ def scan(
         "jobs": jobs,
         "no_header": no_header,
         "statistics_mode": statistics_mode,
+        "statistics_strict": statistics_strict,
         "statistics_output": statistics_output,
         "verbose": verbose,
         "quiet": quiet,
@@ -342,14 +383,11 @@ def scan(
     # Ensure output directory exists
     os.makedirs(output_dir, exist_ok=True)
 
-    # Update constants.OUTPUT_DIR for use in other modules
-    constants.OUTPUT_DIR = output_dir
-
     # Get output format from args
     output_format = args.format if hasattr(args, "format") else "csv"
 
     # Determine file extension and create output file path
-    extension_map = {"csv": ".csv", "json": ".json", "xlsx": ".xlsx"}
+    extension_map = {"csv": ".csv", "json": ".json", "jsonl": ".jsonl", "xlsx": ".xlsx"}
     extension = extension_map.get(output_format, ".csv")
     output_file_path = output_dir + outslug + "_findings" + extension
 
@@ -362,7 +400,7 @@ def scan(
     )
 
     # Setup logger
-    logger = setup.__setup_logger(args, outslug=outslug)
+    logger = setup.__setup_logger(args, outslug=outslug, output_dir=output_dir)
 
     # Get CSV writer and handle from output writer if CSV format
     csv_writer = None
@@ -431,6 +469,8 @@ def scan(
     pmc: PiiMatchContainer = PiiMatchContainer()
     pmc.set_csv_writer(csv_writer)
     pmc.set_output_format(args.format if hasattr(args, "format") else "csv")
+    # Enable streaming writes for writers that support it (e.g. csv/jsonl/xlsx).
+    pmc.set_output_writer(output_writer)
 
     statistics = Statistics()
     statistics.start()  # Start timing before processing
@@ -438,7 +478,9 @@ def scan(
     # Initialize statistics aggregator if statistics mode is enabled
     statistics_aggregator = None
     if hasattr(args, "statistics_mode") and args.statistics_mode:
-        statistics_aggregator = StatisticsAggregator()
+        statistics_aggregator = StatisticsAggregator(
+            strict=bool(getattr(args, "statistics_strict", False))
+        )
 
     # Create application context
     context = ApplicationContext.from_cli_args(
@@ -481,7 +523,7 @@ def scan(
 
     if context.config.verbose:
         context.logger.debug(f"Search path: {context.config.path}")
-        context.logger.debug(f"Output directory: {constants.OUTPUT_DIR}")
+        context.logger.debug(f"Output directory: {output_dir}")
         if context.config.whitelist_path:
             context.logger.debug(f"Whitelist file: {context.config.whitelist_path}")
             context.logger.debug(f"Whitelist entries: {len(pmc.whitelist)}")
@@ -789,6 +831,7 @@ def scan(
             "total_files_scanned": context.statistics.total_files_found,
             "total_files_analyzed": context.statistics.files_processed,
             "total_matches_found": context.statistics.matches_found,
+            "statistics_strict": bool(getattr(args, "statistics_strict", False)),
         }
 
         # Prepare performance metrics
@@ -870,8 +913,8 @@ def scan(
                     "throughput_files_per_sec": context.statistics.files_per_second,
                 },
                 "output_file": context.output_file_path
-                or (constants.OUTPUT_DIR + "_findings." + context.output_format),
-                "output_directory": constants.OUTPUT_DIR,
+                or output_file_path,
+                "output_directory": output_dir,
                 "errors_summary": (
                     {k: len(v) for k, v in errors.items()} if errors else {}
                 ),
@@ -918,14 +961,51 @@ def scan(
                 typer.echo()
 
             # Get output file name
-            output_file = context.output_file_path or (
-                constants.OUTPUT_DIR + "_findings." + context.output_format
-            )
+            output_file = context.output_file_path or output_file_path
 
             typer.echo(f"{context._('Output file:')} {output_file}")
-            typer.echo(f"{context._('Output directory:')} {constants.OUTPUT_DIR}")
+            typer.echo(f"{context._('Output directory:')} {output_dir}")
             typer.echo("=" * 50 + "\n")
 
+
+@app.command()
+def doctor(
+    json_output: bool = typer.Option(
+        False, "--json", help="Output the doctor report as JSON."
+    ),
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        help="Exit with non-zero status on warnings (not only errors).",
+    ),
+) -> None:
+    """Validate configuration and optional dependencies."""
+    report = run_doctor()
+    if json_output:
+        import json
+
+        typer.echo(
+            json.dumps(
+                {
+                    "ok": report.ok,
+                    "issues": [
+                        {"level": i.level, "message": i.message} for i in report.issues
+                    ],
+                    "details": report.details,
+                },
+                indent=2,
+            )
+        )
+    else:
+        status = "OK" if report.ok else "FAILED"
+        typer.echo(f"Doctor: {status}")
+        for issue in report.issues:
+            typer.echo(f"- {issue.level.upper()}: {issue.message}")
+
+    if not report.ok:
+        raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
+    if strict and any(i.level == "warning" for i in report.issues):
+        raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
 
 def cli() -> None:
     """Entry point for CLI - calls Typer app."""

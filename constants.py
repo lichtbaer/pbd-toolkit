@@ -1,5 +1,8 @@
 """Constants used throughout the application."""
 
+# Toolkit version (best-effort; CLI uses package metadata when installed).
+VERSION: str = "1.0.0"
+
 # Minimum text length for PDF processing (workaround for PDFs with messed-up text embeddings)
 MIN_PDF_TEXT_LENGTH: int = 10
 

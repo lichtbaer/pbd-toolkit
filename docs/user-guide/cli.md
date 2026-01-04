@@ -156,6 +156,8 @@ Stop analysis after processing N files (useful for testing).
 python main.py scan /data --regex --stop-count 100
 ```
 
+**Note**: The count refers to files that are eligible for analysis (supported file types), not every file encountered on disk.
+
 ### `--output-dir`
 
 Directory for output files (default: `./output/`).
@@ -183,6 +185,30 @@ Don't include header row in CSV output (for backward compatibility).
 
 ```bash
 python main.py scan /data --regex --no-header
+```
+
+### `--statistics-mode`
+
+Generate privacy-focused aggregated statistics output (JSON) **without writing PII instances**.
+
+```bash
+python main.py scan /data --regex --ner --statistics-mode
+```
+
+### `--statistics-strict`
+
+Strict privacy statistics mode: do not keep file paths in memory (some unique-file metrics become `null`).
+
+```bash
+python main.py scan /data --regex --ner --statistics-mode --statistics-strict
+```
+
+### `--statistics-output`
+
+Custom output path for the statistics JSON file.
+
+```bash
+python main.py scan /data --regex --statistics-mode --statistics-output ./stats.json
 ```
 
 ### `--verbose`, `-v`
@@ -215,7 +241,13 @@ python main.py scan /data --regex --quiet
 
 ### Version
 
-Version output is not currently exposed as a dedicated CLI flag. Use `python -m pip show pii-toolkit` (installed package) or `git describe --tags` (git checkout) if you need a version string.
+Show the installed package version:
+
+```bash
+pii-toolkit --version
+# or
+pii-toolkit -V
+```
 
 ### `--config`
 

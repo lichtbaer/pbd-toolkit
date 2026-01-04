@@ -173,8 +173,11 @@ class PrivacyStatisticsWriter(OutputWriter):
 
 ### 1. Data Minimization
 - **No PII Text**: Only counts are stored, never actual PII content
-- **No File Paths**: File paths are not included, only counts of affected files
+- **No File Paths**: File paths are not included in the output, only counts of affected files
 - **Aggregation Only**: All data is aggregated at dimension/module level
+
+#### Strict Mode (`--statistics-strict`)
+When `--statistics-strict` is enabled, the aggregator does not keep file paths in memory. As a result, unique-file metrics (e.g. number of unique files affected) are reported as `null` in the statistics output.
 
 ### 2. Anonymization
 - **No Identifiers**: No way to link statistics back to individuals

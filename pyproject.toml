@@ -1,0 +1,15 @@
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+exclude = [
+  ".git",
+  ".venv",
+  "output",
+  "htmlcov",
+  "site",
+  "locales",
+]
+
+[tool.ruff.lint]
+select = ["F"]
+

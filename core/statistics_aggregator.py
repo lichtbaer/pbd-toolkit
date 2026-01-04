@@ -6,7 +6,7 @@ without storing individual PII instances or file paths.
 
 import os
 from collections import defaultdict
-from typing import Dict, Set
+from typing import Dict, Set, Optional
 
 from matches import PiiMatch
 from core.privacy_dimensions import (
@@ -23,15 +23,23 @@ class StatisticsAggregator:
     storing individual PII text or file paths, ensuring privacy compliance.
     """
 
-    def __init__(self):
-        """Initialize the aggregator with empty statistics."""
+    def __init__(self, strict: bool = False):
+        """Initialize the aggregator with empty statistics.
+
+        Args:
+            strict: If True, do not store file paths in memory. In this mode,
+                    file-unique metrics (e.g. number of unique files with matches)
+                    are reported as null because computing them would require
+                    keeping identifiers per file.
+        """
+        self.strict = strict
         # Statistics by dimension
         self._by_dimension: Dict[str, Dict] = defaultdict(
             lambda: {
                 "total_count": 0,
                 "by_module": defaultdict(int),
                 "by_type": defaultdict(int),
-                "files_affected": set(),  # Use set to track unique files
+                "files_affected": set() if not self.strict else None,
                 "sensitivity_level": None,
             }
         )
@@ -41,8 +49,9 @@ class StatisticsAggregator:
             lambda: {
                 "total_matches": 0,
                 "types_detected": set(),
-                "files_processed": set(),
-                "files_with_matches": set(),
+                "files_processed": set() if not self.strict else None,
+                "files_processed_count": 0 if self.strict else None,
+                "files_with_matches": set() if not self.strict else None,
                 "confidence_scores": [],  # For calculating avg confidence
             }
         )
@@ -57,8 +66,8 @@ class StatisticsAggregator:
             }
         )
 
-        # Track all unique files with matches (for summary)
-        self._all_files_with_matches: Set[str] = set()
+        # Track all unique files with matches (for summary) unless strict mode is enabled
+        self._all_files_with_matches: Optional[Set[str]] = set() if not self.strict else None
 
         # Track all unique types detected
         self._all_types_detected: Set[str] = set()
@@ -88,7 +97,8 @@ class StatisticsAggregator:
         dim_stats["total_count"] += 1
         dim_stats["by_module"][engine] += 1
         dim_stats["by_type"][detection_type] += 1
-        dim_stats["files_affected"].add(file_path)
+        if not self.strict:
+            dim_stats["files_affected"].add(file_path)
         if dim_stats["sensitivity_level"] is None:
             dim_stats["sensitivity_level"] = get_sensitivity_level(dimension)
 
@@ -96,7 +106,8 @@ class StatisticsAggregator:
         module_stats = self._by_module[engine]
         module_stats["total_matches"] += 1
         module_stats["types_detected"].add(detection_type)
-        module_stats["files_with_matches"].add(file_path)
+        if not self.strict:
+            module_stats["files_with_matches"].add(file_path)
         if match.ner_score is not None:
             module_stats["confidence_scores"].append(match.ner_score)
 
@@ -109,7 +120,8 @@ class StatisticsAggregator:
             file_type_stats["dimensions_detected"].add(dimension)
 
         # Track globally
-        self._all_files_with_matches.add(file_path)
+        if self._all_files_with_matches is not None:
+            self._all_files_with_matches.add(file_path)
         self._all_types_detected.add(detection_type)
 
     def add_file_scanned(self, file_path: str, was_analyzed: bool = False) -> None:
@@ -134,7 +146,10 @@ class StatisticsAggregator:
             engine: Engine name that processed the file
         """
         if engine in self._by_module:
-            self._by_module[engine]["files_processed"].add(file_path)
+            if self.strict:
+                self._by_module[engine]["files_processed_count"] += 1
+            else:
+                self._by_module[engine]["files_processed"].add(file_path)
 
     def get_statistics(self) -> Dict:
         """Get aggregated statistics as dictionary.
@@ -148,6 +163,7 @@ class StatisticsAggregator:
             "statistics_by_module": {},
             "statistics_by_file_type": {},
             "summary": self._get_summary(),
+            "strict_mode": self.strict,
         }
 
         # Process dimension statistics
@@ -156,7 +172,9 @@ class StatisticsAggregator:
                 "total_count": dim_stats["total_count"],
                 "by_module": dict(dim_stats["by_module"]),
                 "by_type": dict(dim_stats["by_type"]),
-                "files_affected": len(dim_stats["files_affected"]),
+                "files_affected": (
+                    len(dim_stats["files_affected"]) if not self.strict else None
+                ),
                 "sensitivity_level": dim_stats["sensitivity_level"],
             }
 
@@ -175,8 +193,14 @@ class StatisticsAggregator:
             stats["statistics_by_module"][module] = {
                 "total_matches": module_stats["total_matches"],
                 "types_detected": len(module_stats["types_detected"]),
-                "files_processed": len(module_stats["files_processed"]),
-                "files_with_matches": len(module_stats["files_with_matches"]),
+                "files_processed": (
+                    len(module_stats["files_processed"])
+                    if not self.strict
+                    else module_stats["files_processed_count"]
+                ),
+                "files_with_matches": (
+                    len(module_stats["files_with_matches"]) if not self.strict else None
+                ),
             }
 
             if avg_confidence is not None:
@@ -246,7 +270,11 @@ class StatisticsAggregator:
 
         return {
             "total_matches": total_matches,
-            "unique_files_with_matches": len(self._all_files_with_matches),
+            "unique_files_with_matches": (
+                len(self._all_files_with_matches)
+                if self._all_files_with_matches is not None
+                else None
+            ),
             "dimensions_detected": len(self._by_dimension),
             "modules_used": len(self._by_module),
             "highest_risk_dimension": highest_risk_dimension,

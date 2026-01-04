@@ -1,5 +1,4 @@
 import csv
-import json
 import re
 import threading
 from dataclasses import dataclass, field
@@ -66,6 +65,8 @@ class PiiMatchContainer:
     _csv_writer: Optional[csv.writer] = field(default=None, init=False, repr=False)
     # Output format (csv, json, xlsx)
     _output_format: str = field(default="csv", init=False, repr=False)
+    # Optional output writer for streaming formats (duck-typed: must implement write_match()).
+    _output_writer: Optional[object] = field(default=None, init=False, repr=False)
     # Internal lock for thread-safe match aggregation / streaming writes
     _lock: threading.Lock = field(
         default_factory=threading.Lock, init=False, repr=False
@@ -88,6 +89,16 @@ class PiiMatchContainer:
         """
         with self._lock:
             self._output_format = output_format
+
+    def set_output_writer(self, output_writer: Optional[object]) -> None:
+        """Set an output writer for streaming formats.
+
+        This is intentionally duck-typed to avoid import cycles:
+        `core.writers` imports `matches.PiiMatch`, so `matches` must not import
+        `core.writers.OutputWriter`.
+        """
+        with self._lock:
+            self._output_writer = output_writer
 
     def by_file(self) -> dict[str, list[PiiMatch]]:
         """Group PII matches by file path.
@@ -168,6 +179,15 @@ class PiiMatchContainer:
                         writerow.__func__(row)  # type: ignore[attr-defined]
                     else:
                         raise
+
+            # Stream to output writer for non-CSV formats that support streaming.
+            # CSV is handled above to keep backward-compatible behavior stable.
+            if self._output_format != "csv" and self._output_writer is not None:
+                supports_streaming = getattr(self._output_writer, "supports_streaming", False)
+                if supports_streaming:
+                    write_match = getattr(self._output_writer, "write_match", None)
+                    if callable(write_match):
+                        write_match(pm)
 
     """ Helper function for adding regex-based matches to the matches container. """
 

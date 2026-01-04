@@ -85,6 +85,8 @@ class FileScanner:
             ScanResult with statistics and errors
         """
         total_files_found = 0
+        # "Processed" counts only files that are eligible for processing, i.e.
+        # supported by a registered file processor (extension/mime-type based).
         files_processed = 0
         pending_futures = []
         future_to_path: dict[object, str] = {}
@@ -107,16 +109,15 @@ class FileScanner:
             except Exception as e:
                 self.config.logger.warning(f"Failed to count files: {e}")
 
-        # Initialize progress bar
-        # Note: tqdm telemetry is disabled by default in recent versions
-        # For additional privacy, set TQDM_DISABLE_TELEMETRY=1 environment variable
+        # Initialize progress bar (verbose-only).
+        # Note: tqdm telemetry is disabled by default in recent versions.
+        # For additional privacy, set TQDM_DISABLE_TELEMETRY=1 environment variable.
         progress_bar = None
-        if self.config.verbose or not stop_count:
+        if self.config.verbose:
             progress_bar = tqdm(
                 total=total_files_estimate if total_files_estimate else None,
                 desc="Processing files",
                 unit="file",
-                disable=not self.config.verbose and stop_count is not None,
             )
 
         try:
@@ -189,6 +190,16 @@ class FileScanner:
                                             f"Inferred extension from MIME type: {ext}"
                                         )
 
+                    # Determine whether the file is eligible (supported) before invoking callback.
+                    # This keeps "files_processed" aligned with "qualified/analyzed" semantics.
+                    mime_type_str = mime_type or ""
+                    processor = FileProcessorRegistry.get_processor(
+                        ext, full_path, mime_type_str
+                    )
+                    if processor is None:
+                        # Unsupported file type: skip processing (but keep extension counts).
+                        continue
+
                     # Log file processing in verbose mode
                     if self.config.verbose:
                         if file_size_mb is not None:
@@ -205,7 +216,7 @@ class FileScanner:
                         path=full_path,
                         extension=ext,
                         size_mb=file_size_mb,
-                        mime_type=mime_type,
+                        mime_type=mime_type_str or None,
                     )
 
                     if file_callback:
@@ -239,11 +250,11 @@ class FileScanner:
                         )
 
                     # Check stop count
-                    if stop_count and total_files_found >= stop_count:
+                    if stop_count and files_processed >= stop_count:
                         break
 
                 # Check stop count (break outer loop)
-                if stop_count and total_files_found >= stop_count:
+                if stop_count and files_processed >= stop_count:
                     break
 
         finally:
