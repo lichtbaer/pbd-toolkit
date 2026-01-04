@@ -14,6 +14,8 @@ class SpacyNEREngine:
     """
 
     name = "spacy-ner"
+    # spaCy models are not reliably thread-safe; prefer serialized access (or nlp.pipe with n_process).
+    thread_safe = False
 
     def __init__(self, config: Config):
         """Initialize spaCy NER engine.

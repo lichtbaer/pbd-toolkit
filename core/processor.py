@@ -1,5 +1,6 @@
 """Text and file processing for PII detection."""
 
+from contextlib import nullcontext
 import threading
 import time
 import re
@@ -80,8 +81,13 @@ class TextProcessor:
                         f"Engine '{engine_name}' loaded and enabled"
                     )
 
-        # Separate locks for each engine (some may not be thread-safe)
-        self._engine_locks = {engine.name: threading.Lock() for engine in self.engines}
+        # Locks only for engines that are not thread-safe. Thread-safe engines
+        # (e.g., regex) should run concurrently across file workers.
+        self._engine_locks = {
+            engine.name: threading.Lock()
+            for engine in self.engines
+            if not getattr(engine, "thread_safe", False)
+        }
 
     def _ensure_engines_current(self) -> None:
         """Refresh engines if config flags have changed since initialization.
@@ -151,10 +157,10 @@ class TextProcessor:
         for engine in self.engines:
             start_time = time.time()
             try:
-                # Get appropriate lock for this engine
-                engine_lock = self._engine_locks.get(engine.name, self._process_lock)
+                engine_lock = self._engine_locks.get(engine.name)
+                lock_ctx = engine_lock if engine_lock is not None else nullcontext()
 
-                with engine_lock:
+                with lock_ctx:
                     results = engine.detect(text, self.config.ner_labels)
 
                 processing_time = time.time() - start_time

@@ -57,6 +57,8 @@ class PydanticAIEngine:
     """
 
     name = "pydantic-ai"
+    # LLM calls may be rate-limited and often rely on shared client/env state; keep serialized by default.
+    thread_safe = False
 
     def __init__(self, config: Config):
         """Initialize PydanticAI engine.

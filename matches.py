@@ -1,6 +1,7 @@
 import csv
 import json
 import re
+import threading
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -65,6 +66,10 @@ class PiiMatchContainer:
     _csv_writer: Optional[csv.writer] = field(default=None, init=False, repr=False)
     # Output format (csv, json, xlsx)
     _output_format: str = field(default="csv", init=False, repr=False)
+    # Internal lock for thread-safe match aggregation / streaming writes
+    _lock: threading.Lock = field(
+        default_factory=threading.Lock, init=False, repr=False
+    )
 
     def set_csv_writer(self, csv_writer: Optional[csv.writer]) -> None:
         """Set the CSV writer for output.
@@ -72,7 +77,8 @@ class PiiMatchContainer:
         Args:
             csv_writer: CSV writer instance
         """
-        self._csv_writer = csv_writer
+        with self._lock:
+            self._csv_writer = csv_writer
 
     def set_output_format(self, output_format: str) -> None:
         """Set the output format.
@@ -80,7 +86,8 @@ class PiiMatchContainer:
         Args:
             output_format: Output format (csv, json, xlsx)
         """
-        self._output_format = output_format
+        with self._lock:
+            self._output_format = output_format
 
     def by_file(self) -> dict[str, list[PiiMatch]]:
         """Group PII matches by file path.
@@ -88,22 +95,22 @@ class PiiMatchContainer:
         Returns:
             Dictionary mapping file paths to lists of PiiMatch objects found in each file.
         """
-        results: dict[str, list[PiiMatch]] = {}
-
-        for pm in self.pii_matches:
-            if pm.file not in results:
-                results[pm.file] = []
-            results[pm.file].append(pm)
-
-        return results
+        with self._lock:
+            results: dict[str, list[PiiMatch]] = {}
+            for pm in self.pii_matches:
+                if pm.file not in results:
+                    results[pm.file] = []
+                results[pm.file].append(pm)
+            return results
 
     def _compile_whitelist_pattern(self) -> None:
         """Compile whitelist entries into a regex pattern for efficient matching."""
-        if self.whitelist and self._whitelist_pattern is None:
-            # Escape special regex characters and create pattern
-            escaped_patterns = [re.escape(word) for word in self.whitelist if word]
-            if escaped_patterns:
-                self._whitelist_pattern = re.compile("|".join(escaped_patterns))
+        with self._lock:
+            if self.whitelist and self._whitelist_pattern is None:
+                # Escape special regex characters and create pattern
+                escaped_patterns = [re.escape(word) for word in self.whitelist if word]
+                if escaped_patterns:
+                    self._whitelist_pattern = re.compile("|".join(escaped_patterns))
 
     """ Helper function for adding matches to the matches container. This generic, internal method is
         called by the other methods intended for public use, its aim is to reduce redundancy. """
@@ -117,16 +124,24 @@ class PiiMatchContainer:
         engine: str | None = None,
         metadata: dict | None = None,
     ) -> None:
-        whitelisted: bool = False
+        with self._lock:
+            whitelisted: bool = False
 
-        # Use compiled regex pattern for efficient whitelist checking
-        if self.whitelist:
-            if self._whitelist_pattern is None:
-                self._compile_whitelist_pattern()
-            if self._whitelist_pattern and self._whitelist_pattern.search(text):
-                whitelisted = True
+            # Use compiled regex pattern for efficient whitelist checking
+            if self.whitelist:
+                if self._whitelist_pattern is None:
+                    # Inline compile while holding lock (avoid races)
+                    escaped_patterns = [
+                        re.escape(word) for word in self.whitelist if word
+                    ]
+                    if escaped_patterns:
+                        self._whitelist_pattern = re.compile("|".join(escaped_patterns))
+                if self._whitelist_pattern and self._whitelist_pattern.search(text):
+                    whitelisted = True
 
-        if not whitelisted:
+            if whitelisted:
+                return
+
             pm: PiiMatch = PiiMatch(
                 text=text,
                 file=file,
@@ -136,6 +151,7 @@ class PiiMatchContainer:
                 metadata=metadata or {},
             )
             self.pii_matches.append(pm)
+
             # Only write directly for CSV format
             if self._output_format == "csv" and self._csv_writer:
                 # Keep CSV row shape stable: Match, File, Type, Score, Engine

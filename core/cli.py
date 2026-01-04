@@ -205,6 +205,17 @@ def scan(
         help="Format for summary output (default: human). Use 'json' for machine-readable output.",
         case_sensitive=False,
     ),
+    mode: str = typer.Option(
+        "balanced",
+        "--mode",
+        help="Execution mode: safe (low resource), balanced (default), fast (max throughput)",
+        case_sensitive=False,
+    ),
+    jobs: Optional[int] = typer.Option(
+        None,
+        "--jobs",
+        help="Number of parallel file workers (overrides --mode).",
+    ),
     no_header: bool = typer.Option(
         False,
         "--no-header",
@@ -280,6 +291,8 @@ def scan(
         "output_dir": output_dir,
         "format": format,
         "summary_format": summary_format,
+        "mode": mode,
+        "jobs": jobs,
         "no_header": no_header,
         "statistics_mode": statistics_mode,
         "statistics_output": statistics_output,
@@ -501,28 +514,67 @@ def scan(
     scanner = FileScanner(context.config)
 
     # Define callback function for processing each file
-    def process_file(file_info: FileInfo) -> None:
+    mode_lower = (getattr(args, "mode", "balanced") or "balanced").lower()
+    cpu_count = os.cpu_count() or 4
+    if getattr(args, "jobs", None):
+        worker_count = max(1, int(args.jobs))
+    else:
+        if mode_lower == "safe":
+            worker_count = 1
+        elif mode_lower == "fast":
+            worker_count = min(32, max(2, cpu_count * 4))
+        else:
+            worker_count = max(1, cpu_count)
+
+    # Keep aggregator thread-safe if used from workers
+    _stats_lock = threading.Lock()
+
+    def _process_file_impl(file_info: FileInfo) -> None:
         """Process a single file: extract text and detect PII."""
         text_processor.process_file(file_info, error_callback=add_error)
         # Track file for statistics aggregator
         if statistics_aggregator:
-            statistics_aggregator.add_file_scanned(file_info.path, was_analyzed=True)
-            # Track which engines processed this file
-            if context.config.use_regex:
-                statistics_aggregator.add_file_processed(file_info.path, "regex")
-            if context.config.use_ner:
-                statistics_aggregator.add_file_processed(file_info.path, "gliner")
-            if getattr(context.config, "use_spacy_ner", False):
-                statistics_aggregator.add_file_processed(file_info.path, "spacy-ner")
-            if getattr(context.config, "use_pydantic_ai", False):
-                statistics_aggregator.add_file_processed(file_info.path, "pydantic-ai")
+            with _stats_lock:
+                statistics_aggregator.add_file_scanned(
+                    file_info.path, was_analyzed=True
+                )
+                # Track which engines processed this file
+                if context.config.use_regex:
+                    statistics_aggregator.add_file_processed(file_info.path, "regex")
+                if context.config.use_ner:
+                    statistics_aggregator.add_file_processed(file_info.path, "gliner")
+                if getattr(context.config, "use_spacy_ner", False):
+                    statistics_aggregator.add_file_processed(file_info.path, "spacy-ner")
+                if getattr(context.config, "use_pydantic_ai", False):
+                    statistics_aggregator.add_file_processed(
+                        file_info.path, "pydantic-ai"
+                    )
+
+    if worker_count <= 1:
+        def process_file(file_info: FileInfo) -> None:
+            _process_file_impl(file_info)
+    else:
+        import concurrent.futures
+
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=worker_count)
+
+        def process_file(file_info: FileInfo):
+            return executor.submit(_process_file_impl, file_info)
 
     # Scan directory and process files
-    scan_result = scanner.scan(
-        path=context.config.path,
-        file_callback=process_file,
-        stop_count=context.config.stop_count,
-    )
+    try:
+        scan_result = scanner.scan(
+            path=context.config.path,
+            file_callback=process_file,
+            stop_count=context.config.stop_count,
+        )
+    finally:
+        # Ensure worker threads are cleaned up even if scanning fails.
+        if worker_count > 1:
+            try:
+                executor.shutdown(wait=True)
+            except Exception:
+                pass
 
     # Update statistics from scan result
     context.statistics.update_from_scan_result(
