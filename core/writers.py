@@ -107,24 +107,55 @@ class JsonWriter(OutputWriter):
         return False
 
 
-class XlsxWriter(OutputWriter):
-    """Writes findings to an Excel file."""
+class JsonlWriter(OutputWriter):
+    """Writes findings to a JSON Lines (JSONL) file.
+
+    Each match is written as one JSON object per line for streaming and easy
+    incremental processing. Metadata is appended as a final line with the key
+    "_metadata".
+    """
 
     def __init__(self, file_path: str, include_header: bool = True):
         super().__init__(file_path, include_header)
-        self.matches: list[dict] = []
+        try:
+            self._file = open(file_path, "w", encoding="utf-8")
+        except IOError as e:
+            raise OutputError(f"Failed to open output file: {e}")
 
     def write_match(self, match: PiiMatch) -> None:
-        match_dict = {
+        payload = {
             "text": match.text,
             "file": match.file,
             "type": match.type,
             "score": match.ner_score,
             "engine": match.engine,
+            "metadata": match.metadata,
         }
-        self.matches.append(match_dict)
+        self._file.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
     def finalize(self, metadata: Optional[dict] = None) -> None:
+        if metadata:
+            self._file.write(
+                json.dumps({"_metadata": metadata}, ensure_ascii=False) + "\n"
+            )
+        if self._file:
+            self._file.close()
+            self._file = None
+
+    @property
+    def supports_streaming(self) -> bool:
+        return True
+
+    @property
+    def file_handle(self) -> TextIO:
+        return self._file
+
+
+class XlsxWriter(OutputWriter):
+    """Writes findings to an Excel file (streaming, write-only workbook)."""
+
+    def __init__(self, file_path: str, include_header: bool = True):
+        super().__init__(file_path, include_header)
         try:
             import openpyxl
         except ImportError:
@@ -132,19 +163,20 @@ class XlsxWriter(OutputWriter):
                 "openpyxl is required for XLSX output but is not installed."
             )
 
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Findings"
-
+        # Use write_only mode to avoid holding all rows in memory.
+        self._openpyxl = openpyxl
+        self._wb = openpyxl.Workbook(write_only=True)
+        self._ws = self._wb.create_sheet("Findings")
         if self.include_header:
-            ws.append(["Match", "File", "Type", "Score", "Engine"])
+            self._ws.append(["Match", "File", "Type", "Score", "Engine"])
 
-        for m in self.matches:
-            ws.append([m["text"], m["file"], m["type"], m["score"], m["engine"]])
+    def write_match(self, match: PiiMatch) -> None:
+        self._ws.append([match.text, match.file, match.type, match.ner_score, match.engine])
 
+    def finalize(self, metadata: Optional[dict] = None) -> None:
         # Add metadata sheet
         if metadata:
-            ws_meta = wb.create_sheet("Metadata")
+            ws_meta = self._wb.create_sheet("Metadata")
             ws_meta.append(["Key", "Value"])
             # Flatten metadata if needed or just dump top level
             for k, v in metadata.items():
@@ -153,13 +185,13 @@ class XlsxWriter(OutputWriter):
                 ws_meta.append([k, v])
 
         try:
-            wb.save(self.file_path)
+            self._wb.save(self.file_path)
         except IOError as e:
             raise OutputError(f"Failed to save Excel file: {e}")
 
     @property
     def supports_streaming(self) -> bool:
-        return False
+        return True
 
 
 class PrivacyStatisticsWriter(OutputWriter):
@@ -228,6 +260,8 @@ def create_output_writer(
     """Factory function to create the appropriate output writer."""
     if output_format == "json":
         return JsonWriter(file_path, include_header)
+    elif output_format == "jsonl":
+        return JsonlWriter(file_path, include_header)
     elif output_format == "xlsx":
         return XlsxWriter(file_path, include_header)
     elif output_format == "statistics":

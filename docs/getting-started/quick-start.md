@@ -109,7 +109,7 @@ python main.py \
 
 After running the tool, you'll find:
 
-1. **Findings File**: `[timestamp]_findings.[csv|json|xlsx]`
+1. **Findings File**: `[timestamp]_findings.[csv|json|jsonl|xlsx]`
    - Contains all detected PII matches
    - Includes file path, match type, and confidence scores
 

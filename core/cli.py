@@ -11,6 +11,7 @@ import cli_setup as setup
 import constants
 from config import Config
 from matches import PiiMatchContainer
+from core.doctor import run_doctor
 from core.exceptions import OutputError
 from core.scanner import FileScanner, FileInfo
 from core.processor import TextProcessor
@@ -386,7 +387,7 @@ def scan(
     output_format = args.format if hasattr(args, "format") else "csv"
 
     # Determine file extension and create output file path
-    extension_map = {"csv": ".csv", "json": ".json", "xlsx": ".xlsx"}
+    extension_map = {"csv": ".csv", "json": ".json", "jsonl": ".jsonl", "xlsx": ".xlsx"}
     extension = extension_map.get(output_format, ".csv")
     output_file_path = output_dir + outslug + "_findings" + extension
 
@@ -468,6 +469,8 @@ def scan(
     pmc: PiiMatchContainer = PiiMatchContainer()
     pmc.set_csv_writer(csv_writer)
     pmc.set_output_format(args.format if hasattr(args, "format") else "csv")
+    # Enable streaming writes for writers that support it (e.g. csv/jsonl/xlsx).
+    pmc.set_output_writer(output_writer)
 
     statistics = Statistics()
     statistics.start()  # Start timing before processing
@@ -964,6 +967,45 @@ def scan(
             typer.echo(f"{context._('Output directory:')} {output_dir}")
             typer.echo("=" * 50 + "\n")
 
+
+@app.command()
+def doctor(
+    json_output: bool = typer.Option(
+        False, "--json", help="Output the doctor report as JSON."
+    ),
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        help="Exit with non-zero status on warnings (not only errors).",
+    ),
+) -> None:
+    """Validate configuration and optional dependencies."""
+    report = run_doctor()
+    if json_output:
+        import json
+
+        typer.echo(
+            json.dumps(
+                {
+                    "ok": report.ok,
+                    "issues": [
+                        {"level": i.level, "message": i.message} for i in report.issues
+                    ],
+                    "details": report.details,
+                },
+                indent=2,
+            )
+        )
+    else:
+        status = "OK" if report.ok else "FAILED"
+        typer.echo(f"Doctor: {status}")
+        for issue in report.issues:
+            typer.echo(f"- {issue.level.upper()}: {issue.message}")
+
+    if not report.ok:
+        raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
+    if strict and any(i.level == "warning" for i in report.issues):
+        raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
 
 def cli() -> None:
     """Entry point for CLI - calls Typer app."""

@@ -2,9 +2,10 @@
 
 ## Overview
 
-The PII Toolkit now supports three output formats for findings:
+The PII Toolkit supports these output formats for findings:
 - **CSV** (default) - Comma-separated values
 - **JSON** - Structured JSON format with metadata
+- **JSONL** - JSON Lines format (streaming; one match per line)
 - **XLSX** - Excel spreadsheet format
 
 ## Usage
@@ -145,16 +146,17 @@ python main.py scan /data --regex --format xlsx
 
 ## Format Comparison
 
-| Feature | CSV | JSON | XLSX |
-|---------|-----|------|------|
-| Human-readable | ✅ | ⚠️ | ✅ |
-| Machine-readable | ⚠️ | ✅ | ⚠️ |
-| Metadata included | ❌ | ✅ | ✅ (separate sheet) |
-| Statistics included | ❌ | ✅ (inside metadata) | ✅ (inside metadata sheet) |
-| Error information | ❌ | ✅ (inside metadata) | ✅ (inside metadata sheet) |
-| Styled formatting | ❌ | ❌ | ❌ |
-| File size | Small | Medium | Medium |
-| Processing speed | Fast | Fast | Medium |
+| Feature | CSV | JSON | JSONL | XLSX |
+|---------|-----|------|------|------|
+| Human-readable | ✅ | ⚠️ | ⚠️ | ✅ |
+| Machine-readable | ⚠️ | ✅ | ✅ | ⚠️ |
+| Metadata included | ❌ | ✅ | ✅ (final line: `_metadata`) | ✅ (separate sheet) |
+| Statistics included | ❌ | ✅ (inside metadata) | ✅ (inside `_metadata`) | ✅ (inside metadata sheet) |
+| Error information | ❌ | ✅ (inside metadata) | ✅ (inside `_metadata`) | ✅ (inside metadata sheet) |
+| Streaming writes | ✅ | ❌ | ✅ | ✅ (write-only workbook; saved at end) |
+| Styled formatting | ❌ | ❌ | ❌ | ❌ |
+| File size | Small | Medium | Medium | Medium |
+| Processing speed | Fast | Fast | Fast | Medium |
 
 ## Examples
 
@@ -166,6 +168,9 @@ python main.py scan /data --regex
 
 # JSON
 python main.py scan /data --regex --format json
+
+# JSONL (streaming)
+python main.py scan /data --regex --format jsonl
 
 # Excel
 python main.py scan /data --regex --format xlsx
@@ -212,9 +217,14 @@ python main.py \
 - Includes metadata (including statistics and errors) inside the `metadata` object
 - Pretty-printed with 2-space indentation
 
+### JSONL Format
+- Written incrementally during processing
+- One JSON object per line (each line is a finding)
+- A final line is appended containing `{"_metadata": {...}}`
+
 ### Excel Format
-- Matches collected in memory during processing
-- Excel file created at end with all matches
+- Written incrementally during processing (write-only workbook)
+- Excel file is saved at end
 - Optional second "Metadata" sheet is written if metadata is present
 
 ## Backward Compatibility
@@ -240,6 +250,7 @@ pip install openpyxl
 
 - **CSV**: Fastest, writes incrementally, low memory usage
 - **JSON**: Fast, writes at end, moderate memory usage (all matches in memory)
-- **XLSX**: Slower, writes at end, moderate memory usage (all matches in memory)
+- **JSONL**: Fast, writes incrementally, low memory usage
+- **XLSX**: Slower, write-only workbook, low memory usage
 
 For very large result sets (>100k matches), CSV format is recommended for best performance.
