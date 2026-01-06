@@ -137,6 +137,16 @@ def run_doctor() -> DoctorReport:
     _check_import("pydantic_ai", "PydanticAI LLM (--pydantic-ai / LLM features)")
     _check_import("requests", "multimodal/OpenAI-compatible LLM features")
 
+    # Multimodal (OpenAI-compatible) local UX hint (best-effort, no network calls).
+    issues.append(
+        DoctorIssue(
+            "info",
+            "For local image detection use an OpenAI-compatible server (vLLM/LocalAI) "
+            "and set --multimodal-api-base like http://localhost:8000/v1 (vLLM) or "
+            "http://localhost:8080/v1 (LocalAI).",
+        )
+    )
+
     # Check whether repo root and packaged config are in sync (developer hygiene)
     try:
         repo_root = Path(__file__).resolve().parent.parent

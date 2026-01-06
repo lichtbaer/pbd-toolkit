@@ -81,6 +81,18 @@ class PydanticAIEngine:
         self.base_url = self._get_base_url()
         self.timeout = self._get_timeout()
 
+        # Multimodal (image) settings are intentionally separated from the text provider.
+        # This enables common local setups like:
+        # - text: Ollama (provider=ollama)
+        # - images: vLLM/LocalAI (OpenAI-compatible)
+        self.multimodal_enabled = bool(getattr(config, "use_multimodal", False))
+        self.multimodal_model = getattr(
+            config, "multimodal_model", "gpt-4-vision-preview"
+        )
+        self.multimodal_base_url = self._get_multimodal_base_url()
+        self.multimodal_api_key = self._get_multimodal_api_key()
+        self.multimodal_timeout = int(getattr(config, "multimodal_timeout", 60))
+
         # Initialize agent
         self._agent: Optional[Agent] = None
         self._available = None  # Cache availability check
@@ -174,6 +186,41 @@ class PydanticAIEngine:
         elif self.provider == "ollama":
             return getattr(self.config, "ollama_timeout", 30)
         return getattr(self.config, "openai_timeout", 30)
+
+    def _get_multimodal_api_key(self) -> Optional[str]:
+        """Resolve API key for multimodal OpenAI-compatible endpoints.
+
+        Local endpoints like vLLM / LocalAI often do not require an API key.
+        """
+        return (
+            getattr(self.config, "multimodal_api_key", None)
+            or getattr(self.config, "openai_api_key", None)
+            or getattr(self.config, "pydantic_ai_api_key", None)
+            or os.getenv("OPENAI_API_KEY")
+        )
+
+    def _get_multimodal_base_url(self) -> str:
+        """Resolve base URL for multimodal OpenAI-compatible endpoints.
+
+        Preference order:
+        - explicit --multimodal-api-base
+        - OpenAI-compatible base (for vLLM/LocalAI): --openai-api-base
+        - PydanticAI base URL (when provider uses OpenAI-compatible endpoints)
+        - OpenAI default
+        """
+        base = getattr(self.config, "multimodal_api_base", None)
+        if base:
+            return str(base)
+
+        base = getattr(self.config, "openai_api_base", None)
+        if base:
+            return str(base)
+
+        base = getattr(self.config, "pydantic_ai_base_url", None)
+        if base:
+            return str(base)
+
+        return "https://api.openai.com/v1"
 
     def _get_agent(self) -> Agent:
         """Get or create PydanticAI agent.
@@ -331,12 +378,7 @@ class PydanticAIEngine:
             self.config.logger.warning(f"Image file not found: {image_path}")
             return []
 
-        # Ollama doesn't (currently) support vision via this toolkit.
-        if self.provider == "ollama":
-            self.config.logger.warning(
-                "Multimodal image detection is not supported with provider 'ollama'. "
-                "Use an OpenAI-compatible provider (OpenAI, vLLM, LocalAI) with a vision-capable model."
-            )
+        if not self.multimodal_enabled:
             return []
 
         # Read and encode image
@@ -375,6 +417,10 @@ class PydanticAIEngine:
                     system_prompt=system_prompt,
                     user_prompt=prompt,
                     image_data_url=image_data_url,
+                    base_url=self.multimodal_base_url,
+                    api_key=self.multimodal_api_key,
+                    model=self.multimodal_model,
+                    timeout=self.multimodal_timeout,
                     use_response_format=True,
                 )
             except Exception:
@@ -384,6 +430,10 @@ class PydanticAIEngine:
                     system_prompt=system_prompt,
                     user_prompt=prompt,
                     image_data_url=image_data_url,
+                    base_url=self.multimodal_base_url,
+                    api_key=self.multimodal_api_key,
+                    model=self.multimodal_model,
+                    timeout=self.multimodal_timeout,
                     use_response_format=False,
                 )
 
@@ -398,6 +448,10 @@ class PydanticAIEngine:
                     system_prompt=system_prompt,
                     user_prompt=prompt,
                     image_data_url=image_data_url,
+                    base_url=self.multimodal_base_url,
+                    api_key=self.multimodal_api_key,
+                    model=self.multimodal_model,
+                    timeout=self.multimodal_timeout,
                     use_response_format=False,
                 )
                 parsed = self._parse_openai_response_as_pii_detection(response_data)
@@ -418,6 +472,10 @@ class PydanticAIEngine:
         system_prompt: str,
         user_prompt: str,
         image_data_url: str,
+        base_url: str,
+        api_key: Optional[str],
+        model: str,
+        timeout: int,
         use_response_format: bool,
     ) -> dict[str, Any]:
         """Call an OpenAI-compatible /chat/completions endpoint with an image."""
@@ -426,15 +484,15 @@ class PydanticAIEngine:
         except ImportError as e:  # pragma: no cover
             raise RuntimeError("requests is required for multimodal detection") from e
 
-        base_url = (self.base_url or "https://api.openai.com/v1").rstrip("/")
+        base_url = (base_url or "https://api.openai.com/v1").rstrip("/")
         url = f"{base_url}/chat/completions"
 
         headers = {"Content-Type": "application/json"}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
 
         payload = {
-            "model": self.model,
+            "model": model,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {
@@ -454,9 +512,7 @@ class PydanticAIEngine:
             payload["response_format"] = self._build_response_format()
 
         try:
-            resp = requests.post(
-                url, headers=headers, json=payload, timeout=self.timeout
-            )
+            resp = requests.post(url, headers=headers, json=payload, timeout=timeout)
             resp.raise_for_status()
             return resp.json()
         except Exception as e:
@@ -661,9 +717,13 @@ Extract all PII entities and return them in the structured format."""
         """
         results = []
         for entity in response.entities:
+            # For image detection, we always use an OpenAI-compatible endpoint
+            # (vLLM/LocalAI/OpenAI), even when text detection uses Ollama.
             metadata = {"provider": self.provider, "model": self.model}
             if image_path:
                 metadata["image_path"] = image_path
+                metadata["multimodal_base_url"] = self.multimodal_base_url
+                metadata["multimodal_model"] = self.multimodal_model
                 if entity.location:
                     metadata["location"] = entity.location
 
