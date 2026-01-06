@@ -37,7 +37,8 @@ def run_doctor() -> DoctorReport:
         cfg = load_config_types()
     except Exception as e:
         return DoctorReport(
-            ok=False, issues=[DoctorIssue("error", f"Failed to load config_types.json: {e}")]
+            ok=False,
+            issues=[DoctorIssue("error", f"Failed to load config_types.json: {e}")],
         )
 
     # Basic schema-ish checks
@@ -51,7 +52,9 @@ def run_doctor() -> DoctorReport:
         issues.append(DoctorIssue("error", "config['ai-ner'] must be a list"))
 
     # Validate regex entries + mapping contract + compile test
-    regex_entries = cfg.get("regex", []) if isinstance(cfg.get("regex", None), list) else []
+    regex_entries = (
+        cfg.get("regex", []) if isinstance(cfg.get("regex", None), list) else []
+    )
     seen_pos: set[int] = set()
     mapping_mismatch = 0
     compile_errors = 0
@@ -69,20 +72,33 @@ def run_doctor() -> DoctorReport:
         if not isinstance(label, str) or not label:
             issues.append(DoctorIssue("error", f"regex[{idx}] missing/invalid 'label'"))
         if not isinstance(expr, str) or not expr:
-            issues.append(DoctorIssue("error", f"regex[{idx}] missing/invalid 'expression'"))
+            issues.append(
+                DoctorIssue("error", f"regex[{idx}] missing/invalid 'expression'")
+            )
         else:
             patterns.append(expr)
             try:
                 re.compile(expr)
             except re.error as e:
                 compile_errors += 1
-                issues.append(DoctorIssue("error", f"regex[{idx}] '{label}': invalid regex: {e}"))
+                issues.append(
+                    DoctorIssue("error", f"regex[{idx}] '{label}': invalid regex: {e}")
+                )
 
         if not isinstance(pos, int):
-            issues.append(DoctorIssue("warning", f"regex[{idx}] '{label}': missing/invalid regex_compiled_pos"))
+            issues.append(
+                DoctorIssue(
+                    "warning",
+                    f"regex[{idx}] '{label}': missing/invalid regex_compiled_pos",
+                )
+            )
         else:
             if pos in seen_pos:
-                issues.append(DoctorIssue("warning", f"Duplicate regex_compiled_pos={pos} ('{label}')"))
+                issues.append(
+                    DoctorIssue(
+                        "warning", f"Duplicate regex_compiled_pos={pos} ('{label}')"
+                    )
+                )
             seen_pos.add(pos)
             if pos != idx:
                 mapping_mismatch += 1
@@ -101,14 +117,20 @@ def run_doctor() -> DoctorReport:
             combined = "(" + ")|(".join(patterns) + ")"
             re.compile(combined, flags=re.IGNORECASE)
         except re.error as e:
-            issues.append(DoctorIssue("error", f"Combined regex failed to compile: {e}"))
+            issues.append(
+                DoctorIssue("error", f"Combined regex failed to compile: {e}")
+            )
 
     # Optional dependency checks (best-effort)
     def _check_import(mod: str, feature: str) -> None:
         try:
             __import__(mod)
         except Exception:
-            issues.append(DoctorIssue("info", f"Optional dependency not installed for {feature}: '{mod}'"))
+            issues.append(
+                DoctorIssue(
+                    "info", f"Optional dependency not installed for {feature}: '{mod}'"
+                )
+            )
 
     _check_import("gliner", "GLiNER NER (--ner)")
     _check_import("spacy", "spaCy NER (--spacy-ner)")
@@ -136,5 +158,6 @@ def run_doctor() -> DoctorReport:
         pass
 
     ok = not any(i.level == "error" for i in issues)
-    return DoctorReport(ok=ok, issues=issues, details={"regex_count": len(regex_entries)})
-
+    return DoctorReport(
+        ok=ok, issues=issues, details={"regex_count": len(regex_entries)}
+    )

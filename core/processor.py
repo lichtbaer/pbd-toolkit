@@ -21,10 +21,8 @@ from matches import PiiMatchContainer
 _ASCII_CONTROL_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")
 # Remove ASCII control chars (except \n, \t, \r). This is what typically breaks NLP.
 _ASCII_CONTROL_TRANSLATION = {
-    i: None for i in list(range(0x00, 0x09))
-    + [0x0B, 0x0C]
-    + list(range(0x0E, 0x20))
-    + [0x7F]
+    i: None
+    for i in list(range(0x00, 0x09)) + [0x0B, 0x0C] + list(range(0x0E, 0x20)) + [0x7F]
 }
 
 

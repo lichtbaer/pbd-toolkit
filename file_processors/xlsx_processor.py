@@ -95,8 +95,7 @@ class XlsProcessor(BaseFileProcessor):
             import xlrd
         except ImportError:
             raise ImportError(
-                "xlrd is required for XLS processing. "
-                "Install it with: pip install xlrd"
+                "xlrd is required for XLS processing. Install it with: pip install xlrd"
             )
 
         text_parts: list[str] = []

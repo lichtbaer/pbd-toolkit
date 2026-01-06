@@ -246,7 +246,9 @@ class PydanticAIEngine:
 
         # Handle multimodal image detection
         if image_path or (
-            getattr(self.config, "use_multimodal", False) and text and os.path.exists(text)
+            getattr(self.config, "use_multimodal", False)
+            and text
+            and os.path.exists(text)
         ):
             return self._detect_image(image_path or text, labels)
 
@@ -349,7 +351,9 @@ class PydanticAIEngine:
             return []
 
         if not image_base64 or not image_mime:
-            self.config.logger.warning(f"Failed to read or identify image: {image_path}")
+            self.config.logger.warning(
+                f"Failed to read or identify image: {image_path}"
+            )
             return []
 
         image_data_url = f"data:{image_mime};base64,{image_base64}"
@@ -357,8 +361,8 @@ class PydanticAIEngine:
         prompt = self._create_image_prompt(labels)
         system_prompt = (
             "You are a PII detection expert. You MUST respond with ONLY valid JSON "
-            "matching this schema: {\"entities\": [{\"text\": str, \"type\": str, "
-            "\"confidence\": number|null, \"location\": str|null}]} . "
+            'matching this schema: {"entities": [{"text": str, "type": str, '
+            '"confidence": number|null, "location": str|null}]} . '
             "No markdown, no extra text."
         )
 
@@ -450,7 +454,9 @@ class PydanticAIEngine:
             payload["response_format"] = self._build_response_format()
 
         try:
-            resp = requests.post(url, headers=headers, json=payload, timeout=self.timeout)
+            resp = requests.post(
+                url, headers=headers, json=payload, timeout=self.timeout
+            )
             resp.raise_for_status()
             return resp.json()
         except Exception as e:

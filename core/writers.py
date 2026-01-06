@@ -171,7 +171,9 @@ class XlsxWriter(OutputWriter):
             self._ws.append(["Match", "File", "Type", "Score", "Engine"])
 
     def write_match(self, match: PiiMatch) -> None:
-        self._ws.append([match.text, match.file, match.type, match.ner_score, match.engine])
+        self._ws.append(
+            [match.text, match.file, match.type, match.ner_score, match.engine]
+        )
 
     def finalize(self, metadata: Optional[dict] = None) -> None:
         # Add metadata sheet

@@ -99,9 +99,11 @@ class SqliteProcessor(BaseFileProcessor):
                                     row_text_parts.append(str(value))
 
                             if row_text_parts:
-                                yield f"[Table: {table_name}]\n" + " | ".join(
-                                    row_text_parts
-                                ) + "\n"
+                                yield (
+                                    f"[Table: {table_name}]\n"
+                                    + " | ".join(row_text_parts)
+                                    + "\n"
+                                )
                     except sqlite3.Error:
                         # Skip tables that can't be read
                         continue

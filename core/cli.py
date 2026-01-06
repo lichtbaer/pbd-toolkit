@@ -586,13 +586,16 @@ def scan(
                 if context.config.use_ner:
                     statistics_aggregator.add_file_processed(file_info.path, "gliner")
                 if getattr(context.config, "use_spacy_ner", False):
-                    statistics_aggregator.add_file_processed(file_info.path, "spacy-ner")
+                    statistics_aggregator.add_file_processed(
+                        file_info.path, "spacy-ner"
+                    )
                 if getattr(context.config, "use_pydantic_ai", False):
                     statistics_aggregator.add_file_processed(
                         file_info.path, "pydantic-ai"
                     )
 
     if worker_count <= 1:
+
         def process_file(file_info: FileInfo) -> None:
             _process_file_impl(file_info)
     else:
@@ -912,8 +915,7 @@ def scan(
                     "errors": context.statistics.total_errors,
                     "throughput_files_per_sec": context.statistics.files_per_second,
                 },
-                "output_file": context.output_file_path
-                or output_file_path,
+                "output_file": context.output_file_path or output_file_path,
                 "output_directory": output_dir,
                 "errors_summary": (
                     {k: len(v) for k, v in errors.items()} if errors else {}
@@ -1006,6 +1008,7 @@ def doctor(
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
     if strict and any(i.level == "warning" for i in report.issues):
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
+
 
 def cli() -> None:
     """Entry point for CLI - calls Typer app."""
