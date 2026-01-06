@@ -127,6 +127,12 @@ class PydanticAIEngine:
         Returns:
             Model identifier
         """
+        # When explicitly using PydanticAI, prefer pydantic_ai_model for all providers.
+        if getattr(self.config, "use_pydantic_ai", False):
+            configured = getattr(self.config, "pydantic_ai_model", None)
+            if configured:
+                return configured
+
         if self.provider == "ollama":
             return getattr(self.config, "ollama_model", "llama3.2")
         elif getattr(self.config, "use_multimodal", False):
@@ -143,6 +149,11 @@ class PydanticAIEngine:
         """
         if self.provider == "ollama":
             return None  # Ollama doesn't need API key
+        # When explicitly using PydanticAI, prefer its API key settings.
+        if getattr(self.config, "use_pydantic_ai", False):
+            key = getattr(self.config, "pydantic_ai_api_key", None)
+            if key:
+                return key
         elif getattr(self.config, "use_multimodal", False):
             return (
                 getattr(self.config, "multimodal_api_key", None)
@@ -172,6 +183,12 @@ class PydanticAIEngine:
                 self.config, "openai_api_base", "https://api.openai.com/v1"
             )
         elif self.provider == "openai":
+            # When explicitly using PydanticAI, allow overriding the base URL for
+            # OpenAI-compatible local servers (vLLM/LocalAI) via --pydantic-ai-base-url.
+            if getattr(self.config, "use_pydantic_ai", False):
+                base = getattr(self.config, "pydantic_ai_base_url", None)
+                if base:
+                    return base
             return getattr(self.config, "openai_api_base", "https://api.openai.com/v1")
         return getattr(self.config, "pydantic_ai_base_url", None)
 

@@ -79,6 +79,14 @@ python main.py scan /data --pydantic-ai --pydantic-ai-provider ollama --pydantic
 # OpenAI
 python main.py scan /data --pydantic-ai --pydantic-ai-provider openai \
   --pydantic-ai-api-key YOUR_KEY --pydantic-ai-model gpt-4o-mini
+
+# Local (vLLM / LocalAI, OpenAI-compatible) - text only
+# Note: many OpenAI-compatible clients require an API key string; local servers
+# often ignore it. Use a dummy value like "local" if needed.
+python main.py scan /data --pydantic-ai --pydantic-ai-provider openai \
+  --pydantic-ai-base-url http://localhost:8000/v1 \
+  --pydantic-ai-model <text-model> \
+  --pydantic-ai-api-key local
 ```
 
 **Options**:
@@ -96,6 +104,16 @@ python main.py scan /data/images --multimodal \
   --multimodal-api-key YOUR_KEY \
   --multimodal-api-base https://api.openai.com/v1 \
   --multimodal-model gpt-4o-mini
+
+# Local (vLLM)
+python main.py scan /data/images --multimodal \
+  --multimodal-api-base http://localhost:8000/v1 \
+  --multimodal-model microsoft/llava-1.6-vicuna-7b
+
+# Local (LocalAI)
+python main.py scan /data/images --multimodal \
+  --multimodal-api-base http://localhost:8080/v1 \
+  --multimodal-model llava
 ```
 
 **Options**:
@@ -103,6 +121,9 @@ python main.py scan /data/images --multimodal \
 - `--multimodal-api-key`: API key (defaults to `--openai-api-key` or `OPENAI_API_KEY`)
 - `--multimodal-model`: Vision-capable model name
 - `--multimodal-timeout`: Timeout in seconds (default: `60`)
+
+!!! note "Local endpoints"
+    vLLM/LocalAI are typically OpenAI-compatible and often run without auth. If your endpoint does not require a key, you can omit `--multimodal-api-key`.
 
 ### `--ollama` (legacy)
 
