@@ -4,7 +4,7 @@ gliner~=0.2.22
 # Security: keep pinned to a patched version (pip-audit blocking in CI).
 pdfminer.six==20251230
 pytest~=8.0.0
-pytest-cov~=4.1.0
+pytest-cov~=7.0.0
 pytest-mock~=3.14.0
 tqdm~=4.66.0
 striprtf~=0.0.26
