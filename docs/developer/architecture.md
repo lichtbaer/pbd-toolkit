@@ -135,9 +135,10 @@ Detection methods (regex vs. NER) are implemented as strategies:
 
 The toolkit uses a callback-based approach for file processing:
 - FileScanner walks the directory tree and calls a callback for each file
-- Files are processed sequentially by default
+- Files are processed sequentially in `--mode safe` and in parallel otherwise (via a thread pool of file workers)
 - Each detection engine handles thread safety internally (locks for model calls)
 - Match storage uses locks for thread safety
+- The scanner bounds queued async tasks to avoid unbounded memory growth on very large directory trees
 
 ## Error Handling
 
@@ -199,6 +200,7 @@ For regex patterns:
 - Configurable file size limits
 - Stop-count option for testing
 - Progress reporting for long operations
+- Per-engine concurrency limits to avoid overwhelming local model servers (e.g. vLLM/LocalAI/Ollama)
 
 ## Testing
 

@@ -130,6 +130,12 @@ The configuration file contains:
     "min_pdf_text_length": 10,
     "max_file_size_mb": 500.0,
     "max_processing_time_seconds": 300,
+    "max_pending_futures": 512,
+    "engine_concurrency_limits": {
+      "pydantic-ai": 2,
+      "gliner": 1,
+      "spacy-ner": 1
+    },
     "supported_extensions": [".pdf", ".docx", ".html", ".txt", ...],
     "logging": {
       "level": "INFO",
@@ -138,6 +144,10 @@ The configuration file contains:
   }
 }
 ```
+
+**Performance-related settings**:
+- `max_pending_futures`: Bounds memory usage during parallel scans by limiting how many pending worker tasks are kept before draining completed tasks.
+- `engine_concurrency_limits`: Per-engine concurrency caps (useful for local model servers). For example, keep `pydantic-ai` low to avoid overwhelming vLLM/LocalAI/Ollama.
 
 ### Regex Patterns
 
