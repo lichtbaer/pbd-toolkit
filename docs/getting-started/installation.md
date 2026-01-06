@@ -28,11 +28,30 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-**Note**: Some dependencies are optional:
-- `python-magic` / `filetype`: For magic number file type detection (see [File Formats](../user-guide/file-formats.md#magic-number-detection-optional))
-- `Pillow`: For image processing validation (optional)
-- `spacy`: For spaCy NER engine (optional)
-- `requests`: For OpenAI-compatible multimodal image detection (included in `requirements.txt`)
+**Note**: `requirements.txt` is intentionally minimal. For most real-world usage, install feature extras (see below).
+
+## Recommended Installation (feature extras)
+
+This repository defines optional extras in `setup.py` so you can install only what you need.
+
+### Common presets
+
+```bash
+# Everything needed for development + most features (recommended for contributors)
+pip install -e ".[dev,office,images,magic,llm,gliner,spacy]"
+
+# Minimal runtime (regex + basic text/html/pdf support)
+pip install -r requirements.txt
+```
+
+### Feature → extra mapping
+
+- **GLiNER NER (`--ner`)**: `pip install -e ".[gliner]"`
+- **spaCy NER (`--spacy-ner`)**: `pip install -e ".[spacy]"` (plus a model download, see below)
+- **Unified LLM engine (`--pydantic-ai`)**: `pip install -e ".[llm]"`
+- **Office/email/etc. processors (DOCX/XLSX/MSG/...)**: `pip install -e ".[office]"`
+- **Image validation/processing**: `pip install -e ".[images]"`
+- **Magic-number type detection (`--use-magic-detection`)**: `pip install -e ".[magic]"`
 
 ## Optional Features Setup
 
@@ -136,6 +155,14 @@ python main.py scan --help
 ```
 
 You should see the help message with the `scan` command and its options.
+
+## spaCy model download (if using `--spacy-ner`)
+
+After installing spaCy, download a German model (example):
+
+```bash
+python -m spacy download de_core_news_lg
+```
 
 ## Optional: Install MkDocs for Documentation
 

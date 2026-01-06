@@ -617,7 +617,6 @@ Use multiple engines together for comprehensive detection:
 ```bash
 # Basic combination
 python main.py scan /data --regex --ner
-python main.py scan /data --regex --ner
 
 # All engines (text-based)
 python main.py scan /data \

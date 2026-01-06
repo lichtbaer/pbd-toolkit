@@ -30,11 +30,8 @@ cd pbd-toolkit
 python3 -m venv .venv
 source .venv/bin/activate
 
-# Install dependencies
-pip install -r requirements.txt
-
-# Install development/test dependencies
-pip install -r requirements-dev.txt
+# Recommended: install dev + feature extras (matches CI)
+pip install -e ".[dev,office,images,magic,llm,gliner,spacy]"
 
 # Optional: docs preview tooling
 pip install mkdocs mkdocs-material
@@ -115,8 +112,8 @@ pytest
 # Run with coverage
 pytest --cov=. --cov-report=html
 
-# Check code style (if using linter)
-# flake8 .  # or your preferred linter
+# Lint (lightweight; CI runs Ruff)
+ruff check core file_processors validators config.py matches.py main.py cli_setup.py
 ```
 
 ## Documentation

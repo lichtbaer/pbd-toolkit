@@ -10,17 +10,20 @@ This roadmap reflects the current direction of this fork. Items are grouped by t
 - Privacy-focused statistics output (aggregated, no individual PII instances)
 - Documentation updated to match the current Typer CLI (`scan <path>`) and current output schemas
 - Expanded file format coverage and improved robustness/security hardening
+- GitHub Actions CI (tests + lightweight lint + best-effort security checks)
+- `--version` / `-V` CLI support
 
 ## Next (short-term)
 
-- **Documentation cleanup (remaining)**
+- **Documentation consistency**
+  - Keep CLI docs aligned with implemented flags (incl. `--pydantic-ai`, `doctor`, `--format jsonl`)
   - Keep installation guidance consistent with packaging/extras
-  - Consider adding a dedicated `--version` flag to the CLI
-- **CI / quality gates**
-  - Add GitHub Actions for tests + basic security checks (Bandit) + lint (if adopted)
+  - Ensure MkDocs navigation links to all relevant guides (e.g. open-source multimodal models)
 - **Packaging polish**
-  - Make optional extras explicit in docs (e.g. `.[office]`, `.[magic]`, `.[llm]`)
-  - Ensure MkDocs metadata and repository links are correct everywhere
+  - Make optional extras explicit and discoverable (feature → extra mapping)
+  - Clarify supported Python versions (docs/CI/packaging) and keep them consistent
+- **Deprecation story**
+  - Clearly mark legacy LLM flags and guide users to `--pydantic-ai`
 
 ## Later (mid-term)
 
