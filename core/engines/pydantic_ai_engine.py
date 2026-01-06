@@ -8,6 +8,7 @@ vLLM, LocalAI) and does NOT require PydanticAI.
 import os
 import time
 import json
+import threading
 from typing import Optional, List, Any
 from pydantic import BaseModel, Field
 from core.engines.base import DetectionResult
@@ -57,8 +58,9 @@ class PydanticAIEngine:
     """
 
     name = "pydantic-ai"
-    # LLM calls may be rate-limited and often rely on shared client/env state; keep serialized by default.
-    thread_safe = False
+    # This engine manages its own concurrency internally via a semaphore so callers
+    # can run multiple file workers without overwhelming local servers (vLLM/LocalAI/Ollama).
+    thread_safe = True
 
     def __init__(self, config: Config):
         """Initialize PydanticAI engine.
@@ -102,6 +104,17 @@ class PydanticAIEngine:
         self._last_request_duration = 0
         self._consecutive_slow_requests = 0
         self._slow_threshold = 5.0  # Seconds considered "slow"
+
+        # Internal synchronization and concurrency limiting
+        limits = getattr(self.config, "engine_concurrency_limits", {}) or {}
+        limit = 1
+        if isinstance(limits, dict):
+            configured = limits.get(self.name)
+            if isinstance(configured, int) and configured >= 1:
+                limit = configured
+        self._semaphore = threading.BoundedSemaphore(value=limit)
+        self._agent_lock = threading.Lock()
+        self._state_lock = threading.Lock()
 
     def _determine_provider(self) -> str:
         """Determine which provider to use based on config.
@@ -251,6 +264,12 @@ class PydanticAIEngine:
             )
 
         if self._agent is None:
+            # Ensure lazy initialization is safe under concurrent access.
+            # (This engine is marked thread_safe=True and may be called from multiple workers.)
+            with self._agent_lock:
+                if self._agent is not None:
+                    return self._agent
+
             # Build model string for PydanticAI
             # PydanticAI uses LiteLLM format: provider/model
             if self.provider == "ollama":
@@ -308,72 +327,78 @@ class PydanticAIEngine:
         if not self.enabled:
             return []
 
-        # Handle multimodal image detection
-        if image_path or (
-            getattr(self.config, "use_multimodal", False)
-            and text
-            and os.path.exists(text)
-        ):
-            return self._detect_image(image_path or text, labels)
+        # Bound concurrency for both text and image detection.
+        with self._semaphore:
+            # Handle multimodal image detection
+            if image_path or (
+                getattr(self.config, "use_multimodal", False)
+                and text
+                and os.path.exists(text)
+            ):
+                return self._detect_image(image_path or text, labels)
 
-        # Adaptive throttling (preserved from OllamaEngine)
-        current_time = time.time()
-        time_since_last = current_time - self._last_request_time
+            # Adaptive throttling (preserved from OllamaEngine)
+            current_time = time.time()
+            with self._state_lock:
+                time_since_last = current_time - self._last_request_time
+                last_duration = self._last_request_duration
+                consecutive_slow = self._consecutive_slow_requests
 
-        if self._last_request_duration > self._slow_threshold:
-            wait_time = min(5.0, self._last_request_duration * 0.5)
-            wait_time = wait_time * (1 + (self._consecutive_slow_requests * 0.5))
+            if last_duration > self._slow_threshold:
+                wait_time = min(5.0, last_duration * 0.5)
+                wait_time = wait_time * (1 + (consecutive_slow * 0.5))
 
-            if time_since_last < wait_time:
-                sleep_time = wait_time - time_since_last
-                if self.config.verbose:
-                    self.config.logger.debug(
-                        f"Throttling {self.provider} request: sleeping {sleep_time:.2f}s due to high load"
-                    )
-                time.sleep(sleep_time)
+                if time_since_last < wait_time:
+                    sleep_time = wait_time - time_since_last
+                    if self.config.verbose:
+                        self.config.logger.debug(
+                            f"Throttling {self.provider} request: sleeping {sleep_time:.2f}s due to high load"
+                        )
+                    time.sleep(sleep_time)
 
-        # Create prompt
-        prompt = self._create_prompt(text, labels)
+            # Create prompt
+            prompt = self._create_prompt(text, labels)
 
-        # Run detection (text)
-        start_time = time.time()
-        try:
-            agent = self._get_agent()
-            # PydanticAI uses run() for async or run_sync() for sync
-            # result.data contains the PIIDetectionResponse
-            result = agent.run_sync(prompt)
+            # Run detection (text)
+            start_time = time.time()
+            try:
+                agent = self._get_agent()
+                # PydanticAI uses run() for async or run_sync() for sync
+                # result.data contains the PIIDetectionResponse
+                result = agent.run_sync(prompt)
 
-            # Update metrics
-            duration = time.time() - start_time
-            self._last_request_time = time.time()
-            self._last_request_duration = duration
+                # Update metrics
+                duration = time.time() - start_time
+                with self._state_lock:
+                    self._last_request_time = time.time()
+                    self._last_request_duration = duration
 
-            if duration > self._slow_threshold:
-                self._consecutive_slow_requests += 1
-            else:
-                self._consecutive_slow_requests = max(
-                    0, self._consecutive_slow_requests - 1
-                )
+                    if duration > self._slow_threshold:
+                        self._consecutive_slow_requests += 1
+                    else:
+                        self._consecutive_slow_requests = max(
+                            0, self._consecutive_slow_requests - 1
+                        )
 
-            # Convert to DetectionResult list
-            # result.data should be a PIIDetectionResponse instance
-            if hasattr(result, "data"):
-                return self._convert_results(result.data)
-            else:
+                # Convert to DetectionResult list
+                # result.data should be a PIIDetectionResponse instance
+                if hasattr(result, "data"):
+                    return self._convert_results(result.data)
                 # Fallback if result structure is different
                 self.config.logger.warning("Unexpected PydanticAI result structure")
                 return []
 
-        except Exception as e:
-            duration = time.time() - start_time
-            self._last_request_time = time.time()
-            self._last_request_duration = duration
-            self._consecutive_slow_requests += 1
+            except Exception as e:
+                duration = time.time() - start_time
+                with self._state_lock:
+                    self._last_request_time = time.time()
+                    self._last_request_duration = duration
+                    self._consecutive_slow_requests += 1
 
-            self.config.logger.warning(f"PydanticAI detection failed: {e}")
-            if self.config.verbose:
-                self.config.logger.debug(f"Error details: {e}", exc_info=True)
-            return []
+                self.config.logger.warning(f"PydanticAI detection failed: {e}")
+                if self.config.verbose:
+                    self.config.logger.debug(f"Error details: {e}", exc_info=True)
+                return []
 
     def _detect_image(
         self, image_path: str, labels: Optional[List[str]]

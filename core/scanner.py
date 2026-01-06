@@ -93,7 +93,10 @@ class FileScanner:
         # Prevent unbounded growth of pending futures when scanning large trees.
         # This is especially important for multi-worker runs where file_callback
         # submits to a ThreadPoolExecutor and returns futures.
-        max_pending_futures = int(getattr(self.config, "max_pending_futures", 512))
+        raw_max_pending = getattr(self.config, "max_pending_futures", 512)
+        max_pending_futures = (
+            int(raw_max_pending) if isinstance(raw_max_pending, int) else 512
+        )
 
         # Estimate total files for progress bar (if verbose and no stop_count)
         # This can double runtime on huge directory trees, so it's opt-in.
