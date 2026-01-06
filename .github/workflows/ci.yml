@@ -65,14 +65,18 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install bandit pip-audit
+          python -m pip install --upgrade setuptools wheel
           python -m pip install -e ".[office,images,magic,llm]"
+          python -m pip check
 
-      - name: Bandit (best-effort)
+      - name: Bandit
         run: |
           # Fail on medium+ severity and confidence findings.
           bandit -q -r core file_processors validators config.py matches.py main.py cli_setup.py -x tests --severity-level medium --confidence-level medium
 
-      - name: pip-audit (best-effort)
+      - name: pip-audit
         run: |
-          pip-audit || true
+          # Audit installed dependencies in this job's environment.
+          # Skip editable installs (this repository) to avoid "not on PyPI" noise.
+          pip-audit -l --skip-editable --progress-spinner off
 
