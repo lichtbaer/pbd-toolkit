@@ -30,8 +30,11 @@ cd pbd-toolkit
 python3 -m venv .venv
 source .venv/bin/activate
 
-# Recommended: install dev + feature extras (matches CI)
-pip install -e ".[dev,office,images,magic,llm,gliner,spacy]"
+# Recommended: install dev + feature extras (same baseline as CI)
+pip install -e ".[dev,office,images,magic,llm]"
+
+# Optional: enable additional local NER engines
+# pip install -e ".[gliner,spacy]"
 
 # Optional: docs preview tooling
 pip install mkdocs mkdocs-material

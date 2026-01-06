@@ -41,8 +41,11 @@ The PII Toolkit is a command-line tool designed to scan directories and identify
 # Minimal runtime dependencies (regex + basic processors)
 python3 -m pip install -r requirements.txt
 
-# Recommended: install feature extras (matches CI)
-python3 -m pip install -e ".[dev,office,images,magic,llm,gliner,spacy]"
+# Recommended for contributors: install feature extras
+python3 -m pip install -e ".[dev,office,images,magic,llm]"
+
+# Optional (if you want these engines available locally):
+# python3 -m pip install -e ".[gliner,spacy]"
 
 # Basic usage
 python3 main.py scan /path/to/scan --regex --ner
