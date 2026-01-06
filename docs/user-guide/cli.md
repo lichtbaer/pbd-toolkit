@@ -68,7 +68,64 @@ python main.py scan /data --spacy-ner --spacy-model de_core_news_lg
 
 **Note**: Requires spaCy and German model to be installed (see [Installation](../getting-started/installation.md)).
 
-### `--ollama`
+### `--pydantic-ai` (recommended)
+
+Enable the unified LLM engine based on PydanticAI. This is the preferred way to use LLM-based detection and replaces the legacy `--ollama` / `--openai-compatible` flags.
+
+```bash
+# Local (Ollama)
+python main.py scan /data --pydantic-ai --pydantic-ai-provider ollama --pydantic-ai-model llama3.2
+
+# OpenAI
+python main.py scan /data --pydantic-ai --pydantic-ai-provider openai \
+  --pydantic-ai-api-key YOUR_KEY --pydantic-ai-model gpt-4o-mini
+
+# Local (vLLM / LocalAI, OpenAI-compatible) - text only
+# Note: many OpenAI-compatible clients require an API key string; local servers
+# often ignore it. Use a dummy value like "local" if needed.
+python main.py scan /data --pydantic-ai --pydantic-ai-provider openai \
+  --pydantic-ai-base-url http://localhost:8000/v1 \
+  --pydantic-ai-model <text-model> \
+  --pydantic-ai-api-key local
+```
+
+**Options**:
+- `--pydantic-ai-provider`: `ollama`, `openai`, `anthropic` (default: `openai`)
+- `--pydantic-ai-model`: Model name (optional; provider default is used if omitted)
+- `--pydantic-ai-api-key`: API key (or use provider-specific environment variables)
+- `--pydantic-ai-base-url`: Base URL (for custom endpoints)
+
+### `--multimodal` (images)
+
+Enable real image analysis via an OpenAI-compatible vision endpoint (OpenAI / vLLM / LocalAI).
+
+```bash
+python main.py scan /data/images --multimodal \
+  --multimodal-api-key YOUR_KEY \
+  --multimodal-api-base https://api.openai.com/v1 \
+  --multimodal-model gpt-4o-mini
+
+# Local (vLLM)
+python main.py scan /data/images --multimodal \
+  --multimodal-api-base http://localhost:8000/v1 \
+  --multimodal-model microsoft/llava-1.6-vicuna-7b
+
+# Local (LocalAI)
+python main.py scan /data/images --multimodal \
+  --multimodal-api-base http://localhost:8080/v1 \
+  --multimodal-model llava
+```
+
+**Options**:
+- `--multimodal-api-base`: API base URL (defaults to `--openai-api-base`)
+- `--multimodal-api-key`: API key (defaults to `--openai-api-key` or `OPENAI_API_KEY`)
+- `--multimodal-model`: Vision-capable model name
+- `--multimodal-timeout`: Timeout in seconds (default: `60`)
+
+!!! note "Local endpoints"
+    vLLM/LocalAI are typically OpenAI-compatible and often run without auth. If your endpoint does not require a key, you can omit `--multimodal-api-key`.
+
+### `--ollama` (legacy)
 
 Enable Ollama LLM-based detection (local, offline).
 
@@ -96,6 +153,9 @@ python main.py scan /data --openai-compatible \
 - `--openai-api-base`: API base URL (default: `https://api.openai.com/v1`)
 - `--openai-api-key`: API key (or set `OPENAI_API_KEY` environment variable)
 - `--openai-model`: Model to use (default: `gpt-3.5-turbo`)
+
+!!! note "Legacy flags"
+    `--ollama` and `--openai-compatible` are legacy LLM flags kept for compatibility. Prefer `--pydantic-ai` for new usage.
 
 ## Optional Arguments
 
@@ -173,6 +233,7 @@ Output format for findings (default: `csv`).
 Options:
 - `csv`: Comma-separated values
 - `json`: JSON with metadata
+- `jsonl`: JSON Lines (streaming; one match per line, final `_metadata` line)
 - `xlsx`: Excel spreadsheet
 
 ```bash
@@ -399,4 +460,14 @@ Display help message:
 
 ```bash
 python main.py --help
+```
+
+## Doctor
+
+Validate configuration and optional dependencies:
+
+```bash
+python main.py doctor
+python main.py doctor --json
+python main.py doctor --strict
 ```

@@ -39,4 +39,3 @@ def load_config_types() -> dict[str, Any]:
         raise FileNotFoundError(
             "Could not locate 'config_types.json' (repo root or packaged resource)."
         ) from e
-

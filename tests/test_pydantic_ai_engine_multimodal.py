@@ -148,9 +148,36 @@ def test_multimodal_ollama_provider_is_not_supported(minimal_config, tmp_path):
 
     minimal_config.use_ollama = True
     minimal_config.use_multimodal = True
-    # Provider selection prefers ollama if use_ollama is enabled
+    # Even when text detection uses Ollama, multimodal should use the configured
+    # OpenAI-compatible endpoint (vLLM/LocalAI) and remain functional.
+
+    class FakeResp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"entities":[{"text":"Bob","type":"PERSON","confidence":0.8,"location":null}]}'
+                        }
+                    }
+                ]
+            }
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        assert url.startswith(minimal_config.multimodal_api_base)
+        assert url.endswith("/chat/completions")
+        assert json["model"] == minimal_config.multimodal_model
+        return FakeResp()
+
+    import requests
+
+    # Monkeypatch requests.post directly (this test is sync and isolated)
+    requests.post = fake_post  # type: ignore
+
     engine = PydanticAIEngine(minimal_config)
     results = engine.detect("", labels=["PERSON"], image_path=str(img_path))
-    assert results == []
-    minimal_config.logger.warning.assert_called()
-
+    assert len(results) == 1
+    assert results[0].text == "Bob"

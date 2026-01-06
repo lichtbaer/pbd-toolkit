@@ -2,6 +2,8 @@ Supported match types are controlled by the file config_types.json.
 This file contains a json object with two keys: "regex" for all match types based on regular expressions and "ai-ner" for all
 match types supported by AI-based Named Entity Recognition.
 
+The file also contains a `"settings"` object for global behavior (thresholds, limits, performance tuning).
+
 The key "regex" holds a list of objects with the following keys supported:
 * "label": an internal descriptor for the type of finding
 * "value": a descriptive value for the type of finding, e. g. rendered in the csv output
@@ -84,3 +86,13 @@ Example:
     "term": "Person's Name"
 }
 ```
+
+## Settings (selected)
+
+These settings are under the top-level `"settings"` key in `config_types.json`:
+
+- `ner_threshold`: Minimum confidence for GLiNER NER detections.
+- `max_file_size_mb`: Skip files larger than this limit.
+- `max_processing_time_seconds`: Max processing time per file (best-effort).
+- `max_pending_futures`: Bounds memory usage during parallel scans (limits queued async tasks).
+- `engine_concurrency_limits`: Per-engine concurrency caps (e.g. keep `pydantic-ai` low for local vLLM/LocalAI).

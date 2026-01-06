@@ -11,7 +11,6 @@ Usage:
     pii-toolkit scan /data --regex  # After installation
 """
 
-
 # Import Typer CLI
 from core.cli import cli
 

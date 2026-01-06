@@ -38,17 +38,20 @@ The PII Toolkit is a command-line tool designed to scan directories and identify
 ## Quick Start
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Minimal runtime dependencies (regex + basic processors)
+python3 -m pip install -r requirements.txt
 
-# Optional: dev/tests + additional processors/engines
-pip install -r requirements-dev.txt
+# Recommended for contributors: install feature extras
+python3 -m pip install -e ".[dev,office,images,magic,llm]"
+
+# Optional (if you want these engines available locally):
+# python3 -m pip install -e ".[gliner,spacy]"
 
 # Basic usage
-python main.py scan /path/to/scan --regex --ner
+python3 main.py scan /path/to/scan --regex --ner
 
 # With custom output
-python main.py scan /path/to/scan --regex --format json --outname "scan-2024"
+python3 main.py scan /path/to/scan --regex --format json --outname "scan-2024"
 ```
 
 ## Documentation Structure

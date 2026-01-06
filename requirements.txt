@@ -1,5 +1,6 @@
 beautifulsoup4
-pdfminer.six==20250506
+# Security: keep pinned to a patched version (pip-audit blocking in CI).
+pdfminer.six==20251230
 tqdm~=4.66.0
 defusedxml>=0.7.1  # Secure XML parsing to prevent XXE attacks
 typer>=0.9.0  # Modern CLI framework with type hints

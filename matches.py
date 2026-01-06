@@ -183,7 +183,9 @@ class PiiMatchContainer:
             # Stream to output writer for non-CSV formats that support streaming.
             # CSV is handled above to keep backward-compatible behavior stable.
             if self._output_format != "csv" and self._output_writer is not None:
-                supports_streaming = getattr(self._output_writer, "supports_streaming", False)
+                supports_streaming = getattr(
+                    self._output_writer, "supports_streaming", False
+                )
                 if supports_streaming:
                     write_match = getattr(self._output_writer, "write_match", None)
                     if callable(write_match):

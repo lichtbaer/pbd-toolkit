@@ -8,6 +8,7 @@ vLLM, LocalAI) and does NOT require PydanticAI.
 import os
 import time
 import json
+import threading
 from typing import Optional, List, Any
 from pydantic import BaseModel, Field
 from core.engines.base import DetectionResult
@@ -57,8 +58,9 @@ class PydanticAIEngine:
     """
 
     name = "pydantic-ai"
-    # LLM calls may be rate-limited and often rely on shared client/env state; keep serialized by default.
-    thread_safe = False
+    # This engine manages its own concurrency internally via a semaphore so callers
+    # can run multiple file workers without overwhelming local servers (vLLM/LocalAI/Ollama).
+    thread_safe = True
 
     def __init__(self, config: Config):
         """Initialize PydanticAI engine.
@@ -81,6 +83,18 @@ class PydanticAIEngine:
         self.base_url = self._get_base_url()
         self.timeout = self._get_timeout()
 
+        # Multimodal (image) settings are intentionally separated from the text provider.
+        # This enables common local setups like:
+        # - text: Ollama (provider=ollama)
+        # - images: vLLM/LocalAI (OpenAI-compatible)
+        self.multimodal_enabled = bool(getattr(config, "use_multimodal", False))
+        self.multimodal_model = getattr(
+            config, "multimodal_model", "gpt-4-vision-preview"
+        )
+        self.multimodal_base_url = self._get_multimodal_base_url()
+        self.multimodal_api_key = self._get_multimodal_api_key()
+        self.multimodal_timeout = int(getattr(config, "multimodal_timeout", 60))
+
         # Initialize agent
         self._agent: Optional[Agent] = None
         self._available = None  # Cache availability check
@@ -90,6 +104,17 @@ class PydanticAIEngine:
         self._last_request_duration = 0
         self._consecutive_slow_requests = 0
         self._slow_threshold = 5.0  # Seconds considered "slow"
+
+        # Internal synchronization and concurrency limiting
+        limits = getattr(self.config, "engine_concurrency_limits", {}) or {}
+        limit = 1
+        if isinstance(limits, dict):
+            configured = limits.get(self.name)
+            if isinstance(configured, int) and configured >= 1:
+                limit = configured
+        self._semaphore = threading.BoundedSemaphore(value=limit)
+        self._agent_lock = threading.Lock()
+        self._state_lock = threading.Lock()
 
     def _determine_provider(self) -> str:
         """Determine which provider to use based on config.
@@ -115,6 +140,12 @@ class PydanticAIEngine:
         Returns:
             Model identifier
         """
+        # When explicitly using PydanticAI, prefer pydantic_ai_model for all providers.
+        if getattr(self.config, "use_pydantic_ai", False):
+            configured = getattr(self.config, "pydantic_ai_model", None)
+            if configured:
+                return configured
+
         if self.provider == "ollama":
             return getattr(self.config, "ollama_model", "llama3.2")
         elif getattr(self.config, "use_multimodal", False):
@@ -131,6 +162,11 @@ class PydanticAIEngine:
         """
         if self.provider == "ollama":
             return None  # Ollama doesn't need API key
+        # When explicitly using PydanticAI, prefer its API key settings.
+        if getattr(self.config, "use_pydantic_ai", False):
+            key = getattr(self.config, "pydantic_ai_api_key", None)
+            if key:
+                return key
         elif getattr(self.config, "use_multimodal", False):
             return (
                 getattr(self.config, "multimodal_api_key", None)
@@ -160,6 +196,12 @@ class PydanticAIEngine:
                 self.config, "openai_api_base", "https://api.openai.com/v1"
             )
         elif self.provider == "openai":
+            # When explicitly using PydanticAI, allow overriding the base URL for
+            # OpenAI-compatible local servers (vLLM/LocalAI) via --pydantic-ai-base-url.
+            if getattr(self.config, "use_pydantic_ai", False):
+                base = getattr(self.config, "pydantic_ai_base_url", None)
+                if base:
+                    return base
             return getattr(self.config, "openai_api_base", "https://api.openai.com/v1")
         return getattr(self.config, "pydantic_ai_base_url", None)
 
@@ -175,6 +217,41 @@ class PydanticAIEngine:
             return getattr(self.config, "ollama_timeout", 30)
         return getattr(self.config, "openai_timeout", 30)
 
+    def _get_multimodal_api_key(self) -> Optional[str]:
+        """Resolve API key for multimodal OpenAI-compatible endpoints.
+
+        Local endpoints like vLLM / LocalAI often do not require an API key.
+        """
+        return (
+            getattr(self.config, "multimodal_api_key", None)
+            or getattr(self.config, "openai_api_key", None)
+            or getattr(self.config, "pydantic_ai_api_key", None)
+            or os.getenv("OPENAI_API_KEY")
+        )
+
+    def _get_multimodal_base_url(self) -> str:
+        """Resolve base URL for multimodal OpenAI-compatible endpoints.
+
+        Preference order:
+        - explicit --multimodal-api-base
+        - OpenAI-compatible base (for vLLM/LocalAI): --openai-api-base
+        - PydanticAI base URL (when provider uses OpenAI-compatible endpoints)
+        - OpenAI default
+        """
+        base = getattr(self.config, "multimodal_api_base", None)
+        if base:
+            return str(base)
+
+        base = getattr(self.config, "openai_api_base", None)
+        if base:
+            return str(base)
+
+        base = getattr(self.config, "pydantic_ai_base_url", None)
+        if base:
+            return str(base)
+
+        return "https://api.openai.com/v1"
+
     def _get_agent(self) -> Agent:
         """Get or create PydanticAI agent.
 
@@ -187,6 +264,12 @@ class PydanticAIEngine:
             )
 
         if self._agent is None:
+            # Ensure lazy initialization is safe under concurrent access.
+            # (This engine is marked thread_safe=True and may be called from multiple workers.)
+            with self._agent_lock:
+                if self._agent is not None:
+                    return self._agent
+
             # Build model string for PydanticAI
             # PydanticAI uses LiteLLM format: provider/model
             if self.provider == "ollama":
@@ -244,70 +327,78 @@ class PydanticAIEngine:
         if not self.enabled:
             return []
 
-        # Handle multimodal image detection
-        if image_path or (
-            getattr(self.config, "use_multimodal", False) and text and os.path.exists(text)
-        ):
-            return self._detect_image(image_path or text, labels)
+        # Bound concurrency for both text and image detection.
+        with self._semaphore:
+            # Handle multimodal image detection
+            if image_path or (
+                getattr(self.config, "use_multimodal", False)
+                and text
+                and os.path.exists(text)
+            ):
+                return self._detect_image(image_path or text, labels)
 
-        # Adaptive throttling (preserved from OllamaEngine)
-        current_time = time.time()
-        time_since_last = current_time - self._last_request_time
+            # Adaptive throttling (preserved from OllamaEngine)
+            current_time = time.time()
+            with self._state_lock:
+                time_since_last = current_time - self._last_request_time
+                last_duration = self._last_request_duration
+                consecutive_slow = self._consecutive_slow_requests
 
-        if self._last_request_duration > self._slow_threshold:
-            wait_time = min(5.0, self._last_request_duration * 0.5)
-            wait_time = wait_time * (1 + (self._consecutive_slow_requests * 0.5))
+            if last_duration > self._slow_threshold:
+                wait_time = min(5.0, last_duration * 0.5)
+                wait_time = wait_time * (1 + (consecutive_slow * 0.5))
 
-            if time_since_last < wait_time:
-                sleep_time = wait_time - time_since_last
-                if self.config.verbose:
-                    self.config.logger.debug(
-                        f"Throttling {self.provider} request: sleeping {sleep_time:.2f}s due to high load"
-                    )
-                time.sleep(sleep_time)
+                if time_since_last < wait_time:
+                    sleep_time = wait_time - time_since_last
+                    if self.config.verbose:
+                        self.config.logger.debug(
+                            f"Throttling {self.provider} request: sleeping {sleep_time:.2f}s due to high load"
+                        )
+                    time.sleep(sleep_time)
 
-        # Create prompt
-        prompt = self._create_prompt(text, labels)
+            # Create prompt
+            prompt = self._create_prompt(text, labels)
 
-        # Run detection (text)
-        start_time = time.time()
-        try:
-            agent = self._get_agent()
-            # PydanticAI uses run() for async or run_sync() for sync
-            # result.data contains the PIIDetectionResponse
-            result = agent.run_sync(prompt)
+            # Run detection (text)
+            start_time = time.time()
+            try:
+                agent = self._get_agent()
+                # PydanticAI uses run() for async or run_sync() for sync
+                # result.data contains the PIIDetectionResponse
+                result = agent.run_sync(prompt)
 
-            # Update metrics
-            duration = time.time() - start_time
-            self._last_request_time = time.time()
-            self._last_request_duration = duration
+                # Update metrics
+                duration = time.time() - start_time
+                with self._state_lock:
+                    self._last_request_time = time.time()
+                    self._last_request_duration = duration
 
-            if duration > self._slow_threshold:
-                self._consecutive_slow_requests += 1
-            else:
-                self._consecutive_slow_requests = max(
-                    0, self._consecutive_slow_requests - 1
-                )
+                    if duration > self._slow_threshold:
+                        self._consecutive_slow_requests += 1
+                    else:
+                        self._consecutive_slow_requests = max(
+                            0, self._consecutive_slow_requests - 1
+                        )
 
-            # Convert to DetectionResult list
-            # result.data should be a PIIDetectionResponse instance
-            if hasattr(result, "data"):
-                return self._convert_results(result.data)
-            else:
+                # Convert to DetectionResult list
+                # result.data should be a PIIDetectionResponse instance
+                if hasattr(result, "data"):
+                    return self._convert_results(result.data)
                 # Fallback if result structure is different
                 self.config.logger.warning("Unexpected PydanticAI result structure")
                 return []
 
-        except Exception as e:
-            duration = time.time() - start_time
-            self._last_request_time = time.time()
-            self._last_request_duration = duration
-            self._consecutive_slow_requests += 1
+            except Exception as e:
+                duration = time.time() - start_time
+                with self._state_lock:
+                    self._last_request_time = time.time()
+                    self._last_request_duration = duration
+                    self._consecutive_slow_requests += 1
 
-            self.config.logger.warning(f"PydanticAI detection failed: {e}")
-            if self.config.verbose:
-                self.config.logger.debug(f"Error details: {e}", exc_info=True)
-            return []
+                self.config.logger.warning(f"PydanticAI detection failed: {e}")
+                if self.config.verbose:
+                    self.config.logger.debug(f"Error details: {e}", exc_info=True)
+                return []
 
     def _detect_image(
         self, image_path: str, labels: Optional[List[str]]
@@ -329,12 +420,7 @@ class PydanticAIEngine:
             self.config.logger.warning(f"Image file not found: {image_path}")
             return []
 
-        # Ollama doesn't (currently) support vision via this toolkit.
-        if self.provider == "ollama":
-            self.config.logger.warning(
-                "Multimodal image detection is not supported with provider 'ollama'. "
-                "Use an OpenAI-compatible provider (OpenAI, vLLM, LocalAI) with a vision-capable model."
-            )
+        if not self.multimodal_enabled:
             return []
 
         # Read and encode image
@@ -349,7 +435,9 @@ class PydanticAIEngine:
             return []
 
         if not image_base64 or not image_mime:
-            self.config.logger.warning(f"Failed to read or identify image: {image_path}")
+            self.config.logger.warning(
+                f"Failed to read or identify image: {image_path}"
+            )
             return []
 
         image_data_url = f"data:{image_mime};base64,{image_base64}"
@@ -357,8 +445,8 @@ class PydanticAIEngine:
         prompt = self._create_image_prompt(labels)
         system_prompt = (
             "You are a PII detection expert. You MUST respond with ONLY valid JSON "
-            "matching this schema: {\"entities\": [{\"text\": str, \"type\": str, "
-            "\"confidence\": number|null, \"location\": str|null}]} . "
+            'matching this schema: {"entities": [{"text": str, "type": str, '
+            '"confidence": number|null, "location": str|null}]} . '
             "No markdown, no extra text."
         )
 
@@ -371,6 +459,10 @@ class PydanticAIEngine:
                     system_prompt=system_prompt,
                     user_prompt=prompt,
                     image_data_url=image_data_url,
+                    base_url=self.multimodal_base_url,
+                    api_key=self.multimodal_api_key,
+                    model=self.multimodal_model,
+                    timeout=self.multimodal_timeout,
                     use_response_format=True,
                 )
             except Exception:
@@ -380,6 +472,10 @@ class PydanticAIEngine:
                     system_prompt=system_prompt,
                     user_prompt=prompt,
                     image_data_url=image_data_url,
+                    base_url=self.multimodal_base_url,
+                    api_key=self.multimodal_api_key,
+                    model=self.multimodal_model,
+                    timeout=self.multimodal_timeout,
                     use_response_format=False,
                 )
 
@@ -394,6 +490,10 @@ class PydanticAIEngine:
                     system_prompt=system_prompt,
                     user_prompt=prompt,
                     image_data_url=image_data_url,
+                    base_url=self.multimodal_base_url,
+                    api_key=self.multimodal_api_key,
+                    model=self.multimodal_model,
+                    timeout=self.multimodal_timeout,
                     use_response_format=False,
                 )
                 parsed = self._parse_openai_response_as_pii_detection(response_data)
@@ -414,6 +514,10 @@ class PydanticAIEngine:
         system_prompt: str,
         user_prompt: str,
         image_data_url: str,
+        base_url: str,
+        api_key: Optional[str],
+        model: str,
+        timeout: int,
         use_response_format: bool,
     ) -> dict[str, Any]:
         """Call an OpenAI-compatible /chat/completions endpoint with an image."""
@@ -422,15 +526,15 @@ class PydanticAIEngine:
         except ImportError as e:  # pragma: no cover
             raise RuntimeError("requests is required for multimodal detection") from e
 
-        base_url = (self.base_url or "https://api.openai.com/v1").rstrip("/")
+        base_url = (base_url or "https://api.openai.com/v1").rstrip("/")
         url = f"{base_url}/chat/completions"
 
         headers = {"Content-Type": "application/json"}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
 
         payload = {
-            "model": self.model,
+            "model": model,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {
@@ -450,7 +554,7 @@ class PydanticAIEngine:
             payload["response_format"] = self._build_response_format()
 
         try:
-            resp = requests.post(url, headers=headers, json=payload, timeout=self.timeout)
+            resp = requests.post(url, headers=headers, json=payload, timeout=timeout)
             resp.raise_for_status()
             return resp.json()
         except Exception as e:
@@ -655,9 +759,13 @@ Extract all PII entities and return them in the structured format."""
         """
         results = []
         for entity in response.entities:
+            # For image detection, we always use an OpenAI-compatible endpoint
+            # (vLLM/LocalAI/OpenAI), even when text detection uses Ollama.
             metadata = {"provider": self.provider, "model": self.model}
             if image_path:
                 metadata["image_path"] = image_path
+                metadata["multimodal_base_url"] = self.multimodal_base_url
+                metadata["multimodal_model"] = self.multimodal_model
                 if entity.location:
                     metadata["location"] = entity.location
 

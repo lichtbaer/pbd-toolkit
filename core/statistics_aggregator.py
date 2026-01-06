@@ -67,7 +67,9 @@ class StatisticsAggregator:
         )
 
         # Track all unique files with matches (for summary) unless strict mode is enabled
-        self._all_files_with_matches: Optional[Set[str]] = set() if not self.strict else None
+        self._all_files_with_matches: Optional[Set[str]] = (
+            set() if not self.strict else None
+        )
 
         # Track all unique types detected
         self._all_types_detected: Set[str] = set()
@@ -207,9 +209,9 @@ class StatisticsAggregator:
                 stats["statistics_by_module"][module]["avg_confidence"] = round(
                     avg_confidence, 3
                 )
-                stats["statistics_by_module"][module][
-                    "confidence_distribution"
-                ] = confidence_dist
+                stats["statistics_by_module"][module]["confidence_distribution"] = (
+                    confidence_dist
+                )
 
         # Process file type statistics
         for file_type, file_type_stats in self._by_file_type.items():
@@ -221,9 +223,7 @@ class StatisticsAggregator:
                     file_type_stats["dimensions_detected"],
                     key=lambda d: self._by_dimension.get(d, {}).get("total_count", 0),
                     reverse=True,
-                )[
-                    :5
-                ],  # Top 5 dimensions
+                )[:5],  # Top 5 dimensions
             }
 
         return stats

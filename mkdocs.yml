@@ -60,6 +60,7 @@ nav:
     - Output Formats: user-guide/output-formats.md
     - Supported File Formats: user-guide/file-formats.md
     - PII Detection Methods: user-guide/detection-methods.md
+    - Open-Source Models: user-guide/open-source-models.md
     - Whitelist Usage: user-guide/whitelist.md
   - Developer Documentation:
     - Architecture: developer/architecture.md

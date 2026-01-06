@@ -3,11 +3,13 @@
 try:
     from defusedxml.ElementTree import parse as safe_parse, ParseError as SafeParseError
     from defusedxml.ElementTree import Element
+
     DEFUSEDXML_AVAILABLE = True
 except ImportError:
     # Fallback to standard library if defusedxml is not available
     import xml.etree.ElementTree as ET
     from xml.etree.ElementTree import Element
+
     safe_parse = ET.parse
     SafeParseError = ET.ParseError
     DEFUSEDXML_AVAILABLE = False

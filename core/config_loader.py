@@ -173,7 +173,9 @@ class ConfigLoader:
                 # Decide if the config should override:
                 # - If the CLI value is None, config can set it.
                 # - If the CLI value equals the Typer default, config can override it.
-                can_override = cli_value is None or _cli_value_is_default(arg_name, cli_value)
+                can_override = cli_value is None or _cli_value_is_default(
+                    arg_name, cli_value
+                )
                 if not can_override:
                     continue
 

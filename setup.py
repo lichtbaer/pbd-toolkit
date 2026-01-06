@@ -55,7 +55,8 @@ setup(
     author="PII Toolkit Contributors",
     url="https://github.com/lichtbaer/pbd-toolkit",
     packages=find_packages(exclude=["tests", "tests.*"]),
-    python_requires=">=3.8",
+    # Codebase uses Python 3.10+ syntax (e.g. `str | None`, `list[str]`).
+    python_requires=">=3.10",
     install_requires=requirements,
     extras_require=extras_require,
     include_package_data=True,
@@ -72,8 +73,6 @@ setup(
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
