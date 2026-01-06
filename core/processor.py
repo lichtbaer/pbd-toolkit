@@ -155,11 +155,9 @@ class TextProcessor:
         for engine in self.engines:
             start_time = time.time()
             try:
-                engine_lock = self._engine_locks.get(engine.name)
-                lock_ctx = engine_lock if engine_lock is not None else nullcontext()
-
-                with lock_ctx:
-                    results = engine.detect(text, self.config.ner_labels)
+                results = self._run_engine_detect(
+                    engine, text, labels=self.config.ner_labels
+                )
 
                 processing_time = time.time() - start_time
                 all_results.extend(results)
@@ -244,6 +242,30 @@ class TextProcessor:
             with self._process_lock:
                 self.match_container.add_detection_results(all_results, file_path)
 
+    def _run_engine_detect(
+        self,
+        engine: DetectionEngine,
+        text: str,
+        labels: list[str] | None = None,
+        image_path: str | None = None,
+    ):
+        """Run a single engine detect call with appropriate synchronization.
+
+        Thread safety is handled by:
+        - per-engine locks in this processor for engines marked thread_safe=False
+        - engine-internal locks (if implemented by the engine)
+
+        This helper is used for both text and image detection to avoid bypassing
+        synchronization in the image path.
+        """
+        engine_lock = self._engine_locks.get(engine.name)
+        lock_ctx = engine_lock if engine_lock is not None else nullcontext()
+        with lock_ctx:
+            if image_path is not None:
+                # PydanticAIEngine supports image_path kwarg; other engines ignore it
+                return engine.detect(text, labels, image_path=image_path)  # type: ignore[arg-type]
+            return engine.detect(text, labels)
+
     def process_file(
         self,
         file_info: FileInfo,
@@ -292,8 +314,11 @@ class TextProcessor:
 
                     if pydantic_ai_engine:
                         # Process image with PydanticAI engine
-                        results = pydantic_ai_engine.detect(
-                            "", self.config.ner_labels, image_path=full_path
+                        results = self._run_engine_detect(
+                            pydantic_ai_engine,
+                            "",
+                            labels=self.config.ner_labels,
+                            image_path=full_path,
                         )
                         if results:
                             with self._process_lock:

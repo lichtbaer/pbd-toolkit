@@ -90,6 +90,10 @@ class FileScanner:
         files_processed = 0
         pending_futures = []
         future_to_path: dict[object, str] = {}
+        # Prevent unbounded growth of pending futures when scanning large trees.
+        # This is especially important for multi-worker runs where file_callback
+        # submits to a ThreadPoolExecutor and returns futures.
+        max_pending_futures = int(getattr(self.config, "max_pending_futures", 512))
 
         # Estimate total files for progress bar (if verbose and no stop_count)
         # This can double runtime on huge directory trees, so it's opt-in.
@@ -229,6 +233,36 @@ class FileScanner:
                             if hasattr(ret, "result") and hasattr(ret, "done"):
                                 pending_futures.append(ret)
                                 future_to_path[ret] = full_path
+                                # Bound memory usage: periodically drain completed futures.
+                                if len(pending_futures) >= max_pending_futures:
+                                    try:
+                                        import concurrent.futures
+
+                                        done, not_done = concurrent.futures.wait(
+                                            pending_futures,
+                                            return_when=concurrent.futures.FIRST_COMPLETED,
+                                        )
+                                        pending_futures = list(not_done)
+                                        # Surface unexpected exceptions as scan errors (best-effort).
+                                        for fut in done:
+                                            try:
+                                                fut.result()
+                                            except Exception as e:
+                                                fpath = future_to_path.get(
+                                                    fut, "<unknown>"
+                                                )
+                                                error_msg = f"Callback async error: {type(e).__name__}: {str(e)}"
+                                                self.config.logger.error(
+                                                    f"{error_msg}: {fpath}",
+                                                    exc_info=self.config.verbose,
+                                                )
+                                                if fpath != "<unknown>":
+                                                    self._add_error(error_msg, fpath)
+                                                else:
+                                                    self._add_error(error_msg, "")
+                                    except Exception:
+                                        # Keep scanning even if draining fails.
+                                        pass
                         except Exception as e:
                             error_msg = f"Callback error: {type(e).__name__}: {str(e)}"
                             self.config.logger.error(
