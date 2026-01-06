@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - pip (Python package manager)
 - (Optional) Virtual environment (recommended)
 
@@ -181,7 +181,7 @@ Then open `http://127.0.0.1:8000` in your browser.
 
 **Import Errors**
 - Ensure all dependencies are installed: `pip install -r requirements.txt`
-- Verify Python version: `python --version` (should be 3.8+)
+- Verify Python version: `python --version` (should be 3.10+)
 
 **Model Loading Errors**
 - Check HuggingFace authentication: `hf auth login`
