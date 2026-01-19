@@ -152,11 +152,13 @@ def run_scenario(
             env["OPENAI_BASE_URL"] = openai_base
             env["OPENAI_API_BASE"] = openai_base
     if "--ollama" in args:
-        ollama_base = "http://localhost:11434"
+        ollama_base = "http://localhost:11434/v1"
         if "--ollama-url" in args:
             url_index = args.index("--ollama-url")
             if url_index + 1 < len(args):
                 ollama_base = args[url_index + 1]
+        if not ollama_base.rstrip("/").endswith("/v1"):
+            ollama_base = ollama_base.rstrip("/") + "/v1"
         env["OLLAMA_BASE_URL"] = ollama_base
 
     start = time.perf_counter()
