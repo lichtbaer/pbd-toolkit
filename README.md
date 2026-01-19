@@ -1,4 +1,4 @@
-# PII Toolkit (Fork)
+# PBD Toolkit (Fork)
 
 > **⚠️ This is an unofficial fork of the HBDI PII Toolkit. This project is not maintained by or affiliated with the Hessian Commissioner for Data Protection and Freedom of Information (HBDI).**
 
@@ -88,7 +88,7 @@ See [User Guide](docs/user-guide/cli.md) for complete usage documentation.
 
 This fork is based on the **pbD-Toolkit** (Personenbezogene Daten Toolkit) developed by the Hessian Commissioner for Data Protection and Freedom of Information (HBDI).
 
-- **Original Repository**: [hessen-datenschutz/pbd-toolkit](https://github.com/hessen-datenschutz/pbd-toolkit)
+- **Original Repository**: [hessen-datenschutz/pbd-toolkit]([https://gitlab.opencode.de/hbdi/pbd-toolkit/])
 - **Original Website**: [datenschutz.hessen.de](https://datenschutz.hessen.de)
 
 ## Privacy and Security
