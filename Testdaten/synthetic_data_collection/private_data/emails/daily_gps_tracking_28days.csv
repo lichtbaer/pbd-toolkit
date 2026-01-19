@@ -1,0 +1,21 @@
+Date,Time,Latitude,Longitude,Accuracy,Altitude,Speed,Location_Name,Activity
+2024-03-01,06:15,52.5200,13.4050,5,35,0,Home (Charlottenburg),Sleep End
+2024-03-01,07:30,52.5200,13.4050,8,35,2,Home,Shower
+2024-03-01,08:00,52.5200,13.4050,5,35,0,Home,Breakfast
+2024-03-01,08:45,52.5250,13.3980,12,45,15,S-Bahn Zoologischer Garten,Transit
+2024-03-01,09:15,52.5312,13.3895,8,60,5,TechCorp Office (Mitte),Work Start
+2024-03-01,12:30,52.5100,13.4200,10,30,20,Restaurant Adlon,Lunch
+2024-03-01,13:15,52.5312,13.3895,7,60,8,TechCorp Office,Work Resume
+2024-03-01,18:00,52.5250,13.3980,12,45,15,S-Bahn Zoologischer Garten,Transit
+2024-03-01,18:45,52.5200,13.4050,6,35,2,Home,Arrived
+2024-03-01,19:30,52.5050,13.3850,15,25,25,Gym Fitnessstudio Fit,Sports
+2024-03-01,20:45,52.5200,13.4050,6,35,0,Home,Evening
+2024-03-01,23:00,52.5200,13.4050,5,35,0,Home,Sleep
+2024-03-02,06:30,52.5200,13.4050,5,35,0,Home,Wake Up
+2024-03-02,08:00,52.5250,13.3980,12,45,15,S-Bahn,Transit
+2024-03-02,09:00,52.5312,13.3895,8,60,5,TechCorp Office,Work
+2024-03-02,13:00,52.4950,13.3700,20,40,30,Medical Center Charité,Doctor Appointment
+2024-03-02,14:30,52.5050,13.3850,15,25,25,Pharmacy,Medicine Pickup
+2024-03-02,15:00,52.5312,13.3895,8,60,5,TechCorp Office,Work Resume
+2024-03-03,14:00,52.4790,13.3394,8,35,0,Charité Psychiatry Clinic,Mental Health Appointment
+2024-03-03,15:30,52.4950,13.3700,15,35,10,Pharmacy Psychiatry,Medicine Pickup

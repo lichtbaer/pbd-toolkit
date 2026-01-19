@@ -1,0 +1,51 @@
+{
+  "metadata": {
+    "id": "DOC002",
+    "category": "private_data",
+    "subcategory": "documents",
+    "data_type": "md",
+    "generated_date": "2026-01-19T11:38:07.546713",
+    "version": "1.0"
+  },
+  "file_info": {
+    "filename": "hospital_discharge_letter.md",
+    "file_format": "Markdown document",
+    "file_size_kb": 1.4,
+    "description": "Auto-generated annotation for hospital_discharge_letter.md"
+  },
+  "personal_data_assessment": {
+    "contains_personal_data": true,
+    "personal_data_categories": [
+      "personal"
+    ],
+    "gdpr_risk_level": "high",
+    "identified_individuals": 1,
+    "notes": "AUTO-GENERATED; private data assumed."
+  },
+  "special_category_data": {
+    "has_special_category": true,
+    "special_categories": [
+      "health"
+    ],
+    "article_9_applicable": true,
+    "justification": "AUTO-GENERATED from inventory."
+  },
+  "data_quality": {
+    "realism_score": 9,
+    "synthetic_quality": "high",
+    "data_completeness": 100,
+    "anonymization_status": "not_anonymized"
+  },
+  "use_case": {
+    "primary_purpose": "Medical treatment",
+    "benchmarking_scenario": "AUTO-GENERATED; needs review.",
+    "ai_model_training_suitable": true,
+    "data_retention_recommendation": "TBD"
+  },
+  "data_protection": {
+    "encryption_recommended": true,
+    "access_control_level": "highly_confidential",
+    "pii_indicators": [],
+    "compliance_notes": "AUTO-GENERATED; needs review."
+  }
+}

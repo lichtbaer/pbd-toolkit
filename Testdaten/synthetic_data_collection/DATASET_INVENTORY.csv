@@ -1,0 +1,31 @@
+ID,Category,Subcategory,Filename,File_Type,Personal_Data,Art9_Special_Category,GDPR_Risk_Level,Realism_Score,Data_Completeness_Percent,Identified_Individuals,Anonymization_Status,Use_Case_Primary,Access_Control_Level
+PH001,private_data,photos,holiday_beach_family_2024.jpg,jpg,True,biometric,high,8,95,4,not_anonymized,Personal documentation,highly_confidential
+PH002,private_data,photos,birthday_celebration_indoor.jpg,jpg,True,None,medium,7,85,8,not_anonymized,Personal event,confidential
+PH003,private_data,photos,travel_passport_documents.jpg,jpg,True,biometric,high,9,100,1,not_anonymized,Travel documentation,highly_confidential
+PH004,private_data,photos,family_wedding_ceremony.jpg,jpg,True,biometric,high,8,95,12,not_anonymized,Personal event,highly_confidential
+PH005,private_data,photos,children_playground_afternoon.jpg,jpg,True,biometric,high,8,90,6,not_anonymized,Child safety,highly_confidential
+DOC001,private_data,documents,utility_bill_january_2024.md,md,True,None,high,9,100,1,not_anonymized,Utility billing,confidential
+DOC002,private_data,documents,hospital_discharge_letter.md,md,True,health,high,9,100,1,not_anonymized,Medical treatment,highly_confidential
+DOC003,private_data,documents,personal_loan_agreement.md,md,True,None,high,9,100,1,not_anonymized,Credit lending,highly_confidential
+DOC004,private_data,documents,resignation_letter_formal.md,md,True,None,medium,8,95,1,not_anonymized,Employment termination,confidential
+DOC005,private_data,documents,rental_lease_agreement.md,md,True,None,high,9,100,3,not_anonymized,Tenancy,confidential
+PRES001,business_data,presentations,Q2_2024_Sales_Strategy_Financial_Forecast.pptx,pptx,True,None,medium,8,90,1,not_anonymized,Sales strategy,confidential
+PRES002,business_data,presentations,Employee_Compensation_Review_2024.pptx,pptx,True,None,high,9,100,30,not_anonymized,HR management,highly_confidential
+PRES003,business_data,presentations,Customer_Contract_Review_Risk_Assessment.pptx,pptx,True,None,medium,8,85,4,not_anonymized,Account management,confidential
+PRES004,business_data,presentations,M&A_Due_Diligence_TechInnovate_Acquisition.pptx,pptx,True,None,high,8,95,85,not_anonymized,M&A analysis,highly_confidential
+PRES005,business_data,presentations,Board_Meeting_Digital_Transformation_Strategy.pptx,pptx,False,None,low,8,90,0,anonymized,Strategic planning,public
+MED001,medical_data,prescriptions,prescription_diabetes_treatment.md,md,True,health,high,9,100,1,not_anonymized,Medical treatment,highly_confidential
+MED002,medical_data,prescriptions,prescription_psychiatric_medication.md,md,True,health,high,9,100,1,not_anonymized,Psychiatric treatment,highly_confidential
+MED003,medical_data,prescriptions,sick_leave_certificate.md,md,True,health,high,8,95,1,not_anonymized,Work incapacity,highly_confidential
+MED004,medical_data,prescriptions,prescription_dermatology.md,md,True,health,high,8,95,1,not_anonymized,Medical treatment,highly_confidential
+MED005,medical_data,prescriptions,prescription_oncology_chemotherapy.md,md,True,health,high,9,100,1,not_anonymized,Oncology treatment,highly_confidential
+HR001,personnel_data,hiring_letters,job_offer_letter_senior_developer.md,md,True,None,medium,8,95,1,not_anonymized,Employment offer,confidential
+HR002,personnel_data,hiring_letters,employment_contract_manager.md,md,True,None,high,9,100,1,not_anonymized,Employment contract,highly_confidential
+HR003,personnel_data,hiring_letters,termination_letter_redundancy.md,md,True,None,high,8,95,1,not_anonymized,Employment termination,highly_confidential
+HR004,personnel_data,hiring_letters,promotion_announcement_internal.md,md,True,None,high,8,90,2,not_anonymized,HR communication,highly_confidential
+HR005,personnel_data,hiring_letters,performance_review_annual.md,md,True,None,high,9,100,1,not_anonymized,Performance management,highly_confidential
+LEG001,legal_data,contracts,service_agreement_confidentiality.md,md,True,None,high,9,100,2,not_anonymized,Business services,highly_confidential
+LEG002,legal_data,contracts,nda_mutual.md,md,True,None,high,9,95,2,not_anonymized,Business confidentiality,highly_confidential
+LEG003,legal_data,contracts,consumer_terms_conditions.md,md,False,None,low,8,90,0,anonymized,E-commerce,public
+LEG004,legal_data,contracts,settlement_agreement_dispute.md,md,True,None,high,9,100,2,not_anonymized,Legal settlement,highly_confidential
+LEG005,legal_data,contracts,data_processing_agreement_dpa.md,md,True,potentially,high,9,100,2,not_anonymized,GDPR compliance,highly_confidential

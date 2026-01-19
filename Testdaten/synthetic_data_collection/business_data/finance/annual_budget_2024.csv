@@ -1,0 +1,10 @@
+Abteilung,Kategorie,Budget Q1,Budget Q2,Budget Q3,Budget Q4,Gesamt,Notizen
+Engineering,Gehälter,450000,450000,450000,450000,1800000,30 Mitarbeiter
+Engineering,Software-Lizenzen,25000,25000,25000,25000,100000,
+Engineering,Infrastruktur,35000,35000,35000,35000,140000,Cloud-Kosten
+Sales,Gehälter,180000,190000,190000,200000,760000,12 Mitarbeiter + Provisionen
+Sales,Marketing-Budget,40000,45000,50000,55000,190000,Steigende Kampagnen
+HR,Gehälter,120000,120000,120000,120000,480000,6 Mitarbeiter
+HR,Schulung,30000,30000,30000,30000,120000,
+Admin,Miete,100000,100000,100000,100000,400000,Berlin Büro
+Admin,Nebenkosten,35000,35000,35000,35000,140000,

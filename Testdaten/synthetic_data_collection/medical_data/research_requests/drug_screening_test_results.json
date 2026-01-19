@@ -1,0 +1,51 @@
+{
+  "test_metadata": {
+    "patient_id": "PAT-LAB-005",
+    "patient_name": "Employee^Screening",
+    "dob": "19870410",
+    "age": "37Y",
+    "test_date": "2024-03-18",
+    "test_type": "Urine Toxicology Screening - Workplace",
+    "reason": "Random workplace drug screening",
+    "collected_by": "Lab Technician Maria Schmidt"
+  },
+  "screening_results": {
+    "amphetamines": {
+      "result": "Positive",
+      "value": 850,
+      "cutoff": 500,
+      "status": "DETECTED"
+    },
+    "cocaine_metabolite": {
+      "result": "Negative",
+      "value": 0,
+      "cutoff": 150
+    },
+    "marijuana": {
+      "result": "Positive",
+      "value": 45,
+      "cutoff": 50,
+      "status": "Borderline - Requires Confirmation"
+    },
+    "opioids": {
+      "result": "Positive",
+      "value": 2100,
+      "cutoff": 300,
+      "status": "DETECTED"
+    },
+    "benzodiazepines": {
+      "result": "Positive",
+      "value": 185,
+      "cutoff": 200,
+      "status": "Negative"
+    },
+    "phencyclidine": {
+      "result": "Negative",
+      "cutoff": 25
+    }
+  },
+  "confirmation_required": "Yes - Positive for Amphetamines and Opioids",
+  "recommendation": "GC-MS confirmation recommended. Report to employer HR department.",
+  "legal_note": "Employee has right to request confirmation testing at certified lab.",
+  "lab_director": "Dr. Thomas Hoffmann"
+}

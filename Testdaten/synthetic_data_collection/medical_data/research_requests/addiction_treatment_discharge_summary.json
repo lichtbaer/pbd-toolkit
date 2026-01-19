@@ -1,0 +1,63 @@
+{
+  "facility_info": {
+    "facility_name": "Berlin Addiction Recovery Center",
+    "program_type": "28-day Inpatient Residential Treatment",
+    "admission_date": "2024-01-05",
+    "discharge_date": "2024-02-02",
+    "treatment_duration": "28 days"
+  },
+  "patient_info": {
+    "patient_id": "PAT-ADD-001",
+    "name": "Robert Wagner",
+    "age": 42,
+    "gender": "Male",
+    "occupational_status": "Unemployed"
+  },
+  "admission_assessment": {
+    "primary_substance": "Heroin",
+    "secondary_substances": [
+      "Cocaine",
+      "Alcohol",
+      "Benzodiazepines"
+    ],
+    "duration_of_addiction": "18 years",
+    "previous_treatment": "3 attempts (all relapsed)",
+    "severity_score": "SEVERE - Multiple drug dependence"
+  },
+  "detoxification_protocol": {
+    "medication_assisted_treatment": "Methadone taper + Clonidine",
+    "days_1_5": "Medical detoxification (supervised)",
+    "withdrawal_symptoms": "Severe but manageable with medication support",
+    "complications": "Seizure risk (monitored), insomnia, anxiety"
+  },
+  "treatment_activities": [
+    "Group therapy (daily)",
+    "Individual counseling (3x weekly)",
+    "12-step AA/NA program",
+    "Occupational therapy",
+    "Recreational activities",
+    "Trauma-informed care (patient has PTSD history)"
+  ],
+  "underlying_trauma": {
+    "identified_issues": [
+      "Childhood abuse (father's beatings)",
+      "Combat veteran (military service 2005-2009)",
+      "PTSD from military deployment (Iraq)"
+    ],
+    "trauma_treatment": "Started EMDR (Eye Movement Desensitization & Reprocessing)"
+  },
+  "discharge_assessment": {
+    "discharge_readiness": "MODERATE",
+    "abstinence": "28 days successful (brief slips on days 10 & 23, managed)",
+    "mental_health_status": "Improved but depression remains",
+    "relapse_risk": "MODERATE-HIGH (environmental stressors)"
+  },
+  "discharge_plan": {
+    "aftercare_program": "90 AA meetings in 90 days",
+    "continued_counseling": "Weekly outpatient therapy",
+    "housing": "Refer to halfway house (availability pending)",
+    "employment": "Job training program (pending approval)",
+    "medication": "Naltrexone prescribed for opioid use disorder"
+  },
+  "provider_notes": "Patient committed during stay but faces significant environmental challenges (homelessness risk, poverty). High relapse probability without housing/employment support."
+}

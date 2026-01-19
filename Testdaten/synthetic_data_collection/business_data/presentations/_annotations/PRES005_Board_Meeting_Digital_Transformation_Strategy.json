@@ -1,0 +1,49 @@
+{
+  "metadata": {
+    "id": "PRES005",
+    "category": "business_data",
+    "subcategory": "presentations",
+    "data_type": "pptx",
+    "generated_date": "2026-01-19T11:38:07.547964",
+    "version": "1.0"
+  },
+  "file_info": {
+    "filename": "Board_Meeting_Digital_Transformation_Strategy.pptx",
+    "file_format": "PowerPoint presentation",
+    "file_size_kb": 2.2,
+    "description": "Auto-generated annotation for Board_Meeting_Digital_Transformation_Strategy.pptx"
+  },
+  "personal_data_assessment": {
+    "contains_personal_data": false,
+    "personal_data_categories": [
+      "financial_info"
+    ],
+    "gdpr_risk_level": "low",
+    "identified_individuals": 0,
+    "notes": "AUTO-GENERATED; business data assumed."
+  },
+  "special_category_data": {
+    "has_special_category": false,
+    "special_categories": [],
+    "article_9_applicable": false,
+    "justification": "AUTO-GENERATED; not classified."
+  },
+  "data_quality": {
+    "realism_score": 8,
+    "synthetic_quality": "high",
+    "data_completeness": 90,
+    "anonymization_status": "anonymized"
+  },
+  "use_case": {
+    "primary_purpose": "Strategic planning",
+    "benchmarking_scenario": "AUTO-GENERATED; needs review.",
+    "ai_model_training_suitable": true,
+    "data_retention_recommendation": "TBD"
+  },
+  "data_protection": {
+    "encryption_recommended": false,
+    "access_control_level": "public",
+    "pii_indicators": [],
+    "compliance_notes": "AUTO-GENERATED; needs review."
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "case_metadata": {
+    "case_id": "2024-BERLIN-12345",
+    "case_type": "Criminal Assault & Fraud Investigation",
+    "investigating_authority": "Kriminalpolizei Berlin (Criminal Police)",
+    "prosecutor": "Staatsanwaltschaft Berlin (Public Prosecutor)",
+    "investigation_start": "2024-02-15"
+  },
+  "incident_summary": "Alleged assault and theft at nightclub. €50K stolen from safe.",
+  "witnesses": [
+    {
+      "witness_id": "W001",
+      "name": "Klaus Mueller",
+      "age": 34,
+      "occupation": "Nightclub owner",
+      "statement_date": "2024-02-16",
+      "statement_summary": "On night of Feb 15, I left safe room at 23:45. At midnight, alarm triggered. Safe open, €50K missing. Two suspects fled in black BMW (partial plate: B-KK-2024). I heard one yell 'Get the diamonds too!'",
+      "credibility_assessment": "HIGH - Victim/owner",
+      "police_notes": "Owner claims no forced entry on safe - suggests insider knowledge"
+    },
+    {
+      "witness_id": "W002",
+      "name": "Sarah Schmidt",
+      "age": 28,
+      "occupation": "Bartender",
+      "statement_date": "2024-02-16",
+      "statement_summary": "I saw two men at bar earlier. One was Klaus Mueller's nephew Robert Mueller (age 22). He was asking unusual questions about security systems. Left with another man (unknown). They returned 2 hours later and went to back room with Klaus.",
+      "credibility_assessment": "MODERATE - Hearsay",
+      "prior_criminal_record": "No",
+      "concern": "Suggests inside job involving Robert Mueller"
+    },
+    {
+      "witness_id": "W003",
+      "name": "Robert Mueller",
+      "age": 22,
+      "occupation": "Student/Unemployed",
+      "statement_date": "2024-02-17",
+      "relationship_to_victim": "Klaus Mueller's nephew",
+      "statement_summary": "I was at the club with friend Marcus. We had drinks and left. Not involved in theft. Klaus calls me 'trouble' but I haven't stolen anything.",
+      "contradictions": "Bartender says Robert left with another man, then returned to back room. Robert denies.",
+      "criminal_history": "2022: Drug possession conviction, served 6 months",
+      "assessment": "PRIME SUSPECT - Criminal history + Insider connection + Contradictory statements"
+    },
+    {
+      "witness_id": "W004",
+      "name": "Marcus Ahmed",
+      "age": 25,
+      "occupation": "Unknown",
+      "statement_date": "2024-02-17",
+      "statement_summary": "With Robert. We left at 23:30. Didn't see anything. Robert is innocent.",
+      "credibility_assessment": "LOW - Alibi for suspect, likely unreliable",
+      "background_check": "PENDING - Immigration status unknown, no employment record"
+    }
+  ],
+  "physical_evidence": [
+    {
+      "item": "Black BMW (Partial plate B-KK-2024)",
+      "status": "FOUND - Vehicle registered to Marcus Ahmed",
+      "forensics": "Fingerprints of Robert Mueller found on steering wheel"
+    },
+    {
+      "item": "Stolen €50K cash",
+      "status": "NOT FOUND - Still missing",
+      "investigator_note": "Suggests money was moved or spent quickly"
+    },
+    {
+      "item": "Safe room door lock",
+      "status": "No signs of forced entry",
+      "finding": "Supports inside job hypothesis"
+    }
+  ],
+  "digital_evidence": [
+    {
+      "source": "Phone records - Robert Mueller",
+      "finding": "Called Marcus 4 times on Feb 15 between 23:00-23:30",
+      "timing": "Consistent with crime window"
+    },
+    {
+      "source": "Text messages between Robert & Marcus",
+      "messages": [
+        {
+          "from": "Robert",
+          "to": "Marcus",
+          "time": "22:45",
+          "text": "Uncle drunk? Safe day?"
+        },
+        {
+          "from": "Marcus",
+          "to": "Robert",
+          "time": "22:47",
+          "text": "Good 2 go. U sure about this?"
+        },
+        {
+          "from": "Robert",
+          "to": "Marcus",
+          "time": "23:55",
+          "text": "Done. Meet at warehouse. Split 50/50"
+        }
+      ],
+      "significance": "HIGHLY INCRIMINATING - Direct evidence of premeditation"
+    }
+  ],
+  "charges_recommended": [
+    "Aggravated Theft (Schwerer Diebstahl)",
+    "Conspiracy (Bandenwesen)",
+    "Receiving Stolen Property (Robert Mueller)"
+  ],
+  "status": "ACTIVE INVESTIGATION - Arrests pending"
+}

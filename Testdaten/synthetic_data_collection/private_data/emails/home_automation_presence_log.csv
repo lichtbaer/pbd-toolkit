@@ -1,0 +1,9 @@
+DateTime,Event,Device,Location,Status,Temperature,Humidity,Notes
+2024-03-01 06:15,Motion Detected,Front Door Camera,Entrance,Active,,,Person leaving
+2024-03-01 08:45,Door Unlock,Smart Lock,Front Door,Unlocked,,,Person arriving
+2024-03-01 12:30,Motion Detected,Hallway Motion,Hallway,Active,21.5,45%,Person leaving
+2024-03-01 18:45,Door Unlock,Smart Lock,Front Door,Unlocked,,,Person arriving
+2024-03-01 19:30,Motion Detected,Living Room,Living Room,Active,20.0,48%,Person in room
+2024-03-01 23:30,All Lights Off,Central Control,All,Offline,18.5,52%,Sleep Mode
+2024-03-02 06:30,Coffee Maker,Kitchen Device,Kitchen,Active,22.0,44%,Morning routine
+2024-03-02 18:45,Door Unlock,Smart Lock,Front Door,Unlocked,,,Person arriving

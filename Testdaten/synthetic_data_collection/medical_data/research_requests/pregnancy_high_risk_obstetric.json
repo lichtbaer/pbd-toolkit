@@ -1,0 +1,50 @@
+{
+  "patient_identifier": {
+    "patient_id": "PAT-OB-001",
+    "name": "Mrs. Anna Weber",
+    "dob": "19880725",
+    "age": "36Y",
+    "gender": "Female",
+    "gravida_parity": "G3P1 (3 pregnancies, 1 delivery)"
+  },
+  "obstetric_history": {
+    "previous_pregnancy_1": "2010: Vaginal delivery at term (healthy)",
+    "previous_pregnancy_2": "2015: Miscarriage at 12 weeks",
+    "current_pregnancy": {
+      "gestational_age": "32 weeks",
+      "conception_date": "Oct 2023",
+      "due_date": "July 2024"
+    }
+  },
+  "high_risk_factors": [
+    "Advanced maternal age (36 years)",
+    "Gestational diabetes mellitus (GDM) - diagnosed at 24 weeks",
+    "Gestational hypertension (BP 145/92)",
+    "History of preeclampsia (Previous pregnancy 2010)",
+    "Fetal growth restriction (FGR) - estimated fetal weight <5th percentile",
+    "Polyhydramnios (excess amniotic fluid)"
+  ],
+  "current_management": {
+    "antidiabetic": "Insulin (Glargi ne 20 units evening)",
+    "antihypertensive": "Methyldopa 1500mg daily",
+    "monitoring": "Twice-weekly fetal monitoring (NST)",
+    "delivery_plan": "Planned cesarean at 37 weeks (due to GDM + FGR)"
+  },
+  "fetal_assessment": {
+    "estimated_fetal_weight": "1600g (at 32 weeks, normal 1700-1900g)",
+    "amniotic_fluid": "EXCESSIVE (AFI >25)",
+    "biophysical_profile": "6/8 (LOW - concerning)",
+    "doppler_studies": "Elevated uterine artery resistance (concerning for placental dysfunction)"
+  },
+  "maternal_mental_health": "HIGH ANXIETY regarding fetal outcomes",
+  "social_situation": {
+    "marital_status": "Married (supportive partner)",
+    "socioeconomic": "Middle class",
+    "stress": "ELEVATED - Fear of fetal loss"
+  },
+  "prognosis": "Guarded - FGR + Polyhydramnios + Advanced age = NICU admission likely",
+  "obstetric_team": [
+    "OB/GYN: Prof. Dr. Klaus Mueller",
+    "Maternal-Fetal Medicine: Dr. Sarah Schmidt"
+  ]
+}

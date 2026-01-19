@@ -1,0 +1,6 @@
+Employee_ID,Employee_Name,Emergency_Contact_Name,Relationship,Phone_Number,Email,Address
+EMP-0001,Anna Mueller,Robert Mueller,Brother,+49-30-12345678,robert@email.de,"Charlottenburg 45, 10115 Berlin"
+EMP-0002,Klaus Weber,Maria Weber,Mother,+49-30-87654321,maria.weber@email.de,"Marzahn 12, 12345 Berlin"
+EMP-0003,Sarah Schmidt,Dr. John Smith,Father,+44-207-9876543,john.smith@uk.com,"London, UK"
+EMP-0004,Michael Fischer,Julia Fischer,Spouse,+49-89-5555555,julia@email.de,"Schwabing 99, 80333 Munich"
+EMP-0005,Julia Hoffmann,Thomas Hoffmann,Spouse,+49-40-1234567,thomas@email.de,"Altona 50, 22763 Hamburg"

@@ -1,0 +1,51 @@
+{
+  "metadata": {
+    "id": "AUTO_PATIENT_CT_SCAN_CHEST",
+    "category": "medical_data",
+    "subcategory": "dicom_datasets",
+    "data_type": "json",
+    "generated_date": "2026-01-19T11:38:07.548752",
+    "version": "1.0"
+  },
+  "file_info": {
+    "filename": "patient_ct_scan_chest.json",
+    "file_format": "JSON document",
+    "file_size_kb": 1.1,
+    "description": "Auto-generated annotation for patient_ct_scan_chest.json"
+  },
+  "personal_data_assessment": {
+    "contains_personal_data": true,
+    "personal_data_categories": [
+      "health"
+    ],
+    "gdpr_risk_level": "high",
+    "identified_individuals": 1,
+    "notes": "AUTO-GENERATED; medical data assumed."
+  },
+  "special_category_data": {
+    "has_special_category": true,
+    "special_categories": [
+      "health"
+    ],
+    "article_9_applicable": true,
+    "justification": "AUTO-GENERATED; medical data."
+  },
+  "data_quality": {
+    "realism_score": 5,
+    "synthetic_quality": "unknown",
+    "data_completeness": 0,
+    "anonymization_status": "unknown"
+  },
+  "use_case": {
+    "primary_purpose": "TBD",
+    "benchmarking_scenario": "AUTO-GENERATED; needs review.",
+    "ai_model_training_suitable": true,
+    "data_retention_recommendation": "TBD"
+  },
+  "data_protection": {
+    "encryption_recommended": true,
+    "access_control_level": "confidential",
+    "pii_indicators": [],
+    "compliance_notes": "AUTO-GENERATED; needs review."
+  }
+}

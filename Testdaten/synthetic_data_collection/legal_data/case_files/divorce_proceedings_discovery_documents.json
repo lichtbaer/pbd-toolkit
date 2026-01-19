@@ -1,0 +1,85 @@
+{
+  "case_metadata": {
+    "case_id": "2024-FAMILY-5678",
+    "case_type": "Matrimonial Proceedings - Divorce with Asset Division",
+    "court": "Amtsgericht Charlottenburg (Family Court)",
+    "petitioner": "Anna Mueller (née Schmidt)",
+    "respondent": "Klaus Mueller",
+    "marriage_date": "2010-06-15",
+    "separation_date": "2023-12-01",
+    "children": "2 (ages 12 and 8)"
+  },
+  "grounds_for_divorce": "Adultery and irreconcilable differences",
+  "discovered_assets": [
+    {
+      "asset_type": "Marital home",
+      "location": "Berlin-Charlottenburg (property)",
+      "value_EUR": 850000,
+      "ownership": "Both names (joint)",
+      "mortgage_remaining": 320000,
+      "equity": 530000
+    },
+    {
+      "asset_type": "Investment portfolio",
+      "holder": "Klaus Mueller",
+      "value_EUR": 450000,
+      "note": "Wife unaware of full extent - Hidden from marital accounting"
+    },
+    {
+      "asset_type": "Hidden business income",
+      "source": "Consulting business (undeclared on taxes)",
+      "annual_income": "€120,000/year (unreported)",
+      "years_hidden": 3,
+      "total_hidden_income": 360000
+    }
+  ],
+  "custody_dispute": {
+    "issue": "Children custody - Highly contested",
+    "anna_claim": "Sole custody - Klaus unfit due to affairs and neglect",
+    "klaus_claim": "Joint custody - Wants 50% time with children",
+    "children_statements": "Child 1 (12yo): 'Dad ignores us.' Child 2 (8yo): 'Dad is mean sometimes.'"
+  },
+  "infidelity_evidence": {
+    "affair_partner": "Tamara Weber (age 26, Klaus's assistant)",
+    "discovery_method": "Credit card statements showing hotel charges",
+    "hotel_charges": [
+      {
+        "date": "2023-06-15",
+        "hotel": "Grand Hotel Berlin",
+        "amount": 450
+      },
+      {
+        "date": "2023-07-22",
+        "hotel": "Park Inn Hotel",
+        "amount": 380
+      }
+    ],
+    "text_messages": {
+      "message_1": {
+        "date": "2023-06-10",
+        "from": "Klaus",
+        "text": "Can't wait to see you tomorrow. Hotel booked."
+      },
+      "message_2": {
+        "date": "2023-07-15",
+        "from": "Tamara",
+        "text": "Your wife doesn't deserve you. Let's run away together."
+      }
+    }
+  },
+  "financial_misconduct": {
+    "finding": "Klaus hid €360K consulting income from wife and tax authorities",
+    "legal_consequence": "Can affect alimony/child support calculations",
+    "tax_implications": "Potential criminal referral to tax authorities"
+  },
+  "settlement_demands": {
+    "anna_demands": [
+      "Sole custody of children",
+      "Keep family home",
+      "€500K lump sum alimony",
+      "€1,500/month child support"
+    ],
+    "klaus_position": "Contests all - Wants 50/50 custody, keeps investments"
+  },
+  "status": "DISCOVERY PHASE - Depositions scheduled March 2024"
+}

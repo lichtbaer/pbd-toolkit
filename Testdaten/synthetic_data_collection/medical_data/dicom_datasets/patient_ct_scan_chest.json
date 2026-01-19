@@ -1,0 +1,31 @@
+{
+  "dicom_metadata": {
+    "patient_id": "PAT-2024-001847",
+    "patient_name": "Dr. med. Patient^Test",
+    "patient_dob": "19640325",
+    "patient_age": "60Y",
+    "study_date": "20240315",
+    "study_time": "142530",
+    "modality": "CT",
+    "body_part_examined": "CHEST",
+    "protocol_name": "THORAX STANDARD",
+    "institution_name": "Charité - Universitätsmedizin Berlin",
+    "referring_physician": "Prof. Dr. Klaus Weber",
+    "study_description": "CT-Thorax mit und ohne KM",
+    "series_description": "Thorax - Standard",
+    "number_of_frames": "512",
+    "image_count": 145,
+    "slice_thickness_mm": 1.0
+  },
+  "clinical_findings": [
+    "Bilateral pulmonale Infiltrate bds. mit Verdacht auf viral-atypische Pneumonie",
+    "Rechts mediastinal vergrößerte Lymphknoten (LK max 2,1 cm)",
+    "Dezente pleurale Ergussbildung bds.",
+    "Herz und Aorta regelrecht konfiguriert",
+    "Keine Lungenembolie-Zeichen"
+  ],
+  "diagnosis": "Atypische Pneumonie mit Lymphknotenbeteiligung",
+  "impression": "Dringend empfohlen: Pulmonologische Beratung",
+  "radiologist": "Dr. med. Maria Hoffmann",
+  "signature_date": "20240315"
+}

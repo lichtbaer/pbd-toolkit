@@ -1,0 +1,8 @@
+Mitarbeiternummer,Name,Position,Abteilung,Bassissalär,Bonus,Gesamtgehalt,Steuern,Netto
+EMP001,Dr. Klaus Meyer,VP Engineering,Engineering,120000,25000,145000,42350,102650
+EMP002,Sarah Hoffmann,Senior Developer,Engineering,75000,8000,83000,23120,59880
+EMP003,Michael Fischer,Developer,Engineering,55000,4000,59000,14850,44150
+EMP004,Julia Schmidt,Sales Manager,Sales,60000,15000,75000,19500,55500
+EMP005,Thomas Weber,Account Executive,Sales,45000,10000,55000,13200,41800
+EMP006,Anna Mueller,HR Manager,HR,58000,5000,63000,16800,46200
+EMP007,Johannes Fischer,Office Manager,Admin,42000,2000,44000,11000,33000

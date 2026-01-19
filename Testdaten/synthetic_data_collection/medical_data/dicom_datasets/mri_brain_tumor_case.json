@@ -1,0 +1,27 @@
+{
+  "dicom_metadata": {
+    "patient_id": "PAT-2024-002156",
+    "patient_name": "Patient^MRT-Brain",
+    "patient_dob": "19581012",
+    "patient_age": "65Y",
+    "study_date": "20240310",
+    "modality": "MR",
+    "body_part_examined": "BRAIN",
+    "protocol_name": "BRAIN STANDARD WITH CONTRAST",
+    "mri_field_strength": "3.0T",
+    "contrast_used": "Gadolinium (0.2 mmol/kg)",
+    "institution": "Neurological University Hospital Munich"
+  },
+  "clinical_indication": "Kopfschmerzen, neurologische Ausfallerscheinungen",
+  "findings": [
+    "Raumfordernde Läsion frontal rechts, ca. 2,5 cm Durchmesser",
+    "Perifokales Ödem mit Masseneffekt",
+    "Keine Blutung",
+    "Multiple subkortikale FLAIR-hyperintense Läsionen",
+    "Mit Kontrastmittel homogene Anreicherung der Tumoren"
+  ],
+  "suspected_diagnosis": "Glioblastoma multiforme (High-Grade Gliom)",
+  "recommendation": "Dringende neurochirurgische Konsultation erforderlich",
+  "neuroradiologist": "Prof. Dr. Thomas Hoffmann",
+  "report_date": "20240310"
+}

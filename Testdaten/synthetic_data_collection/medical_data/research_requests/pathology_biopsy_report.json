@@ -1,0 +1,31 @@
+{
+  "test_metadata": {
+    "patient_id": "PAT-LAB-003",
+    "patient_name": "Male^Biopsy-Patient",
+    "dob": "19580720",
+    "age": "66Y",
+    "specimen_type": "Lung tissue biopsy",
+    "collection_date": "2024-03-10",
+    "received_date": "2024-03-10",
+    "report_date": "2024-03-17"
+  },
+  "gross_description": "Tan-brown tissue fragment, 8mm, relatively firm",
+  "microscopic_findings": {
+    "primary_finding": "Adenocarcinoma of the lung, acinar type",
+    "cell_differentiation": "Moderately differentiated",
+    "nuclear_features": "Moderate pleomorphism, 15-20 mitoses per 10 HPF",
+    "invasion": "Invasion of visceral pleura present",
+    "additional_findings": "Necrosis and desmoplastic stroma noted"
+  },
+  "immunohistochemistry": {
+    "ck7": "Positive",
+    "ck20": "Negative",
+    "p63": "Negative",
+    "ttf1": "Positive"
+  },
+  "diagnosis": "Lung adenocarcinoma, stage IIIA (pT4N2M0)",
+  "grading": "Grade 2-3 (Moderately to Poorly Differentiated)",
+  "clinical_significance": "Malignant neoplasm with poor prognosis. Multidisciplinary tumor board recommended.",
+  "treatment_recommendation": "Chemotherapy (cisplatin-based), possible radiotherapy or surgery depending on stage",
+  "pathologist": "Prof. Dr. Klaus Mueller"
+}

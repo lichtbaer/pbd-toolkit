@@ -1,0 +1,25 @@
+{
+  "scenarios": [
+    {
+      "name": "regex_smoke",
+      "path": "Testdaten/synthetic_data_collection",
+      "args": ["--regex"],
+      "stop_count": 25,
+      "runs": 1
+    },
+    {
+      "name": "regex_full",
+      "path": "Testdaten/synthetic_data_collection",
+      "args": ["--regex"],
+      "exclude_extensions": ["pptx"],
+      "runs": 1
+    },
+    {
+      "name": "regex_ner_smoke",
+      "path": "Testdaten/synthetic_data_collection",
+      "args": ["--regex", "--ner"],
+      "stop_count": 25,
+      "runs": 1
+    }
+  ]
+}

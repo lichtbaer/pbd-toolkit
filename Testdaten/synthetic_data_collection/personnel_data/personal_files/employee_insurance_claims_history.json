@@ -1,0 +1,50 @@
+{
+  "employee_info": {
+    "employee_id": "EMP-0523",
+    "name": "Anna Fischer",
+    "position": "Marketing Manager",
+    "employer_insurance": "Allianz Employee Insurance"
+  },
+  "claim_history": [
+    {
+      "claim_id": "CLM-2022-001",
+      "date": "2022-03-15",
+      "type": "Medical claim",
+      "description": "Hospitalization - Hysterectomy (uterine removal)",
+      "amount_covered": "€8,500",
+      "copay": "€500",
+      "status": "APPROVED"
+    },
+    {
+      "claim_id": "CLM-2022-002",
+      "date": "2022-06-10",
+      "type": "Mental health",
+      "description": "Psychiatric hospitalization - Depression & PTSD",
+      "duration": "14 days inpatient",
+      "amount_covered": "€12,500",
+      "status": "APPROVED"
+    },
+    {
+      "claim_id": "CLM-2023-003",
+      "date": "2023-01-20",
+      "type": "Disability claim",
+      "description": "12-week disability leave - Post-hospitalization recovery",
+      "amount_covered": "€18,000 (replacement income)",
+      "status": "APPROVED"
+    },
+    {
+      "claim_id": "CLM-2023-004",
+      "date": "2023-08-05",
+      "type": "Substance abuse treatment",
+      "description": "Inpatient addiction treatment - Alcohol & Xanax dependency",
+      "duration": "28 days",
+      "amount_covered": "€22,000",
+      "status": "APPROVED"
+    }
+  ],
+  "claims_summary": {
+    "total_claims_3_years": 4,
+    "total_paid": "€61,500",
+    "pattern": "Multiple claims indicate ongoing health issues"
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "test_metadata": {
+    "patient_id": "PAT-LAB-004",
+    "patient_name": "Vaccinated^Person",
+    "dob": "19900315",
+    "age": "34Y",
+    "country": "Germany",
+    "test_date": "2024-03-20"
+  },
+  "vaccination_history": [
+    {
+      "vaccine": "BioNTech/Pfizer Comirnaty",
+      "dose": "Dose 1",
+      "date": "2021-03-15",
+      "site": "Impfzentrum Berlin",
+      "lot_number": "EL3247"
+    },
+    {
+      "vaccine": "BioNTech/Pfizer Comirnaty",
+      "dose": "Dose 2",
+      "date": "2021-04-05",
+      "lot_number": "EL3248"
+    },
+    {
+      "vaccine": "Booster (BioNTech)",
+      "dose": "Dose 3",
+      "date": "2021-12-20",
+      "lot_number": "FJ2345"
+    },
+    {
+      "vaccine": "Booster (Moderna)",
+      "dose": "Dose 4",
+      "date": "2023-09-15",
+      "lot_number": "013F1",
+      "variant_targeted": "Omicron"
+    }
+  ],
+  "antibody_test": {
+    "test_type": "SARS-CoV-2 Total Antibody",
+    "date": "2024-03-20",
+    "result": "Positive",
+    "value": 850,
+    "unit": "U/mL",
+    "reference": ">12 = Positive"
+  },
+  "covid_infection_history": [
+    {
+      "date": "2022-01-10",
+      "variant": "Omicron",
+      "severity": "Mild",
+      "days_ill": 5
+    },
+    {
+      "date": "2023-11-25",
+      "variant": "XEC (Omicron sub-lineage)",
+      "severity": "Very Mild",
+      "days_ill": 2
+    }
+  ],
+  "immunity_status": "Excellent (vaccination + natural infection)"
+}

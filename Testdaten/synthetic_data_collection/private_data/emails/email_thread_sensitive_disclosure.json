@@ -1,0 +1,46 @@
+{
+  "email_chain_id": "EC-2024-0123",
+  "subject": "CONFIDENTIAL: Board Discussion - Merger Concerns",
+  "participants": [
+    "Klaus@company.de",
+    "Anna@company.de",
+    "thomas.cfo@company.de"
+  ],
+  "date_range": "2024-01-20 to 2024-01-22",
+  "emails": [
+    {
+      "from": "Klaus (CEO)",
+      "to": "Anna (General Counsel)",
+      "date": "2024-01-20 09:15",
+      "subject": "RE: Board Discussion - Merger Concerns",
+      "body": "Anna,\n\nThe board is worried about the CompTech acquisition. Our due diligence found:\n- Real EBITDA: €4.2M (not €6.8M claimed)\n- €12M undisclosed debt\n- Key customer leaving (€2M revenue)\n- Environmental violations (€8M liability)\n\nWe need to negotiate down to €18M immediately. The seller is desperate - they have debt issues.\n\nKeep this quiet. If market finds out, they'll abandon the deal OR demand higher price from us.\n\nKlaus"
+    },
+    {
+      "from": "Anna (General Counsel)",
+      "to": "Klaus, Thomas (CFO)",
+      "date": "2024-01-20 14:30",
+      "subject": "RE: Board Discussion - Merger Concerns",
+      "body": "Klaus, Thomas,\n\nI have legal concerns about our approach:\n\n1. If we use non-public due diligence information to lower the offer, that could be construed as fraud\n2. If we conceal material information from the seller, that's misrepresentation\n3. Document retention: All communications must be preserved (regulatory requirement)\n\nRecommendation: Use information transparently in negotiation. Frame as: \"Due diligence revealed issues that reduce valuation.\"\n\nThis is legally defensible and ethical.\n\nAnna"
+    },
+    {
+      "from": "Klaus (CEO)",
+      "to": "Anna",
+      "date": "2024-01-21 08:00",
+      "subject": "RE: Legal Concerns",
+      "body": "Anna,\n\nI hear you. But business isn't always clean. Every deal involves information asymmetry.\n\nLet's just say: \"Preliminary findings require valuation adjustment.\"\n\nThat's technically true but not fully transparent about what we found. If they want more details, they can hire their own consultant.\n\nThis saves us €10M+. I have shareholder duty to get best price.\n\nKlaus"
+    },
+    {
+      "from": "Thomas (CFO)",
+      "to": "Klaus, Anna",
+      "date": "2024-01-22 10:15",
+      "subject": "RE: Merger Strategy",
+      "body": "Guys,\n\nI'm with Anna. The SEC/BaFin could investigate this later.\n\nIf we're being dishonest now, and it gets discovered:\n- Criminal charges for securities fraud\n- €50M+ penalties\n- Jail time\n- Company reputation destroyed\n\nThe €10M savings isn't worth the risk.\n\nLet's do this right: Full transparency + fair negotiation.\n\nThomas"
+    }
+  ],
+  "risk_assessment": {
+    "insider_trading_risk": "MEDIUM - Non-public material information",
+    "fraud_risk": "MEDIUM - Potential non-disclosure to counterparty",
+    "regulatory_risk": "HIGH - SEC/BaFin could investigate",
+    "criminal_exposure": "YES - Potential for charges if deal goes bad"
+  }
+}

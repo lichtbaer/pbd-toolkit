@@ -1,0 +1,114 @@
+{
+  "test_metadata": {
+    "patient_id": "PAT-LAB-001",
+    "patient_name": "Dr. med. Patient^Test",
+    "dob": "19640325",
+    "age": "60Y",
+    "test_date": "2024-03-18",
+    "lab_name": "Charité Laboratory",
+    "ordered_by": "Dr. Klaus Weber"
+  },
+  "test_results": {
+    "complete_blood_count": {
+      "wbc": {
+        "value": 7.8,
+        "unit": "K/uL",
+        "reference": "4.5-11.0",
+        "status": "Normal"
+      },
+      "rbc": {
+        "value": 4.2,
+        "unit": "M/uL",
+        "reference": "4.5-5.9",
+        "status": "Low"
+      },
+      "hemoglobin": {
+        "value": 11.5,
+        "unit": "g/dL",
+        "reference": "13.5-17.5",
+        "status": "Low - Anemia"
+      },
+      "hematocrit": {
+        "value": 34,
+        "unit": "%",
+        "reference": "41-53",
+        "status": "Low"
+      },
+      "platelets": {
+        "value": 450,
+        "unit": "K/uL",
+        "reference": "150-400",
+        "status": "Elevated"
+      }
+    },
+    "metabolic_panel": {
+      "glucose": {
+        "value": 185,
+        "unit": "mg/dL",
+        "reference": "70-100",
+        "status": "High - Diabetes"
+      },
+      "sodium": {
+        "value": 138,
+        "unit": "mEq/L",
+        "reference": "135-145",
+        "status": "Normal"
+      },
+      "potassium": {
+        "value": 3.2,
+        "unit": "mEq/L",
+        "reference": "3.5-5.0",
+        "status": "Low - Critical"
+      },
+      "creatinine": {
+        "value": 2.1,
+        "unit": "mg/dL",
+        "reference": "0.7-1.3",
+        "status": "Elevated - Kidney Dysfunction"
+      }
+    },
+    "liver_function": {
+      "ast": {
+        "value": 145,
+        "unit": "U/L",
+        "reference": "0-40",
+        "status": "High - Liver Damage"
+      },
+      "alt": {
+        "value": 128,
+        "unit": "U/L",
+        "reference": "0-44",
+        "status": "High"
+      },
+      "bilirubin_total": {
+        "value": 2.8,
+        "unit": "mg/dL",
+        "reference": "0.1-1.2",
+        "status": "Elevated"
+      }
+    },
+    "lipid_panel": {
+      "total_cholesterol": {
+        "value": 298,
+        "unit": "mg/dL",
+        "reference": "<200",
+        "status": "High - Risk"
+      },
+      "ldl": {
+        "value": 210,
+        "unit": "mg/dL",
+        "reference": "<100",
+        "status": "High - Cardiovascular Risk"
+      },
+      "hdl": {
+        "value": 28,
+        "unit": "mg/dL",
+        "reference": ">40",
+        "status": "Low - Protective Factor Low"
+      }
+    }
+  },
+  "interpretation": "Multiple abnormal findings. Evidence of: Anemia, Diabetes (uncontrolled), Electrolyte imbalance (Hypokalemia), Chronic kidney disease, Liver impairment, Dyslipidemia.",
+  "recommendation": "Urgent follow-up with: Endocrinologist (diabetes control), Nephrologist (kidney function), Cardiologist (CVD risk), Gastroenterologist (liver function)",
+  "pathologist": "Prof. Dr. Michael Fischer"
+}

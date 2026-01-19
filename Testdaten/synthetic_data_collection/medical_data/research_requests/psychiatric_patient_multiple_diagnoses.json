@@ -1,0 +1,67 @@
+{
+  "patient_identifier": {
+    "patient_id": "PAT-PSY-001",
+    "name": "Ms. Julia Fischer",
+    "dob": "19900312",
+    "age": "34Y",
+    "gender": "Female"
+  },
+  "diagnostic_summary": {
+    "primary_diagnosis": "Bipolar I Disorder with rapid cycling",
+    "secondary_diagnoses": [
+      "Generalized Anxiety Disorder",
+      "Substance Use Disorder (Cannabis & Benzodiazepines)",
+      "History of Eating Disorder (Bulimia - partial remission)"
+    ],
+    "personality_features": "Borderline Personality Disorder traits"
+  },
+  "episode_history": {
+    "first_episode": "Age 19 (Manic episode)",
+    "total_hospitalizations": 7,
+    "suicide_attempts": 3,
+    "last_attempt": "2022 (Benzodiazepine overdose - survived)",
+    "psychiatric_history": "Complex, chronic course with poor prognosis"
+  },
+  "current_medications": [
+    {
+      "drug": "Lithium carbonate",
+      "level": "0.9 mEq/L",
+      "range": "0.6-1.2"
+    },
+    {
+      "drug": "Lamotrigine (Lamictal)",
+      "dose": "300mg daily"
+    },
+    {
+      "drug": "Quetiapine",
+      "dose": "600mg daily"
+    },
+    {
+      "drug": "Clonazepam",
+      "dose": "2mg daily",
+      "indication": "Anxiety"
+    }
+  ],
+  "psychosocial_factors": {
+    "employment": "Disability leave (since 2020)",
+    "housing": "Lives alone (risky given mental health)",
+    "support_system": "Minimal - Estranged from family",
+    "substance_use": {
+      "cannabis": "Daily use (self-medication for anxiety)",
+      "alcohol": "Intermittent binge drinking",
+      "benzodiazepines": "Prescribed but also abused"
+    }
+  },
+  "risk_assessment": {
+    "suicide_risk": "MODERATE (History of attempts, current stress)",
+    "self_harm": "MODERATE (Recent cuts on arms & legs)",
+    "violence_risk": "LOW but irritability when manic"
+  },
+  "treatment_response": "POOR - Multiple medication trials, limited response",
+  "prognosis": "Guarded - Chronic course with frequent relapses",
+  "providers": [
+    "Psychiatrist: Dr. Anna Mueller",
+    "Psychotherapist: Dr. Klaus Weber (Individual therapy weekly)",
+    "Case Manager: Social worker for care coordination"
+  ]
+}

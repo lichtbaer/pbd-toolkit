@@ -1,0 +1,93 @@
+{
+  "patient_identifier": {
+    "patient_id": "PAT-DIAB-001",
+    "name": "Mr. Hans Mueller",
+    "dob": "19620415",
+    "age": "62Y",
+    "gender": "Male",
+    "social_number": "12345678901"
+  },
+  "diagnosis_primary": "Type 2 Diabetes Mellitus with multiple complications",
+  "medical_history": {
+    "diabetes_onset": "2010",
+    "years_duration": "14 years",
+    "complications": [
+      "Diabetic Nephropathy (Kidney disease Stage 3B)",
+      "Diabetic Neuropathy (Peripheral nerve damage)",
+      "Diabetic Retinopathy (Eye disease with vision loss)",
+      "Coronary Artery Disease (Previous MI 2018)"
+    ]
+  },
+  "current_medications": [
+    {
+      "drug": "Metformin",
+      "dose": "2000mg",
+      "frequency": "2x daily"
+    },
+    {
+      "drug": "Lisinopril",
+      "dose": "20mg",
+      "frequency": "Daily"
+    },
+    {
+      "drug": "Atorvastatin",
+      "dose": "80mg",
+      "frequency": "Daily"
+    },
+    {
+      "drug": "Insulin Glargine",
+      "dose": "30 units",
+      "frequency": "Evening"
+    },
+    {
+      "drug": "Insulin Lispro",
+      "dose": "Variable",
+      "frequency": "Meals"
+    }
+  ],
+  "lab_results_latest": {
+    "HbA1c": {
+      "value": 9.2,
+      "unit": "%",
+      "target": "<7%",
+      "status": "POOR CONTROL"
+    },
+    "Glucose_fasting": {
+      "value": 245,
+      "unit": "mg/dL",
+      "reference": "70-100",
+      "status": "HIGH"
+    },
+    "Creatinine": {
+      "value": 2.8,
+      "unit": "mg/dL",
+      "reference": "0.7-1.3",
+      "status": "SEVERELY HIGH"
+    },
+    "eGFR": {
+      "value": 22,
+      "unit": "mL/min",
+      "reference": ">60",
+      "status": "Stage 3B CKD"
+    },
+    "Urine_Protein": {
+      "value": "+++",
+      "status": "NEPHROTIC RANGE"
+    }
+  },
+  "dialysis_status": "Not yet, but approaching (eGFR 22). Will likely need dialysis within 12-24 months",
+  "psychosocial_factors": {
+    "employment": "Retired (disability 2015)",
+    "smoking": "Former smoker (quit 2008)",
+    "alcohol": "Social drinker",
+    "depression": "Mild depression (BDI score 14), takes Sertraline",
+    "adherence": "POOR - Admits to not taking insulin consistently"
+  },
+  "life_expectancy": "8-10 years if complications progress",
+  "primary_care_provider": "Dr. Klaus Weber",
+  "specialist_providers": [
+    "Endocrinologist: Prof. Dr. Anna Schmidt",
+    "Nephrologist: Dr. Michael Fischer",
+    "Cardiologist: Dr. Thomas Mueller"
+  ]
+}

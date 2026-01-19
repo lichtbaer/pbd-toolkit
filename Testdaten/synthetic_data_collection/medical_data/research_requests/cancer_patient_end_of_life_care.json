@@ -1,0 +1,81 @@
+{
+  "patient_identifier": {
+    "patient_id": "PAT-ONC-001",
+    "name": "Mr. Franz Mueller",
+    "dob": "19440208",
+    "age": "80Y",
+    "gender": "Male"
+  },
+  "cancer_diagnosis": {
+    "cancer_type": "Metastatic pancreatic adenocarcinoma",
+    "stage": "Stage IV (Metastatic)",
+    "initial_diagnosis": "2023-01-15",
+    "metastatic_sites": [
+      "Liver (extensive)",
+      "Peritoneum (carcinomatosis)",
+      "Distant lymph nodes"
+    ],
+    "time_to_metastasis": "3 months from diagnosis"
+  },
+  "treatment_history": [
+    {
+      "treatment": "Chemotherapy (FOLFIRINOX)",
+      "duration": "6 cycles (Jan-Mar 2023)",
+      "response": "Minimal response, significant side effects"
+    },
+    {
+      "treatment": "Palliative chemotherapy (Gemcitabine)",
+      "duration": "4 cycles (Apr-May 2023)",
+      "response": "No benefit, toxicity unacceptable"
+    }
+  ],
+  "current_status": {
+    "disease_progression": "RAPID despite treatment",
+    "tumor_markers": {
+      "CA 19-9": 2840,
+      "normal": "<35"
+    },
+    "performance_status": "ECOG 4 (Completely bedridden)",
+    "life_expectancy": "Days to weeks (prognosis 4 weeks from today)"
+  },
+  "palliative_care": {
+    "goal": "Comfort care, symptom management, quality of life",
+    "location": "Home-based hospice",
+    "medications": [
+      {
+        "drug": "Morphine",
+        "dose": "Variable",
+        "indication": "Pain"
+      },
+      {
+        "drug": "Lorazepam",
+        "dose": "1-2mg",
+        "frequency": "PRN",
+        "indication": "Anxiety"
+      },
+      {
+        "drug": "Haloperidol",
+        "dose": "2mg",
+        "frequency": "Daily",
+        "indication": "Delirium"
+      }
+    ]
+  },
+  "psychosocial_factors": {
+    "family_support": "Wife (deceased 1995), 3 adult children - involved",
+    "spiritual_needs": "Catholic - Wants last rites",
+    "advance_directives": "DNR/DNI (Do Not Resuscitate/Intubate) signed",
+    "organ_donation": "No"
+  },
+  "symptoms": {
+    "pain": "SEVERE (8-9/10)",
+    "nausea": "CONSTANT despite antiemetics",
+    "dyspnea": "WORSENING (shortness of breath)",
+    "jaundice": "Severe (total bilirubin 12.5)"
+  },
+  "psychological_status": "Depressed but ACCEPTING of prognosis",
+  "palliative_team": [
+    "Palliative Care Specialist: Dr. Anna Schmidt",
+    "Hospice nurse: Daily visits"
+  ]
+}

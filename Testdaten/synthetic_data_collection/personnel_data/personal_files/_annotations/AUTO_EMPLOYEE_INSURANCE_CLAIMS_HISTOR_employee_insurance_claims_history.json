@@ -1,0 +1,49 @@
+{
+  "metadata": {
+    "id": "AUTO_EMPLOYEE_INSURANCE_CLAIMS_HISTOR",
+    "category": "personnel_data",
+    "subcategory": "personal_files",
+    "data_type": "json",
+    "generated_date": "2026-01-19T11:38:07.550427",
+    "version": "1.0"
+  },
+  "file_info": {
+    "filename": "employee_insurance_claims_history.json",
+    "file_format": "JSON document",
+    "file_size_kb": 1.4,
+    "description": "Auto-generated annotation for employee_insurance_claims_history.json"
+  },
+  "personal_data_assessment": {
+    "contains_personal_data": true,
+    "personal_data_categories": [
+      "employment_info"
+    ],
+    "gdpr_risk_level": "high",
+    "identified_individuals": 1,
+    "notes": "AUTO-GENERATED; personnel data assumed."
+  },
+  "special_category_data": {
+    "has_special_category": false,
+    "special_categories": [],
+    "article_9_applicable": false,
+    "justification": "AUTO-GENERATED; not classified."
+  },
+  "data_quality": {
+    "realism_score": 5,
+    "synthetic_quality": "unknown",
+    "data_completeness": 0,
+    "anonymization_status": "unknown"
+  },
+  "use_case": {
+    "primary_purpose": "TBD",
+    "benchmarking_scenario": "AUTO-GENERATED; needs review.",
+    "ai_model_training_suitable": true,
+    "data_retention_recommendation": "TBD"
+  },
+  "data_protection": {
+    "encryption_recommended": true,
+    "access_control_level": "confidential",
+    "pii_indicators": [],
+    "compliance_notes": "AUTO-GENERATED; needs review."
+  }
+}

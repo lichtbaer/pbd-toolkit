@@ -1,0 +1,61 @@
+{
+  "case_metadata": {
+    "case_id": "2024-IMMIGRATION-2222",
+    "case_type": "Deportation Proceedings",
+    "respondent": "Ali Ahmad Hassan",
+    "nationality": "Syrian",
+    "german_authority": "Bundesamt für Migration und Flüchtlinge (BAMF)",
+    "hearing_date": "2024-04-15"
+  },
+  "personal_information": {
+    "name": "Ali Ahmad Hassan",
+    "dob": "19880312",
+    "place_of_birth": "Aleppo, Syria",
+    "current_status": "Duldung (tolerated status, not asylum)",
+    "time_in_germany": "3.5 years"
+  },
+  "asylum_claim_history": {
+    "initial_claim": "2020-08-15",
+    "grounds": "Political persecution, Syrian civil war",
+    "decision": "REJECTED (2021)",
+    "reason": "Determined not credible - testimony inconsistencies",
+    "appeals": "3 appeals - all rejected"
+  },
+  "family_situation": {
+    "spouse": "Fatima Hassan (Syrian, Germany 2 years)",
+    "children": "2 children (born Germany - ages 4 & 2)",
+    "status": "All family members must be deported with Ali"
+  },
+  "background_concerns": [
+    {
+      "concern": "ISIS affiliation inquiry",
+      "finding": "Intelligence report suggests Ali may have had contact with ISIS fighters in Syria",
+      "evidence": "Intercepted communication mentioning 'brother Ali' in context of militant group",
+      "severity": "CRITICAL - Security risk factor"
+    },
+    {
+      "concern": "Document fraud",
+      "finding": "His Syrian passport appears altered",
+      "evidence": "Tamper evidence on document - birth date possibly changed",
+      "severity": "HIGH - Undermines credibility"
+    },
+    {
+      "concern": "Employment violations",
+      "finding": "Working illegally (no permit) for 2+ years",
+      "income": "€1,200/month cash payments (unreported)",
+      "violation": "Illegal employment + Tax evasion"
+    }
+  ],
+  "deportation_risk_assessment": {
+    "return_to_syria_risk": "HIGH - Death penalty for some political views in Syria",
+    "humanitarian_concerns": "CHILDREN born in Germany, integrated in German schools",
+    "family_separation": "Forced deportation separates children from country of birth"
+  },
+  "deportation_objections": [
+    "Children are German citizens (born in country) - Separation violates Article 8 ECHR (right to family life)",
+    "Syria civil war still ongoing - Return unsafe",
+    "Spouse's asylum claim (separate procedure)"
+  ],
+  "government_position": "Deportation recommended - Security risk outweighs humanitarian concerns",
+  "status": "AWAITING ADMINISTRATIVE COURT HEARING"
+}

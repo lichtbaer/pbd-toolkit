@@ -1,0 +1,62 @@
+{
+  "case_metadata": {
+    "case_id": "2024-COMMERCIAL-9999",
+    "case_type": "Breach of Contract & Intellectual Property Misappropriation",
+    "plaintiff": "TechCorp AG",
+    "defendant": "FormerCEO Klaus Weber + StartupXYZ GmbH",
+    "jurisdiction": "Landgericht Berlin (Regional Court)",
+    "filing_date": "2024-01-20"
+  },
+  "core_allegation": "Former CEO stole proprietary AI algorithm and trade secrets to launch competing startup",
+  "evidence_emails": [
+    {
+      "email_id": "E001",
+      "date": "2023-11-15",
+      "from": "Klaus.Weber@techcorp.de",
+      "to": "personal.klaus@gmail.com",
+      "subject": "FW: Proprietary Algorithm - CONFIDENTIAL",
+      "body": "Forwarding to my personal account. Need this for 'side project'. Will delete from company servers.",
+      "significance": "SMOKING GUN - Direct evidence of misappropriation"
+    },
+    {
+      "email_id": "E002",
+      "date": "2023-12-01",
+      "from": "Klaus.Weber@gmail.com",
+      "to": "investor@capitalfund.de",
+      "subject": "Introducing StartupXYZ - Revolutionary AI",
+      "body": "We've developed a breakthrough AI algorithm that outperforms market leaders by 35%...",
+      "significance": "Describes stolen TechCorp algorithm as his own"
+    },
+    {
+      "email_id": "E003",
+      "date": "2023-12-10",
+      "from": "Klaus.Weber@gmail.com",
+      "to": "co_founder@startupxyz.de",
+      "subject": "RE: Implementation details",
+      "body": "Use the exact architecture from TechCorp. I have the complete source code and documentation.",
+      "significance": "Confession of theft and unauthorized use of proprietary code"
+    }
+  ],
+  "technical_evidence": [
+    {
+      "finding": "StartupXYZ GitHub repository contains TechCorp proprietary code",
+      "similarity": "97% code match with TechCorp algorithm (verified by expert)",
+      "conclusion": "Not independent development - Direct copy"
+    },
+    {
+      "finding": "Metadata in StartupXYZ code shows TechCorp file paths and comments",
+      "example": "// Original path: /home/techcorp/proprietary/ai/model.py"
+    }
+  ],
+  "financial_impact": {
+    "techcorp_damages": "€5.2M in lost market share (first 6 months of StartupXYZ operation)",
+    "investor_funds_to_startup": "€2.8M based on false claims of proprietary technology",
+    "plaintiff_damages_claim": "€10M (treble damages for willful infringement)"
+  },
+  "defendant_response": "Klaus claims algorithm is generic and independently developed",
+  "court_orders": [
+    "Temporary Restraining Order - StartupXYZ cannot use TechCorp algorithm",
+    "Discovery Deadline: March 2024",
+    "Trial Date: September 2024"
+  ]
+}

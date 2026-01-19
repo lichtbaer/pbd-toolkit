@@ -1,0 +1,6 @@
+Deal_ID,Deal_Name,Customer,Deal_Value_EUR,Probability_%,Expected_Close,Stage,Decision_Maker,Budget_Approved
+DEAL-2024-001,Siemens Infrastructure Expansion,CUST-001,2500000,85,2024-04-30,Negotiation,Klaus Mueller,Yes
+DEAL-2024-002,SAP Digital Transformation,CUST-002,3800000,60,2024-05-15,Proposal,Sarah Schmidt,Pending
+DEAL-2024-003,BMW Production Optimization,CUST-003,4200000,45,2024-06-30,Discovery,Thomas Weber,No
+DEAL-2024-004,Telekom 5G Network,CUST-004,1800000,70,2024-04-15,Negotiation,Anna Fischer,Yes
+DEAL-2024-005,DAX Financial Platform,CUST-005,950000,20,2024-12-31,Stalled,Robert Hoffmann,No

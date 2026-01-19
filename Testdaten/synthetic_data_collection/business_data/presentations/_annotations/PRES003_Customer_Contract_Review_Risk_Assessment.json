@@ -1,0 +1,49 @@
+{
+  "metadata": {
+    "id": "PRES003",
+    "category": "business_data",
+    "subcategory": "presentations",
+    "data_type": "pptx",
+    "generated_date": "2026-01-19T11:38:07.547933",
+    "version": "1.0"
+  },
+  "file_info": {
+    "filename": "Customer_Contract_Review_Risk_Assessment.pptx",
+    "file_format": "PowerPoint presentation",
+    "file_size_kb": 2.2,
+    "description": "Auto-generated annotation for Customer_Contract_Review_Risk_Assessment.pptx"
+  },
+  "personal_data_assessment": {
+    "contains_personal_data": true,
+    "personal_data_categories": [
+      "financial_info"
+    ],
+    "gdpr_risk_level": "medium",
+    "identified_individuals": 4,
+    "notes": "AUTO-GENERATED; business data assumed."
+  },
+  "special_category_data": {
+    "has_special_category": false,
+    "special_categories": [],
+    "article_9_applicable": false,
+    "justification": "AUTO-GENERATED; not classified."
+  },
+  "data_quality": {
+    "realism_score": 8,
+    "synthetic_quality": "high",
+    "data_completeness": 85,
+    "anonymization_status": "not_anonymized"
+  },
+  "use_case": {
+    "primary_purpose": "Account management",
+    "benchmarking_scenario": "AUTO-GENERATED; needs review.",
+    "ai_model_training_suitable": true,
+    "data_retention_recommendation": "TBD"
+  },
+  "data_protection": {
+    "encryption_recommended": true,
+    "access_control_level": "confidential",
+    "pii_indicators": [],
+    "compliance_notes": "AUTO-GENERATED; needs review."
+  }
+}

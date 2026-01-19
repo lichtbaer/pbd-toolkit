@@ -1,0 +1,106 @@
+{
+  "platform": "TinderMatch Premium",
+  "user_profile": {
+    "username": "AlexanderB87",
+    "age": 35,
+    "location": "Berlin",
+    "occupation": "Management Consultant",
+    "marital_status_disclosed": "Single",
+    "marital_status_actual": "MARRIED (hidden)"
+  },
+  "conversation_history": [
+    {
+      "match_date": "2024-01-10",
+      "with": "Julia_Designer (age 28)",
+      "messages": [
+        {
+          "from": "AlexanderB87",
+          "text": "Hi Julia! Love your profile. Coffee?",
+          "time": "20:15"
+        },
+        {
+          "from": "Julia_Designer",
+          "text": "Sure! Tomorrow 19:00 at Cafe Central?",
+          "time": "20:30"
+        },
+        {
+          "from": "AlexanderB87",
+          "text": "Perfect. Can't wait 😍",
+          "time": "20:32"
+        }
+      ],
+      "outcome": "Met in person - spent night together"
+    },
+    {
+      "match_date": "2024-01-15",
+      "with": "SophiaMusic (age 26)",
+      "messages": [
+        {
+          "from": "AlexanderB87",
+          "text": "Hey beautiful. Single & looking for connection",
+          "time": "21:00"
+        },
+        {
+          "from": "SophiaMusic",
+          "text": "Hey! Are you married? Looking at your pics...",
+          "time": "21:05"
+        },
+        {
+          "from": "AlexanderB87",
+          "text": "No, single. Very much available 😊",
+          "time": "21:10"
+        },
+        {
+          "from": "SophiaMusic",
+          "text": "Good. My last boyfriend was married (didn't tell me). Trust is important.",
+          "time": "21:15"
+        },
+        {
+          "from": "AlexanderB87",
+          "text": "I'm completely honest. Meet for drinks?",
+          "time": "21:18"
+        },
+        {
+          "from": "SophiaMusic",
+          "text": "Thursday 20:00 - Zum Krokodil Bar",
+          "time": "21:20"
+        }
+      ],
+      "outcome": "Intimate evening - sexual encounter"
+    },
+    {
+      "match_date": "2024-01-18",
+      "with": "LauraArtist (age 31)",
+      "messages": [
+        {
+          "from": "AlexanderB87",
+          "text": "Laura, you seem amazing. Let's not waste time - hotel?",
+          "time": "23:00"
+        },
+        {
+          "from": "LauraArtist",
+          "text": "Direct! I like it. Room 412 - Berlin Hilton. Come in 20 min?",
+          "time": "23:05"
+        },
+        {
+          "from": "AlexanderB87",
+          "text": "On my way. Bring condoms?",
+          "time": "23:10"
+        },
+        {
+          "from": "LauraArtist",
+          "text": "Already here. Hurry 😘",
+          "time": "23:15"
+        }
+      ],
+      "outcome": "Hotel encounter - explicit sexual activity"
+    }
+  ],
+  "hidden_information": "User is actually married to Anna Mueller. Wife unaware of app or infidelity.",
+  "risk_factors": [
+    "Deception of multiple women",
+    "Unprotected sexual activity risk (STI transmission)",
+    "Fraud (misrepresentation of marital status)",
+    "Potential legal liability (wife suing for emotional distress)"
+  ]
+}

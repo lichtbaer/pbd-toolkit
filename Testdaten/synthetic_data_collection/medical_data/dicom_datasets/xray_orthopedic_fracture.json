@@ -1,0 +1,26 @@
+{
+  "dicom_metadata": {
+    "patient_id": "PAT-2024-002887",
+    "patient_name": "Accident^Patient",
+    "patient_dob": "19920518",
+    "patient_age": "31Y",
+    "study_date": "20240318",
+    "modality": "XR",
+    "body_part_examined": "FEMUR",
+    "protocol": "Femur AP + Lateral",
+    "accession_number": "ACC-2024-45678",
+    "admission_type": "EMERGENCY"
+  },
+  "clinical_history": "Sturz von Leiter mit Sturzhöhe 3m",
+  "findings": [
+    "Fraktur des Femurschaft etwa im mittleren Drittel",
+    "Fragmenttyp: Schräg",
+    "Dislokation: Relevant (ca. 2 cm)",
+    "Frakturraofordemde Stabilisierung"
+  ],
+  "classification": "AO-Klassifikation: 32-B2.1",
+  "treatment_recommendation": "Sofortige operative Versorgung mit Verriegelungsnagelung indiziert",
+  "orthopedic_surgeon": "PD Dr. Stefan Mueller",
+  "emergency_status": "STAT",
+  "report_date": "20240318"
+}

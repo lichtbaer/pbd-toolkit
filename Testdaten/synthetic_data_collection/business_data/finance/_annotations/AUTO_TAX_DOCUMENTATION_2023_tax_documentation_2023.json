@@ -1,0 +1,49 @@
+{
+  "metadata": {
+    "id": "AUTO_TAX_DOCUMENTATION_2023",
+    "category": "business_data",
+    "subcategory": "finance",
+    "data_type": "csv",
+    "generated_date": "2026-01-19T11:38:07.548132",
+    "version": "1.0"
+  },
+  "file_info": {
+    "filename": "tax_documentation_2023.csv",
+    "file_format": "CSV data",
+    "file_size_kb": 0.5,
+    "description": "Auto-generated annotation for tax_documentation_2023.csv"
+  },
+  "personal_data_assessment": {
+    "contains_personal_data": true,
+    "personal_data_categories": [
+      "financial_info"
+    ],
+    "gdpr_risk_level": "medium",
+    "identified_individuals": 1,
+    "notes": "AUTO-GENERATED; business data assumed."
+  },
+  "special_category_data": {
+    "has_special_category": false,
+    "special_categories": [],
+    "article_9_applicable": false,
+    "justification": "AUTO-GENERATED; not classified."
+  },
+  "data_quality": {
+    "realism_score": 5,
+    "synthetic_quality": "unknown",
+    "data_completeness": 0,
+    "anonymization_status": "unknown"
+  },
+  "use_case": {
+    "primary_purpose": "TBD",
+    "benchmarking_scenario": "AUTO-GENERATED; needs review.",
+    "ai_model_training_suitable": true,
+    "data_retention_recommendation": "TBD"
+  },
+  "data_protection": {
+    "encryption_recommended": true,
+    "access_control_level": "confidential",
+    "pii_indicators": [],
+    "compliance_notes": "AUTO-GENERATED; needs review."
+  }
+}

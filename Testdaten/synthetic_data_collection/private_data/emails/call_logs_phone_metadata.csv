@@ -1,0 +1,8 @@
+Date,Time,Caller_ID,Recipient_ID,Duration_Minutes,Frequency,Call_Type,Location_Caller
+2024-01-15,14:30,Klaus_Hoffmann,Tamara_Weber,12,Regular,Personal,Office
+2024-01-16,22:15,Klaus_Hoffmann,Tamara_Weber,35,High,Personal/Intimate,Home
+2024-01-17,09:00,Klaus_Hoffmann,Wife_Anna,3,Tense,Family/Conflict,Office
+2024-01-18,23:45,Klaus_Hoffmann,Tamara_Weber,67,Very High,Extended/Intimate,Hotel
+2024-01-19,18:00,Klaus_Hoffmann,Lawyer_Mueller,22,Legal,Business/Legal,Office
+2024-01-20,20:30,Klaus_Hoffmann,Tamara_Weber,18,High,Personal,Unknown_Location
+2024-01-21,06:00,Wife_Anna,Sister_Petra,45,Emotional,Family/Support,Home

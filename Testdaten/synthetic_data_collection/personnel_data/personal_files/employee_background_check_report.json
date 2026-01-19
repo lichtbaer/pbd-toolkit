@@ -1,0 +1,61 @@
+{
+  "employee_info": {
+    "employee_id": "EMP-2024-0856",
+    "name": "Klaus Mueller",
+    "dob": "19850620",
+    "position": "Senior Software Engineer",
+    "department": "Engineering",
+    "employment_date": "2024-01-15"
+  },
+  "background_check_details": {
+    "check_date": "2024-01-10",
+    "agency": "TÜV Background Investigations",
+    "scope": "Comprehensive pre-employment screening"
+  },
+  "criminal_history": {
+    "status": "CONVICTION FOUND",
+    "conviction_1": {
+      "offense": "Drug possession (Cannabis)",
+      "date": "2010",
+      "penalty": "€500 fine",
+      "status": "Sealed (no prison)"
+    },
+    "conviction_2": {
+      "offense": "Driving under influence (DUI)",
+      "date": "2015",
+      "penalty": "€1,500 fine + 6-month license suspension",
+      "status": "ACTIVE ON RECORD"
+    }
+  },
+  "credit_report": {
+    "credit_score": 485,
+    "rating": "POOR",
+    "details": {
+      "outstanding_debt": "€28,450",
+      "defaulted_loans": 2,
+      "missed_payments": "15+ in last 2 years",
+      "accounts_in_default": [
+        "Credit card (€5,200)",
+        "Personal loan (€8,900)",
+        "Medical debt (€2,350)"
+      ]
+    }
+  },
+  "employment_verification": {
+    "previous_employer_1": "StartupXYZ GmbH (2020-2023)",
+    "reference_given": "Manager: Anna Weber",
+    "reference_result": "NEGATIVE - 'Klaus left abruptly with unpaid expenses, possible data theft'",
+    "previous_employer_2": "TechCorp AG (2018-2020)",
+    "reason_left": "Terminated - Unauthorized access to systems"
+  },
+  "recommendations": {
+    "hiring_recommendation": "NOT RECOMMENDED - Security risk",
+    "concerns": [
+      "Criminal history (DUI + substance abuse)",
+      "Poor financial management (heavy debt)",
+      "Questionable employment history (multiple terminations)",
+      "Reference problem (data theft allegation)"
+    ],
+    "suggestion": "Conduct careful interview before proceeding"
+  }
+}
