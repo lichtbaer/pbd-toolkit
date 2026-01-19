@@ -309,10 +309,10 @@ class PydanticAIEngine:
             # Configure agent with system prompt and output type
             self._agent = Agent(
                 model_input,
-                output_type=PIIDetectionResponse,
+                output_type=str,
                 system_prompt=(
                     "You are a PII detection expert. Analyze text and extract "
-                    "personally identifiable information. Always return valid structured data."
+                    "personally identifiable information. Always return valid JSON."
                 ),
                 model_settings=model_settings,
             )
@@ -392,11 +392,36 @@ class PydanticAIEngine:
                         )
 
                 # Convert to DetectionResult list
-                # result.data should be a PIIDetectionResponse instance
-                if hasattr(result, "data"):
-                    return self._convert_results(result.data)
-                # Fallback if result structure is different
-                self.config.logger.warning("Unexpected PydanticAI result structure")
+                output = None
+                if hasattr(result, "output"):
+                    output = result.output
+                elif hasattr(result, "data"):
+                    output = result.data
+
+                if isinstance(output, PIIDetectionResponse):
+                    return self._convert_results(output)
+
+                if isinstance(output, dict):
+                    try:
+                        parsed = PIIDetectionResponse.model_validate(output)
+                        return self._convert_results(parsed)
+                    except Exception:
+                        pass
+
+                if isinstance(output, str):
+                    json_text = self._extract_first_json_object(output)
+                    if json_text:
+                        try:
+                            payload = json.loads(json_text)
+                            parsed = PIIDetectionResponse.model_validate(payload)
+                            return self._convert_results(parsed)
+                        except Exception:
+                            pass
+
+                output_type = type(output).__name__ if output is not None else "None"
+                self.config.logger.warning(
+                    f"Unexpected PydanticAI result structure (output type: {output_type})"
+                )
                 return []
 
             except Exception as e:
@@ -719,10 +744,14 @@ class PydanticAIEngine:
         else:
             labels_str = "all PII types"
 
+        schema = json.dumps(PIIDetectionResponse.model_json_schema(), indent=2)
         return f"""Analyze the following text and extract all personally identifiable information (PII).
 
 Entity types to detect:
 {labels_str}
+
+Return ONLY valid JSON that matches this schema:
+{schema}
 
 Text:
 {text}
