@@ -151,6 +151,13 @@ def run_scenario(
             openai_base = args[base_index + 1]
             env["OPENAI_BASE_URL"] = openai_base
             env["OPENAI_API_BASE"] = openai_base
+    if "--ollama" in args:
+        ollama_base = "http://localhost:11434"
+        if "--ollama-url" in args:
+            url_index = args.index("--ollama-url")
+            if url_index + 1 < len(args):
+                ollama_base = args[url_index + 1]
+        env["OLLAMA_BASE_URL"] = ollama_base
 
     start = time.perf_counter()
     proc = subprocess.run(

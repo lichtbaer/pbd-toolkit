@@ -22,6 +22,20 @@
       "runs": 1
     },
     {
+      "name": "gliner_smoke",
+      "path": "Testdaten/synthetic_data_collection",
+      "args": ["--ner"],
+      "stop_count": 10,
+      "runs": 1
+    },
+    {
+      "name": "spacy_ner_smoke",
+      "path": "Testdaten/synthetic_data_collection",
+      "args": ["--spacy-ner", "--spacy-model", "de_core_news_lg"],
+      "stop_count": 10,
+      "runs": 1
+    },
+    {
       "name": "openai_compatible_smoke_gemma",
       "path": "Testdaten/synthetic_data_collection",
       "args": [
@@ -30,6 +44,17 @@
         "https://admin-litellm.internal.sanjo.foo/",
         "--openai-model",
         "localai/gemma-3-27b-it"
+      ],
+      "stop_count": 3,
+      "runs": 1
+    },
+    {
+      "name": "ollama_smoke_gemma3",
+      "path": "Testdaten/synthetic_data_collection",
+      "args": [
+        "--ollama",
+        "--ollama-model",
+        "gemma3:12b"
       ],
       "stop_count": 3,
       "runs": 1
