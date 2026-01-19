@@ -1,10 +1,10 @@
-# PBD Toolkit (Fork)
+# pbD Toolkit (Fork)
 
-> **⚠️ This is an unofficial fork of the HBDI PII Toolkit. This project is not maintained by or affiliated with the Hessian Commissioner for Data Protection and Freedom of Information (HBDI).**
+> **⚠️ This is an unofficial fork of the HBDI pbD Toolkit. This project is not maintained by or affiliated with the Hessian Commissioner for Data Protection and Freedom of Information (HBDI).**
 
 ## Overview
 
-The PII Toolkit is a command-line tool for scanning directories and identifying potentially personally identifiable information (PII) within files. It supports multiple detection methods (regex and AI-based NER) and a wide range of file formats.
+The pbD Toolkit is a command-line tool for scanning directories and identifying potentially personally identifiable information (PII) within files. It supports multiple detection methods (regex and AI-based NER) and a wide range of file formats.
 
 ## Quick Start
 
@@ -88,7 +88,7 @@ See [User Guide](docs/user-guide/cli.md) for complete usage documentation.
 
 This fork is based on the **pbD-Toolkit** (Personenbezogene Daten Toolkit) developed by the Hessian Commissioner for Data Protection and Freedom of Information (HBDI).
 
-- **Original Repository**: [hessen-datenschutz/pbd-toolkit]([https://gitlab.opencode.de/hbdi/pbd-toolkit/])
+- **Original Repository**: [hessen-datenschutz/pbd-toolkit](https://gitlab.opencode.de/hbdi/pbd-toolkit/)
 - **Original Website**: [datenschutz.hessen.de](https://datenschutz.hessen.de)
 
 ## Privacy and Security
