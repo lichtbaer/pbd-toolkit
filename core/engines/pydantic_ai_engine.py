@@ -271,14 +271,13 @@ class PydanticAIEngine:
                     return self._agent
 
             # Build model string for PydanticAI
-            # PydanticAI uses LiteLLM format: provider/model
+            # PydanticAI uses the format: provider:model
             if self.provider == "ollama":
-                # For Ollama, use litellm format
-                model_str = f"ollama/{self.model}"
+                model_str = f"ollama:{self.model}"
             elif self.provider == "anthropic":
-                model_str = f"anthropic/{self.model}"
+                model_str = f"anthropic:{self.model}"
             else:
-                model_str = f"openai/{self.model}"
+                model_str = f"openai:{self.model}"
 
             # Set API key if needed (PydanticAI uses environment variables)
             if self.api_key:
@@ -293,17 +292,29 @@ class PydanticAIEngine:
                     # LiteLLM uses OLLAMA_API_BASE for custom Ollama endpoints
                     os.environ["OLLAMA_API_BASE"] = self.base_url
                 elif self.provider == "openai":
-                    # For OpenAI-compatible APIs, use OPENAI_API_BASE
+                    # For OpenAI-compatible APIs, set both env vars used by SDKs
                     os.environ["OPENAI_API_BASE"] = self.base_url
+                    os.environ["OPENAI_BASE_URL"] = self.base_url
 
-            # Configure agent with system prompt and result type
+            model_input: Any = model_str
+            if self.provider == "openai" and self.base_url:
+                from pydantic_ai.models.openai import OpenAIChatModel  # type: ignore
+                from pydantic_ai.providers.openai import OpenAIProvider  # type: ignore
+
+                provider = OpenAIProvider(base_url=self.base_url, api_key=self.api_key)
+                model_input = OpenAIChatModel(self.model, provider=provider)
+
+            model_settings = {"timeout": self.timeout} if self.timeout else None
+
+            # Configure agent with system prompt and output type
             self._agent = Agent(
-                model_str,
-                result_type=PIIDetectionResponse,
+                model_input,
+                output_type=PIIDetectionResponse,
                 system_prompt=(
                     "You are a PII detection expert. Analyze text and extract "
                     "personally identifiable information. Always return valid structured data."
                 ),
+                model_settings=model_settings,
             )
 
         return self._agent

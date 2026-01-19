@@ -44,4 +44,6 @@ The runner ensures `--summary-format json` and writes output files to
 
 - The dataset path already excludes `Testdaten/Review` and `Testdaten/_meta`.
 - NER scenarios require the relevant models to be installed locally.
+- LLM scenarios require configured backends:
+  - `openai_compatible_smoke_*`: set `OPENAI_API_KEY` (or use `--openai-api-key`).
 - For reproducible results, keep hardware and environment stable.

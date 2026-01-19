@@ -143,7 +143,14 @@ def run_scenario(
         temp_dataset_dir = temp_root
         scan_path = str(temp_root)
 
-    command = [sys.executable, "main.py", "--path", scan_path] + args
+    command = [sys.executable, "main.py", "scan", "--path", scan_path] + args
+    env = os.environ.copy()
+    if "--openai-api-base" in args:
+        base_index = args.index("--openai-api-base")
+        if base_index + 1 < len(args):
+            openai_base = args[base_index + 1]
+            env["OPENAI_BASE_URL"] = openai_base
+            env["OPENAI_API_BASE"] = openai_base
 
     start = time.perf_counter()
     proc = subprocess.run(
@@ -151,6 +158,7 @@ def run_scenario(
         cwd=base_dir,
         capture_output=True,
         text=True,
+        env=env,
     )
     duration = time.perf_counter() - start
     if temp_dataset_dir is not None:

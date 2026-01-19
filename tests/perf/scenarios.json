@@ -20,6 +20,45 @@
       "args": ["--regex", "--ner"],
       "stop_count": 25,
       "runs": 1
+    },
+    {
+      "name": "openai_compatible_smoke_gemma",
+      "path": "Testdaten/synthetic_data_collection",
+      "args": [
+        "--openai-compatible",
+        "--openai-api-base",
+        "https://admin-litellm.internal.sanjo.foo/",
+        "--openai-model",
+        "localai/gemma-3-27b-it"
+      ],
+      "stop_count": 10,
+      "runs": 1
+    },
+    {
+      "name": "openai_compatible_smoke_gpt4o",
+      "path": "Testdaten/synthetic_data_collection",
+      "args": [
+        "--openai-compatible",
+        "--openai-api-base",
+        "https://admin-litellm.internal.sanjo.foo/",
+        "--openai-model",
+        "localai/gpt-4o"
+      ],
+      "stop_count": 10,
+      "runs": 1
+    },
+    {
+      "name": "openai_compatible_smoke_gpt41",
+      "path": "Testdaten/synthetic_data_collection",
+      "args": [
+        "--openai-compatible",
+        "--openai-api-base",
+        "https://admin-litellm.internal.sanjo.foo/",
+        "--openai-model",
+        "gpt-4.1"
+      ],
+      "stop_count": 10,
+      "runs": 1
     }
   ]
 }
