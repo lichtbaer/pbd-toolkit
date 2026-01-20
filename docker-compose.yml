@@ -1,0 +1,66 @@
+x-toolkit-build: &toolkit-build
+  context: .
+  dockerfile: Dockerfile
+
+x-toolkit-base: &toolkit-base
+  build:
+    <<: *toolkit-build
+  volumes:
+    - ./data:/data:ro
+    - ./output:/output
+    - ./config:/config:ro
+    - ./.cache/huggingface:/cache/hf
+  environment:
+    HF_HOME: /cache/hf
+    HF_HUB_DISABLE_TELEMETRY: "1"
+    TORCH_DISABLE_TELEMETRY: "1"
+
+services:
+  toolkit-min:
+    <<: *toolkit-base
+    profiles: ["min"]
+    build:
+      <<: *toolkit-build
+      args:
+        PIP_EXTRAS: ""
+
+  toolkit-features:
+    <<: *toolkit-base
+    profiles: ["features"]
+    build:
+      <<: *toolkit-build
+      args:
+        PIP_EXTRAS: "office,images,magic,llm"
+
+  toolkit-ner:
+    <<: *toolkit-base
+    profiles: ["ner"]
+    build:
+      <<: *toolkit-build
+      args:
+        PIP_EXTRAS: "gliner,spacy"
+
+  toolkit-full:
+    <<: *toolkit-base
+    profiles: ["full"]
+    build:
+      <<: *toolkit-build
+      args:
+        PIP_EXTRAS: "office,images,magic,llm,gliner,spacy"
+
+  vllm:
+    image: vllm/vllm-openai:latest
+    profiles: ["vllm"]
+    command: >
+      --model microsoft/llava-1.6-vicuna-7b
+      --host 0.0.0.0
+      --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./.cache/huggingface:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]

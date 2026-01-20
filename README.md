@@ -60,6 +60,12 @@ Then open `http://127.0.0.1:8000` in your browser.
 
 See [Installation Guide](docs/getting-started/installation.md) for detailed instructions.
 
+## Docker / Compose
+
+Container variants (minimal, features, NER, full) and optional vLLM setup are documented here:
+
+- [Docker / Compose](docs/getting-started/docker.md)
+
 ## Usage
 
 ```bash
