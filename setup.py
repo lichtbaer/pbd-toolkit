@@ -23,7 +23,7 @@ extras_require = {
     "dev": [
         "pytest~=8.0.0",
         "pytest-cov~=4.1.0",
-        "pytest-mock~=3.14.0",
+        "pytest-mock~=3.15.1",
     ],
     # File format processors
     "office": [
