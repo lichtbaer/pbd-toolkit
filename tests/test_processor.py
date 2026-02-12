@@ -53,6 +53,19 @@ class TestTextProcessor:
         # Should not have found matches (regex disabled)
         assert len(pmc.pii_matches) == 0
 
+    def test_process_text_empty_returns_early(self, mock_config):
+        """Test that empty or whitespace-only text returns early without processing."""
+        pmc = PiiMatchContainer()
+        processor = TextProcessor(mock_config, pmc)
+        mock_config.use_regex = True
+        mock_config.regex_pattern = re.compile(r"\b\w+@\w+\.\w+\b")
+
+        processor.process_text("", "/test/file.txt")
+        assert len(pmc.pii_matches) == 0
+
+        processor.process_text("   \n\t  ", "/test/file.txt")
+        assert len(pmc.pii_matches) == 0
+
     @patch("core.processor.time.time")
     def test_process_text_with_ner(self, mock_time, mock_config):
         """Test processing text with NER detection."""

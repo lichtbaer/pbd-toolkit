@@ -78,6 +78,49 @@ class TestApplicationContext:
 
         assert context._("test") == "translated_test"
 
+    def test_from_cli_args_with_csv_writer(self, mock_config, temp_dir):
+        """Test from_cli_args with CsvWriter sets csv_writer and csv_file_handle."""
+        from argparse import Namespace
+        from pathlib import Path
+
+        args = Namespace(format="csv")
+        logger = Mock()
+        statistics = Statistics()
+        match_container = PiiMatchContainer()
+
+        out_path = Path(temp_dir) / "out.csv"
+        from core.writers import CsvWriter
+
+        writer = CsvWriter(str(out_path))
+
+        context = ApplicationContext.from_cli_args(
+            args=args,
+            config=mock_config,
+            logger=logger,
+            statistics=statistics,
+            match_container=match_container,
+            output_writer=writer,
+        )
+
+        assert context.output_format == "csv"
+        assert context.csv_writer is not None
+        assert context.csv_file_handle is not None
+
+    def test_from_cli_args_translate_func_default(self, mock_config):
+        """Test from_cli_args uses identity when translate_func is None."""
+        from argparse import Namespace
+
+        args = Namespace(format="csv")
+        context = ApplicationContext.from_cli_args(
+            args=args,
+            config=mock_config,
+            logger=Mock(),
+            statistics=Statistics(),
+            match_container=PiiMatchContainer(),
+            translate_func=None,
+        )
+        assert context._("hello") == "hello"
+
     def test_context_with_output_writer(self, mock_config):
         """Test context with output writer."""
         from core.writers import CsvWriter
