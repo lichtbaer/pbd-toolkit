@@ -12,6 +12,7 @@ from core.writers import (
     CsvWriter,
     JsonWriter,
     JsonlWriter,
+    PrivacyStatisticsWriter,
     create_output_writer,
 )
 
@@ -151,4 +152,40 @@ def test_csv_writer_io_error(tmp_path):
     with pytest.raises(OutputError) as exc_info:
         CsvWriter(str(invalid_path))
     assert "Failed to open output file" in str(exc_info.value)
+
+
+def test_create_output_writer_statistics(tmp_path):
+    """Test create_output_writer returns PrivacyStatisticsWriter for statistics format."""
+    out = tmp_path / "stats.json"
+    writer = create_output_writer("statistics", str(out))
+    assert isinstance(writer, PrivacyStatisticsWriter)
+
+
+def test_privacy_statistics_writer(tmp_path):
+    """Test PrivacyStatisticsWriter writes aggregated statistics."""
+    out = tmp_path / "stats.json"
+    writer = PrivacyStatisticsWriter(str(out))
+    writer.write_match(
+        PiiMatch(
+            text="test",
+            file="/a.txt",
+            type="REGEX",
+            ner_score=None,
+            engine="regex",
+            metadata={},
+        )
+    )
+    writer.finalize(
+        metadata={
+            "statistics": {
+                "statistics_by_dimension": {"pii": {"count": 1}},
+                "summary": {"total": 1},
+            },
+            "scan_metadata": {"path": "/test"},
+        }
+    )
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert "statistics_by_dimension" in data
+    assert "summary" in data
+    assert "metadata" in data
 

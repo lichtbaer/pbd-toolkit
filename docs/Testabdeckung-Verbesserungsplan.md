@@ -1,8 +1,9 @@
 # Plan zur Verbesserung der Testabdeckung
 
-**Stand:** 51% Gesamt-Coverage (Ziel: >80%)  
+**Stand:** 65% Gesamt-Coverage (Ziel: >80%)  
 **Datum:** 12. Februar 2025  
-**Projekt:** PII Toolkit
+**Projekt:** PII Toolkit  
+**Letzte Umsetzung:** Phase 1–4 durchgeführt (51% → 65%)
 
 ---
 
