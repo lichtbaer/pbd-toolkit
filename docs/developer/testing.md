@@ -192,8 +192,6 @@ Aim for:
 - **Integration tests**: Cover main workflows
 - **Edge cases**: Test error conditions
 
-**Verbindungsplan:** Siehe [Testabdeckung-Verbesserungsplan](../Testabdeckung-Verbesserungsplan.md) für eine detaillierte Roadmap zur Steigerung der Coverage.
-
 ## Best Practices
 
 1. **Isolation**: Each test should be independent
