@@ -1,11 +1,67 @@
-"""Tests for streaming output writers (JSONL, XLSX)."""
+"""Tests for output writers (CSV, JSON, JSONL, XLSX, Statistics)."""
 
 from __future__ import annotations
 
 import json
 
+import pytest
+
 from matches import PiiMatch
-from core.writers import create_output_writer
+from core.exceptions import OutputError
+from core.writers import (
+    CsvWriter,
+    JsonWriter,
+    JsonlWriter,
+    create_output_writer,
+)
+
+
+def test_csv_writer_write_and_finalize(tmp_path):
+    """Test CsvWriter writes matches and finalizes correctly."""
+    out = tmp_path / "findings.csv"
+    writer = CsvWriter(str(out))
+
+    writer.write_match(
+        PiiMatch(
+            text="test@example.com",
+            file="/tmp/a.txt",
+            type="REGEX_EMAIL",
+            ner_score=None,
+            engine="regex",
+            metadata={},
+        )
+    )
+    writer.finalize()
+
+    content = out.read_text(encoding="utf-8")
+    assert "Match" in content
+    assert "test@example.com" in content
+    assert writer.supports_streaming is True
+
+
+def test_json_writer_write_and_finalize(tmp_path):
+    """Test JsonWriter writes matches and finalizes correctly."""
+    out = tmp_path / "findings.json"
+    writer = JsonWriter(str(out))
+
+    writer.write_match(
+        PiiMatch(
+            text="John Doe",
+            file="/tmp/a.txt",
+            type="NER_PERSON",
+            ner_score=0.9,
+            engine="gliner",
+            metadata={},
+        )
+    )
+    writer.finalize(metadata={"scan_id": "123"})
+
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert "findings" in data
+    assert len(data["findings"]) == 1
+    assert data["findings"][0]["text"] == "John Doe"
+    assert data["metadata"]["scan_id"] == "123"
+    assert writer.supports_streaming is False
 
 
 def test_jsonl_writer_streams_and_appends_metadata(tmp_path):
@@ -59,4 +115,40 @@ def test_xlsx_writer_streams_rows(tmp_path):
     assert rows[0] == ("Match", "File", "Type", "Score", "Engine")
     assert rows[1][0] == "John Doe"
     assert "Metadata" in wb.sheetnames
+
+
+def test_create_output_writer_csv(tmp_path):
+    """Test create_output_writer returns CsvWriter for csv format."""
+    out = tmp_path / "out.csv"
+    writer = create_output_writer("csv", str(out))
+    assert isinstance(writer, CsvWriter)
+
+
+def test_create_output_writer_json(tmp_path):
+    """Test create_output_writer returns JsonWriter for json format."""
+    out = tmp_path / "out.json"
+    writer = create_output_writer("json", str(out))
+    assert isinstance(writer, JsonWriter)
+
+
+def test_create_output_writer_jsonl(tmp_path):
+    """Test create_output_writer returns JsonlWriter for jsonl format."""
+    out = tmp_path / "out.jsonl"
+    writer = create_output_writer("jsonl", str(out))
+    assert isinstance(writer, JsonlWriter)
+
+
+def test_create_output_writer_defaults_to_csv(tmp_path):
+    """Test create_output_writer defaults to CSV for unknown format."""
+    out = tmp_path / "out.csv"
+    writer = create_output_writer("unknown", str(out))
+    assert isinstance(writer, CsvWriter)
+
+
+def test_csv_writer_io_error(tmp_path):
+    """Test CsvWriter raises OutputError on invalid path."""
+    invalid_path = tmp_path / "nonexistent" / "nested" / "file.csv"
+    with pytest.raises(OutputError) as exc_info:
+        CsvWriter(str(invalid_path))
+    assert "Failed to open output file" in str(exc_info.value)
 
