@@ -1,6 +1,6 @@
 python-docx~=1.2.0
 beautifulsoup4
-gliner~=0.2.22
+gliner~=0.2.24
 # Security: keep pinned to a patched version (pip-audit blocking in CI).
 pdfminer.six==20251230
 pytest~=8.0.0
