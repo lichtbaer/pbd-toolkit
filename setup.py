@@ -33,7 +33,7 @@ extras_require = {
         "openpyxl~=3.1.0",
         "xlrd~=2.0.1",
         "extract-msg~=0.41.0",
-        "python-pptx~=0.6.23",
+        "python-pptx~=1.0.2",
         "PyYAML~=6.0.1",
     ],
     "images": ["Pillow>=10.0.0"],
