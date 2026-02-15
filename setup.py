@@ -22,7 +22,7 @@ extras_require = {
     # Development / testing
     "dev": [
         "pytest~=8.0.0",
-        "pytest-cov~=4.1.0",
+        "pytest-cov~=7.0.0",
         "pytest-mock~=3.14.0",
     ],
     # File format processors
