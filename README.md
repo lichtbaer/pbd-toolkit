@@ -94,6 +94,14 @@ python3 main.py scan /var/data-leak/ --vector-search
 # Vector search as triage pre-filter before LLM (reduces API calls by ~70-90%)
 python3 main.py scan /var/data-leak/ --vector-search --vector-triage \
     --pydantic-ai --pydantic-ai-provider ollama --pydantic-ai-model llama3.2
+
+# Save FAISS index for later querying, use custom domain-specific exemplars
+python3 main.py scan /var/data-leak/ --vector-search \
+    --vector-save-index ./output/my_index \
+    --vector-custom-exemplars ./my_exemplars.yaml
+
+# Query a saved FAISS index (after scan with --vector-save-index)
+python3 main.py query ./output/my_index "patient medical record" --top-k 10
 ```
 
 See [User Guide](docs/user-guide/cli.md) for complete usage documentation.

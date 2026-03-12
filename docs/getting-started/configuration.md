@@ -50,6 +50,15 @@ multimodal_api_key: null
 multimodal_model: "gpt-4o-mini"
 multimodal_timeout: 60
 
+# Vector search:
+vector_search: false
+vector_triage: false
+vector_model: "sentence-transformers/all-MiniLM-L6-v2"
+vector_threshold: 0.75
+vector_save_index: null
+vector_load_index: null
+vector_custom_exemplars: null
+
 # File type detection:
 use_magic_detection: false
 magic_fallback: true
@@ -101,6 +110,8 @@ All command-line arguments can be specified in the config file using their long 
 - `openai_api_base`, `openai_api_key`, `openai_model`
 - `multimodal`, `multimodal_api_base`, `multimodal_api_key`, `multimodal_model`, `multimodal_timeout`
 - `pydantic_ai`, `pydantic_ai_provider`, `pydantic_ai_model`, `pydantic_ai_api_key`, `pydantic_ai_base_url`
+- `vector_search`, `vector_triage`, `vector_model`, `vector_threshold`
+- `vector_save_index`, `vector_load_index`, `vector_custom_exemplars`
 - `use_magic_detection`, `magic_fallback`
 - `outname`, `whitelist`, `stop_count`, `output_dir`, `format`
 - `mode`, `jobs`

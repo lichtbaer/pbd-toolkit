@@ -131,14 +131,33 @@ Semantic similarity-based detection using sentence-transformers embeddings. Oper
 
 **`core/indexer/document_indexer.py`** – `DocumentIndexer`:
 - Lazily loads the sentence-transformers model (class-level cache, shared across instances)
-- Pre-computes and normalises all exemplar embeddings on first use
+- Pre-computes and normalises all exemplar embeddings on first use (built-in + custom)
 - `detect(text)` → embed + cosine similarity → sorted `CategoryMatch` list
-- `add_chunk()` + `save_index()` / `_load_faiss_index()` for FAISS persistence
+- `add_chunk(text, file_path, file_hash)` + `save_index()` / `_load_faiss_index()` for FAISS persistence
+- `query_similar_chunks(text, top_k, threshold)` → dispatches to `_faiss_search()` (disk-loaded index) or `_brute_force_search()` (in-memory)
+- `get_indexed_file_hashes()` → `dict[str, str]` mapping file path → SHA-256 hash (for incremental updates)
+
+**Custom exemplars** (`--vector-custom-exemplars`):
+- `DocumentIndexer.__init__` accepts `custom_exemplars_path: str | None`
+- Loads YAML or JSON: `{category_label: [exemplar_text, ...], ...}`
+- Merged with built-in exemplars; custom entries override built-in ones for the same key
+- Passed through from `VectorEngine` via the `vector_custom_exemplars` config field
+
+**File context tracking** (`VectorEngine`):
+- `VectorEngine.set_current_file(file_path, file_hash)` stores per-thread state via `threading.local()`
+- Called by `Processor.process_file()` before each file is processed (when `--vector-save-index` is active)
+- Enables `add_chunk()` to associate each indexed chunk with the correct source file and hash
+
+**`pii-toolkit query <index> <text>`** CLI subcommand:
+- Loads a saved FAISS index from `<index>.faiss` + `<index>.meta`
+- Calls `query_similar_chunks()` to find semantically similar chunks
+- Outputs results in `human` (default) or `json` format
 
 **Key design decisions**:
 - `text` in `DetectionResult` is the full chunk (not an exact span) – use alongside NER/regex for precise spans
 - Confidence is the cosine similarity score (0.0–1.0)
 - Privacy-first defaults: local model, no network calls, FAISS index stores only embeddings + file paths
+- SHA-256 file hashes in `.meta` lay the foundation for a future incremental index (skip unchanged files)
 
 ## Adding a New Engine
 

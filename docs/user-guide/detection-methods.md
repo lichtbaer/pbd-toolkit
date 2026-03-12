@@ -669,6 +669,7 @@ pip install faiss-cpu
 | `--vector-threshold` | `0.75` | Cosine similarity cut-off (0.0–1.0) |
 | `--vector-save-index` | – | Path prefix to save FAISS index after scan |
 | `--vector-load-index` | – | Path prefix to load a pre-built FAISS index |
+| `--vector-custom-exemplars` | – | Path to a YAML or JSON file with custom exemplar texts |
 
 **Detected PII categories** (13 built-in):
 
@@ -687,6 +688,43 @@ pip install faiss-cpu
 | `VECTOR_LOCATION` | GPS coordinates, location tracking data |
 | `VECTOR_VEHICLE` | License plates, VINs |
 | `VECTOR_CREDENTIALS` | Usernames/passwords, API tokens, SSH keys |
+
+**Custom exemplars**:
+
+Domain-specific PII categories can be added or extended with a YAML or JSON exemplar file:
+
+```bash
+pii-toolkit scan /data --vector-search --vector-custom-exemplars ./my_exemplars.yaml
+```
+
+**YAML format** (`my_exemplars.yaml`):
+
+```yaml
+VECTOR_PATIENT_ID:
+  - "Patienten-ID: 12345"
+  - "Patient identifier P-98765"
+  - "Krankenversicherungsnummer 123456789"
+
+VECTOR_EMPLOYEE_ID:
+  - "Mitarbeiternummer: MA-4711"
+  - "Employee badge number 00815"
+```
+
+**JSON format** (`my_exemplars.json`):
+
+```json
+{
+  "VECTOR_PATIENT_ID": [
+    "Patienten-ID: 12345",
+    "Patient identifier P-98765"
+  ]
+}
+```
+
+- Each key becomes a detection category label (appears in output as `entity_type`)
+- Each value is a list of exemplar strings – ideally 3–10 representative phrases per category
+- Custom categories are merged with the 13 built-in categories; both are active during the scan
+- To **replace** a built-in category, use the same key (e.g. `VECTOR_HEALTH`) with your own exemplars
 
 **Privacy considerations**:
 - Default model (`all-MiniLM-L6-v2`) runs **completely locally** – no network calls
