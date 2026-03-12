@@ -14,6 +14,27 @@ from pydantic import BaseModel, Field
 from core.engines.base import DetectionResult
 from config import Config
 
+# Transient error indicators that warrant a retry
+_RETRYABLE_EXCEPTION_SUBSTRINGS = (
+    "rate limit",
+    "ratelimit",
+    "429",
+    "503",
+    "502",
+    "timeout",
+    "timed out",
+    "connection",
+    "temporarily unavailable",
+    "overloaded",
+    "try again",
+)
+
+
+def _is_retryable_error(exc: Exception) -> bool:
+    """Return True if the exception looks like a transient/retryable API error."""
+    msg = str(exc).lower()
+    return any(kw in msg for kw in _RETRYABLE_EXCEPTION_SUBSTRINGS)
+
 try:
     # Optional dependency: used for text-only LLM detection.
     from pydantic_ai import Agent  # type: ignore
@@ -104,6 +125,10 @@ class PydanticAIEngine:
         self._last_request_duration = 0
         self._consecutive_slow_requests = 0
         self._slow_threshold = 5.0  # Seconds considered "slow"
+
+        # Retry configuration for transient API errors
+        self.max_retries: int = int(getattr(config, "llm_max_retries", 3))
+        self.retry_base_delay: float = float(getattr(config, "llm_retry_base_delay", 1.0))
 
         # Internal synchronization and concurrency limiting
         limits = getattr(self.config, "engine_concurrency_limits", {}) or {}
@@ -322,6 +347,41 @@ class PydanticAIEngine:
 
         return self._agent
 
+    def _retry_with_backoff(self, func, *args, **kwargs):
+        """Call *func* with exponential backoff retry on transient errors.
+
+        Retries up to ``self.max_retries`` times for errors that look transient
+        (rate limits, timeouts, connection resets, 5xx responses).  Non-transient
+        errors are re-raised immediately without any retry.
+
+        Args:
+            func: Callable to invoke.
+            *args / **kwargs: Forwarded to *func*.
+
+        Returns:
+            Return value of *func* on success.
+
+        Raises:
+            The last exception if all attempts are exhausted.
+        """
+        last_exc: Exception | None = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                return func(*args, **kwargs)
+            except Exception as exc:
+                last_exc = exc
+                if attempt >= self.max_retries or not _is_retryable_error(exc):
+                    raise
+                delay = self.retry_base_delay * (2 ** attempt)
+                if self.config.verbose:
+                    self.config.logger.warning(
+                        f"[{self.name}] Transient error (attempt {attempt + 1}/{self.max_retries + 1}), "
+                        f"retrying in {delay:.1f}s: {exc}"
+                    )
+                time.sleep(delay)
+        # Should never reach here, but satisfy the type checker
+        raise last_exc  # type: ignore[misc]
+
     def detect(
         self,
         text: str,
@@ -373,13 +433,13 @@ class PydanticAIEngine:
             # Create prompt
             prompt = self._create_prompt(text, labels)
 
-            # Run detection (text)
+            # Run detection (text) with retry on transient errors
             start_time = time.time()
             try:
                 agent = self._get_agent()
                 # PydanticAI uses run() for async or run_sync() for sync
                 # result.data contains the PIIDetectionResponse
-                result = agent.run_sync(prompt)
+                result = self._retry_with_backoff(agent.run_sync, prompt)
 
                 # Update metrics
                 duration = time.time() - start_time
@@ -493,8 +553,10 @@ class PydanticAIEngine:
         try:
             # Hardened path: first try strict structured outputs (where supported),
             # then fall back to best-effort parsing without response_format.
+            # Both attempts are wrapped with retry-on-transient-error logic.
             try:
-                response_data = self._openai_chat_completions_with_image(
+                response_data = self._retry_with_backoff(
+                    self._openai_chat_completions_with_image,
                     system_prompt=system_prompt,
                     user_prompt=prompt,
                     image_data_url=image_data_url,
@@ -507,7 +569,8 @@ class PydanticAIEngine:
             except Exception:
                 # Endpoint rejected strict response_format or failed in a way where a
                 # retry without response_format might still work (OpenAI-compatible variance).
-                response_data = self._openai_chat_completions_with_image(
+                response_data = self._retry_with_backoff(
+                    self._openai_chat_completions_with_image,
                     system_prompt=system_prompt,
                     user_prompt=prompt,
                     image_data_url=image_data_url,
