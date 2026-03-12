@@ -286,6 +286,17 @@ def scan(
         "--statistics-output",
         help="Path for statistics JSON output file (default: auto-generated in output directory)",
     ),
+    # Incremental scanning
+    incremental: bool = typer.Option(
+        False,
+        "--incremental",
+        help="Skip files whose content has not changed since the last scan (SHA-256 + mtime cache).",
+    ),
+    cache_path: Optional[str] = typer.Option(
+        None,
+        "--cache-path",
+        help="Path to the incremental scan cache database (default: .pbd_scan_cache.db in the output directory).",
+    ),
     # Output options
     verbose: bool = typer.Option(
         False, "-v", "--verbose", help="Enable verbose output with detailed logging"
@@ -358,6 +369,8 @@ def scan(
         "verbose": verbose,
         "quiet": quiet,
         "config": config,
+        "incremental": incremental,
+        "cache_path": cache_path,
     }
 
     args = _create_argparse_namespace_from_typer_args(**typer_args)
@@ -579,6 +592,21 @@ def scan(
             else:
                 errors[msg].append(path)
 
+    # Initialize incremental scan cache (if requested)
+    _use_incremental = bool(getattr(args, "incremental", False))
+    scan_cache = None
+    if _use_incremental:
+        from core.scan_cache import ScanCache
+        _cache_path = getattr(args, "cache_path", None) or os.path.join(
+            output_dir, ".pbd_scan_cache.db"
+        )
+        scan_cache = ScanCache(cache_path=_cache_path, logger=logger)
+        _cache_stats = scan_cache.stats()
+        context.logger.info(
+            f"Incremental scanning enabled. Cache: {_cache_path} "
+            f"({_cache_stats['total_entries']} entries)"
+        )
+
     # Initialize text processor for PII detection
     text_processor = TextProcessor(
         context.config, context.match_container, statistics=context.statistics
@@ -605,7 +633,18 @@ def scan(
 
     def _process_file_impl(file_info: FileInfo) -> None:
         """Process a single file: extract text and detect PII."""
+        # Incremental scan: skip unchanged files
+        if scan_cache is not None and scan_cache.is_unchanged(file_info.path):
+            if context.config.verbose:
+                context.logger.debug(f"Incremental: skipping unchanged file {file_info.path}")
+            return
+
         text_processor.process_file(file_info, error_callback=add_error)
+
+        # Update incremental cache after successful processing
+        if scan_cache is not None:
+            scan_cache.mark_scanned(file_info.path)
+
         # Track file for statistics aggregator
         if statistics_aggregator:
             with _stats_lock:
@@ -652,6 +691,9 @@ def scan(
                 executor.shutdown(wait=True)
             except Exception:
                 pass
+        # Close cache connection
+        if scan_cache is not None:
+            scan_cache.close()
 
     # Update statistics from scan result
     context.statistics.update_from_scan_result(

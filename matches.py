@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from core.resources import load_config_types
+from core.severity import classify as _classify_severity
 
 # configure support match types
 config = load_config_types()
@@ -46,6 +47,8 @@ class PiiMatch:
     engine: str | None = None
     # Additional engine-specific metadata
     metadata: dict = field(default_factory=dict)
+    # Severity level: LOW | MEDIUM | HIGH | CRITICAL
+    severity: str | None = None
 
 
 """ Class for holding all PII matches found. The aim is to provide helpful functions for processing
@@ -172,13 +175,14 @@ class PiiMatchContainer:
                 ner_score=ner_score,
                 engine=engine,
                 metadata=metadata or {},
+                severity=_classify_severity(type) if type else None,
             )
             self.pii_matches.append(pm)
 
             # Only write directly for CSV format
             if self._output_format == "csv" and self._csv_writer:
-                # Keep CSV row shape stable: Match, File, Type, Score, Engine
-                row = [pm.text, pm.file, pm.type, pm.ner_score, pm.engine]
+                # Keep CSV row shape stable: Match, File, Type, Score, Engine, Severity
+                row = [pm.text, pm.file, pm.type, pm.ner_score, pm.engine, pm.severity]
                 try:
                     self._csv_writer.writerow(row)
                 except TypeError:
