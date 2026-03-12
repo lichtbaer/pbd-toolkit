@@ -5,6 +5,14 @@ import zipfile
 from typing import Iterator
 from file_processors.base_processor import BaseFileProcessor
 
+# Maximum total uncompressed bytes to read from a single ZIP archive.
+# This guards against ZIP bomb attacks (e.g. 42.zip) where a tiny
+# compressed file expands to gigabytes of data.
+_MAX_UNCOMPRESSED_BYTES = 512 * 1024 * 1024  # 512 MB
+
+# Maximum uncompressed size for a single file inside the archive.
+_MAX_SINGLE_FILE_BYTES = 100 * 1024 * 1024  # 100 MB
+
 
 class ZipProcessor(BaseFileProcessor):
     """Processor for ZIP archive files.
@@ -32,6 +40,8 @@ class ZipProcessor(BaseFileProcessor):
                 # Get list of files in archive
                 file_list = zip_ref.namelist()
 
+                total_uncompressed = 0
+
                 for filename in file_list:
                     # Skip directories
                     if filename.endswith("/"):
@@ -40,6 +50,20 @@ class ZipProcessor(BaseFileProcessor):
                     # Skip hidden files and system files
                     if os.path.basename(filename).startswith("."):
                         continue
+
+                    # Guard against ZIP bombs: check declared uncompressed size
+                    # before reading. ZipInfo.file_size is the uncompressed size.
+                    try:
+                        info = zip_ref.getinfo(filename)
+                    except KeyError:
+                        continue
+
+                    if info.file_size > _MAX_SINGLE_FILE_BYTES:
+                        continue
+
+                    total_uncompressed += info.file_size
+                    if total_uncompressed > _MAX_UNCOMPRESSED_BYTES:
+                        break
 
                     try:
                         # Extract file content

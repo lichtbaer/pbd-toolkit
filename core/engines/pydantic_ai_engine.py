@@ -263,12 +263,15 @@ class PydanticAIEngine:
                 "PydanticAI is not installed. Install with: pip install pydantic-ai"
             )
 
-        if self._agent is None:
-            # Ensure lazy initialization is safe under concurrent access.
-            # (This engine is marked thread_safe=True and may be called from multiple workers.)
-            with self._agent_lock:
-                if self._agent is not None:
-                    return self._agent
+        if self._agent is not None:
+            return self._agent
+
+        # Ensure lazy initialization is safe under concurrent access.
+        # (This engine is marked thread_safe=True and may be called from multiple workers.)
+        with self._agent_lock:
+            # Re-check inside the lock to prevent double initialization.
+            if self._agent is not None:
+                return self._agent
 
             # Build model string for PydanticAI
             # PydanticAI uses the format: provider:model

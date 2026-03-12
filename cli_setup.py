@@ -401,7 +401,11 @@ def setup() -> tuple[
     outslug: str = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
 
     if args.outname is not None:
-        outslug += " " + args.outname
+        # Sanitize outname: remove path separators and other characters that
+        # could cause the output file to be written outside the output directory.
+        import re as _re
+        safe_outname = _re.sub(r"[/\\<>:\"|?*\x00-\x1f]", "_", args.outname)
+        outslug += " " + safe_outname
 
     # Get output directory from args or use default
     output_dir = (

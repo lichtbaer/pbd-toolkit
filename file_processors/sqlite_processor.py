@@ -65,10 +65,15 @@ class SqliteProcessor(BaseFileProcessor):
                             if not all(c.isalnum() or c == "_" for c in col_name):
                                 continue
                             col_type = col[2].upper() if col[2] else ""
-                            # Include TEXT, VARCHAR, CHAR, and BLOB (may contain text)
-                            if any(
+                            # Include TEXT, VARCHAR, CHAR, BLOB columns and columns
+                            # with no declared type (SQLite allows untyped columns).
+                            # Note: the empty string check must test col_type itself,
+                            # not use "" as a substring pattern – every string contains
+                            # "" as a substring, which would inadvertently match all
+                            # column types including INTEGER, REAL, etc.
+                            if not col_type or any(
                                 t in col_type
-                                for t in ["TEXT", "VARCHAR", "CHAR", "BLOB", ""]
+                                for t in ["TEXT", "VARCHAR", "CHAR", "BLOB"]
                             ):
                                 text_columns.append(col_name)
 

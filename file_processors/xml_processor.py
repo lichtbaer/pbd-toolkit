@@ -5,14 +5,25 @@ try:
     from defusedxml.ElementTree import Element
 
     DEFUSEDXML_AVAILABLE = True
-except ImportError:
-    # Fallback to standard library if defusedxml is not available
-    import xml.etree.ElementTree as ET
-    from xml.etree.ElementTree import Element
-
-    safe_parse = ET.parse
-    SafeParseError = ET.ParseError
+except ImportError as _defusedxml_import_error:
+    # defusedxml is a required security dependency – do NOT fall back to the
+    # standard-library xml.etree.ElementTree, which is vulnerable to XML bomb
+    # (Billion Laughs) and other entity-expansion attacks.
     DEFUSEDXML_AVAILABLE = False
+
+    # Provide stub names so the module can be imported without defusedxml
+    # installed; XmlProcessor.extract_text() will raise ImportError at call time.
+    def safe_parse(*_args, **_kwargs):  # type: ignore[misc]
+        raise ImportError(
+            "defusedxml is required for secure XML parsing. "
+            "Install it with: pip install defusedxml"
+        ) from _defusedxml_import_error
+
+    class SafeParseError(Exception):  # type: ignore[no-redef]
+        pass
+
+    class Element:  # type: ignore[no-redef]
+        pass
 
 from file_processors.base_processor import BaseFileProcessor
 
