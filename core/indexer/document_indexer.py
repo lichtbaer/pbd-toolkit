@@ -300,7 +300,7 @@ class DocumentIndexer:
     # ------------------------------------------------------------------
 
     def save_index(self, path: Optional[str] = None) -> None:
-        """Save the document index to *path* (FAISS + metadata pickle).
+        """Save the document index to *path* (FAISS + metadata JSON).
 
         Silently skipped if no chunks have been indexed or FAISS is unavailable.
         """
@@ -308,8 +308,9 @@ class DocumentIndexer:
         if not target or not self._chunks:
             return
         try:
+            import json
+
             import faiss  # type: ignore
-            import pickle
 
             os.makedirs(os.path.dirname(os.path.abspath(target)), exist_ok=True)
             matrix = np.stack([c.embedding for c in self._chunks])
@@ -321,8 +322,8 @@ class DocumentIndexer:
                 {"file_path": c.file_path, "chunk_idx": c.chunk_idx, "text": c.text}
                 for c in self._chunks
             ]
-            with open(target + ".meta", "wb") as fh:
-                pickle.dump(meta, fh)
+            with open(target + ".meta", "w", encoding="utf-8") as fh:
+                json.dump(meta, fh)
 
             if self.verbose:
                 logger.debug(
@@ -336,12 +337,13 @@ class DocumentIndexer:
     def _load_faiss_index(self, path: str) -> None:
         """Load a previously saved FAISS index from *path*."""
         try:
+            import json
+
             import faiss  # type: ignore
-            import pickle
 
             self._faiss_index = faiss.read_index(path + ".faiss")
-            with open(path + ".meta", "rb") as fh:
-                meta = pickle.load(fh)
+            with open(path + ".meta", encoding="utf-8") as fh:
+                meta = json.load(fh)
 
             # Reconstruct chunk list (embeddings are in FAISS, not reloaded here)
             self._chunks = [
