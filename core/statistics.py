@@ -37,6 +37,8 @@ class Statistics:
     matches_found: int = 0
     total_errors: int = 0
     errors_by_type: dict[str, int] = field(default_factory=dict)
+    # Per-engine match counts (engine_name -> number of matches found)
+    matches_by_engine: dict[str, int] = field(default_factory=dict)
 
     # NER statistics
     ner_stats: NerStats = field(default_factory=NerStats)
@@ -110,9 +112,15 @@ class Statistics:
         """Record that a file was processed."""
         self.files_processed += 1
 
-    def add_match(self) -> None:
-        """Record that a PII match was found."""
+    def add_match(self, engine: str | None = None) -> None:
+        """Record that a PII match was found.
+
+        Args:
+            engine: Optional name of the engine that found the match.
+        """
         self.matches_found += 1
+        if engine:
+            self.matches_by_engine[engine] = self.matches_by_engine.get(engine, 0) + 1
 
     def add_error(self, error_type: str) -> None:
         """Record an error.
@@ -157,6 +165,13 @@ class Statistics:
             "files_scanned": self.total_files_found,
             "files_analyzed": self.files_processed,
             "matches_found": self.matches_found,
+            "matches_by_engine": dict(
+                sorted(
+                    self.matches_by_engine.items(),
+                    key=lambda item: item[1],
+                    reverse=True,
+                )
+            ) if self.matches_by_engine else None,
             "errors": self.total_errors,
             "throughput_files_per_sec": self.files_per_second,
             "file_extensions": dict(

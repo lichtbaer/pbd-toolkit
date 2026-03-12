@@ -104,6 +104,44 @@ class TestStatistics:
         stats.add_match()
         assert stats.matches_found == 2
 
+    def test_add_match_with_engine(self):
+        """Test per-engine match tracking."""
+        stats = Statistics()
+
+        stats.add_match(engine="regex")
+        stats.add_match(engine="regex")
+        stats.add_match(engine="gliner")
+
+        assert stats.matches_found == 3
+        assert stats.matches_by_engine["regex"] == 2
+        assert stats.matches_by_engine["gliner"] == 1
+
+    def test_add_match_without_engine(self):
+        """Calling add_match without engine does not add to matches_by_engine."""
+        stats = Statistics()
+        stats.add_match()
+        assert stats.matches_found == 1
+        assert stats.matches_by_engine == {}
+
+    def test_matches_by_engine_in_summary(self):
+        """matches_by_engine appears in summary dict when present."""
+        stats = Statistics()
+        stats.add_match(engine="regex")
+        stats.add_match(engine="gliner")
+
+        summary = stats.get_summary_dict()
+        assert summary["matches_by_engine"] is not None
+        assert summary["matches_by_engine"]["regex"] == 1
+        assert summary["matches_by_engine"]["gliner"] == 1
+
+    def test_matches_by_engine_absent_in_summary_when_empty(self):
+        """matches_by_engine is None in summary when no engine-attributed matches."""
+        stats = Statistics()
+        stats.add_match()  # no engine
+
+        summary = stats.get_summary_dict()
+        assert summary["matches_by_engine"] is None
+
     def test_add_error(self):
         """Test adding error."""
         stats = Statistics()
