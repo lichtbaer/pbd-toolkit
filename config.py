@@ -95,6 +95,14 @@ class Config:
     pydantic_ai_api_key: str | None = None
     pydantic_ai_base_url: str | None = None
 
+    # Deduplication: skip identical (text, file, type) matches across engines
+    enable_deduplication: bool = False
+
+    # Text chunking: split large texts into overlapping segments for NER.
+    # 0 disables chunking (default). Recommended value: 2000 characters.
+    text_chunk_size: int = 0
+    text_chunk_overlap: int = 200
+
     # Resource limits
     max_file_size_mb: float = 500.0
     max_processing_time_seconds: int = 300

@@ -59,8 +59,13 @@ class PiiMatchContainer:
     pii_matches: list[PiiMatch] = field(default_factory=list)
     # Whitelist used for excluding strings from being identified as PII
     whitelist: list[str] = field(default_factory=list)
+    # When True, suppress duplicate (text, file, type) matches across engines.
+    # The first match (highest confidence if available) wins.
+    enable_deduplication: bool = False
     # Compiled regex pattern for efficient whitelist matching
     _whitelist_pattern: re.Pattern | None = field(default=None, init=False, repr=False)
+    # Set of (text_lower, file, type) keys for O(1) deduplication lookup
+    _seen_keys: set = field(default_factory=set, init=False, repr=False)
     # CSV writer for output (injected dependency, only used for CSV format)
     _csv_writer: Optional[csv.writer] = field(default=None, init=False, repr=False)
     # Output format (csv, json, xlsx)
@@ -152,6 +157,13 @@ class PiiMatchContainer:
 
             if whitelisted:
                 return
+
+            # Deduplication: skip if an identical (text, file, type) match is already stored
+            if self.enable_deduplication:
+                dedup_key = (text.lower(), file, type)
+                if dedup_key in self._seen_keys:
+                    return
+                self._seen_keys.add(dedup_key)
 
             pm: PiiMatch = PiiMatch(
                 text=text,

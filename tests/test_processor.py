@@ -176,3 +176,67 @@ class TestTextProcessor:
         # Should return False and call error callback
         assert result is False
         assert len(errors_caught) > 0
+
+
+class TestTextChunking:
+    """Tests for the _split_into_chunks helper."""
+
+    def test_short_text_not_chunked(self):
+        """Text shorter than chunk_size is returned as a single chunk."""
+        chunks = TextProcessor._split_into_chunks("Hello world", chunk_size=100, overlap=20)
+        assert chunks == ["Hello world"]
+
+    def test_exact_size_not_chunked(self):
+        """Text exactly equal to chunk_size is not chunked."""
+        text = "a" * 100
+        chunks = TextProcessor._split_into_chunks(text, chunk_size=100, overlap=0)
+        assert chunks == [text]
+
+    def test_chunking_disabled_when_zero(self):
+        """chunk_size=0 disables chunking and returns the whole text."""
+        text = "x" * 500
+        chunks = TextProcessor._split_into_chunks(text, chunk_size=0, overlap=0)
+        assert chunks == [text]
+
+    def test_long_text_is_chunked(self):
+        """Text longer than chunk_size is split into multiple chunks."""
+        text = "a" * 300
+        chunks = TextProcessor._split_into_chunks(text, chunk_size=100, overlap=0)
+        assert len(chunks) == 3
+        for c in chunks:
+            assert len(c) <= 100
+
+    def test_chunks_have_overlap(self):
+        """Adjacent chunks share *overlap* characters."""
+        text = "abcdefghij"  # 10 chars
+        chunks = TextProcessor._split_into_chunks(text, chunk_size=6, overlap=2)
+        # chunk 0: [0:6] = "abcdef", chunk 1: [4:10] = "efghij"
+        assert chunks[0][-2:] == chunks[1][:2]
+
+    def test_last_chunk_contains_remaining(self):
+        """The last chunk always contains the remaining text (3 chunks for 25-char text)."""
+        text = "a" * 25
+        chunks = TextProcessor._split_into_chunks(text, chunk_size=10, overlap=0)
+        assert len(chunks) == 3
+        assert chunks[-1] == "aaaaa"
+        assert text.endswith(chunks[-1])
+
+    def test_process_text_uses_chunking(self, mock_config):
+        """process_text splits text into chunks when text_chunk_size is set."""
+        import re as _re
+        mock_config.use_regex = True
+        mock_config.text_chunk_size = 50
+        mock_config.text_chunk_overlap = 10
+        mock_config.regex_pattern = _re.compile(r"(test@\w+\.\w+)")
+        mock_config.ner_labels = []
+
+        pmc = PiiMatchContainer()
+        processor = TextProcessor(mock_config, pmc)
+
+        # Place the email near character 60 so it falls in the second chunk
+        text = ("x" * 55) + " test@example.com " + ("x" * 55)
+        processor.process_text(text, "/test/file.txt")
+
+        # The regex engine should still find the email via chunking
+        found_texts = [m.text for m in pmc.pii_matches]
+        assert any("test@example.com" in t for t in found_texts)

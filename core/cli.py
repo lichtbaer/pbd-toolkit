@@ -256,6 +256,21 @@ def scan(
         "--no-header",
         help="Don't include header row in CSV output (for backward compatibility)",
     ),
+    deduplicate: bool = typer.Option(
+        False,
+        "--deduplicate",
+        help="Remove duplicate findings with identical text, file, and type across all engines",
+    ),
+    text_chunk_size: int = typer.Option(
+        0,
+        "--text-chunk-size",
+        help="Split large texts into overlapping chunks of this size for NER engines (0 = disabled). Recommended: 2000",
+    ),
+    text_chunk_overlap: int = typer.Option(
+        200,
+        "--text-chunk-overlap",
+        help="Number of characters shared between adjacent text chunks (default: 200)",
+    ),
     statistics_mode: bool = typer.Option(
         False,
         "--statistics-mode",
@@ -334,6 +349,9 @@ def scan(
         "mode": mode,
         "jobs": jobs,
         "no_header": no_header,
+        "deduplicate": deduplicate,
+        "text_chunk_size": text_chunk_size,
+        "text_chunk_overlap": text_chunk_overlap,
         "statistics_mode": statistics_mode,
         "statistics_strict": statistics_strict,
         "statistics_output": statistics_output,
@@ -434,6 +452,15 @@ def scan(
         typer.echo(f"Configuration error: {e}", err=True)
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
 
+    # Apply extra CLI flags to config object
+    config_obj.enable_deduplication = bool(getattr(args, "deduplicate", False))
+    _chunk_size = getattr(args, "text_chunk_size", 0)
+    if isinstance(_chunk_size, int) and _chunk_size >= 0:
+        config_obj.text_chunk_size = _chunk_size
+    _chunk_overlap = getattr(args, "text_chunk_overlap", 200)
+    if isinstance(_chunk_overlap, int) and _chunk_overlap >= 0:
+        config_obj.text_chunk_overlap = _chunk_overlap
+
     # Validate configuration
     is_valid, error_msg = config_obj.validate_path()
     if not is_valid:
@@ -470,7 +497,8 @@ def scan(
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
 
     # Initialize components
-    pmc: PiiMatchContainer = PiiMatchContainer()
+    _dedup_enabled = bool(getattr(args, "deduplicate", False))
+    pmc: PiiMatchContainer = PiiMatchContainer(enable_deduplication=_dedup_enabled)
     pmc.set_csv_writer(csv_writer)
     pmc.set_output_format(args.format if hasattr(args, "format") else "csv")
     # Enable streaming writes for writers that support it (e.g. csv/jsonl/xlsx).
