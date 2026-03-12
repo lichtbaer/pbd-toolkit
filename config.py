@@ -269,7 +269,7 @@ class Config:
         if hasattr(args, "vector_model"):
             config.vector_model = args.vector_model
         if hasattr(args, "vector_threshold"):
-            config.vector_threshold = float(args.vector_threshold)
+            config.vector_threshold = args.vector_threshold
         if hasattr(args, "vector_save_index") and args.vector_save_index:
             config.vector_save_index = args.vector_save_index
         if hasattr(args, "vector_load_index") and args.vector_load_index:
