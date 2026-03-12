@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import re
+import sys
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from core.resources import load_config_types
 
@@ -28,11 +30,166 @@ def _try_load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def run_doctor() -> DoctorReport:
-    """Run best-effort validation of config_types + optional feature deps."""
+def check_api_connectivity(
+    endpoints: dict[str, str],
+    timeout: int = 5,
+) -> list[DoctorIssue]:
+    """Test HTTP connectivity to the given named endpoints.
+
+    Args:
+        endpoints: Mapping of ``name -> url`` to probe (HTTP GET).
+        timeout: Per-request timeout in seconds.
+
+    Returns:
+        List of DoctorIssues with level "info" (reachable) or "warning"
+        (unreachable / error).
+    """
+    issues: list[DoctorIssue] = []
+    try:
+        import requests  # type: ignore
+    except ImportError:
+        issues.append(
+            DoctorIssue(
+                "warning",
+                "Cannot test API connectivity: 'requests' library not installed.",
+            )
+        )
+        return issues
+
+    for name, url in endpoints.items():
+        try:
+            resp = requests.get(url, timeout=timeout)
+            issues.append(
+                DoctorIssue(
+                    "info",
+                    f"API endpoint reachable: {name} ({url}) → HTTP {resp.status_code}",
+                )
+            )
+        except Exception as exc:
+            issues.append(
+                DoctorIssue(
+                    "warning",
+                    f"API endpoint NOT reachable: {name} ({url}) — {exc}",
+                )
+            )
+
+    return issues
+
+
+def run_benchmark(text: str = "Max Mustermann, IBAN DE89370400440532013000, max@example.com") -> list[DoctorIssue]:
+    """Run a quick benchmark: push *text* through all locally available engines.
+
+    Only engines that can be initialised without network access are tested
+    (regex always runs; GLiNER and spaCy run if installed).
+
+    Returns:
+        List of DoctorIssues with timing results.
+    """
     issues: list[DoctorIssue] = []
 
-    # Load config_types.json (repo root or packaged resource).
+    # --- Regex engine ---
+    try:
+        from core.resources import load_config_types as _lct
+        cfg = _lct()
+        regex_entries = cfg.get("regex", [])
+        if regex_entries:
+            patterns = [r"{}".format(e["expression"]) for e in regex_entries]
+            combined = "(" + ")|(".join(patterns) + ")"
+            pattern = re.compile(combined, flags=re.IGNORECASE)
+            t0 = time.perf_counter()
+            matches = list(pattern.finditer(text))
+            elapsed = time.perf_counter() - t0
+            issues.append(
+                DoctorIssue(
+                    "info",
+                    f"Benchmark regex: {len(matches)} match(es) in {elapsed * 1000:.2f} ms",
+                )
+            )
+    except Exception as exc:
+        issues.append(DoctorIssue("warning", f"Benchmark regex failed: {exc}"))
+
+    # --- GLiNER engine (optional) ---
+    try:
+        import gliner  # noqa: F401
+        from core.resources import load_config_types as _lct2
+        cfg2 = _lct2()
+        labels = [c["term"] for c in cfg2.get("ai-ner", [])]
+        if labels:
+            try:
+                import constants
+                from gliner import GLiNER  # type: ignore
+
+                model = GLiNER.from_pretrained(constants.NER_MODEL_NAME)
+                t0 = time.perf_counter()
+                entities = model.predict_entities(text, labels, threshold=0.5)
+                elapsed = time.perf_counter() - t0
+                issues.append(
+                    DoctorIssue(
+                        "info",
+                        f"Benchmark GLiNER: {len(entities)} entity/entities in {elapsed * 1000:.2f} ms",
+                    )
+                )
+            except Exception as exc:
+                issues.append(DoctorIssue("warning", f"Benchmark GLiNER model run failed: {exc}"))
+        else:
+            issues.append(DoctorIssue("info", "Benchmark GLiNER: skipped (no labels configured)"))
+    except ImportError:
+        issues.append(DoctorIssue("info", "Benchmark GLiNER: skipped (not installed)"))
+
+    # --- spaCy engine (optional) ---
+    try:
+        import spacy  # noqa: F401
+        try:
+            import constants as _const
+            model_name = getattr(_const, "SPACY_MODEL_NAME", "de_core_news_lg")
+            nlp = spacy.load(model_name)
+            t0 = time.perf_counter()
+            doc = nlp(text)
+            elapsed = time.perf_counter() - t0
+            entities = [ent for ent in doc.ents]
+            issues.append(
+                DoctorIssue(
+                    "info",
+                    f"Benchmark spaCy ({model_name}): {len(entities)} entity/entities in {elapsed * 1000:.2f} ms",
+                )
+            )
+        except Exception as exc:
+            issues.append(DoctorIssue("warning", f"Benchmark spaCy model run failed: {exc}"))
+    except ImportError:
+        issues.append(DoctorIssue("info", "Benchmark spaCy: skipped (not installed)"))
+
+    return issues
+
+
+def run_doctor(
+    api_endpoints: Optional[dict[str, str]] = None,
+    run_bench: bool = False,
+) -> DoctorReport:
+    """Run best-effort validation of config_types + optional feature deps.
+
+    Args:
+        api_endpoints: Optional mapping of name → URL to probe for connectivity.
+            If provided, HTTP GET requests are made to each URL.
+        run_bench: If True, run a quick engine benchmark with a dummy text.
+
+    Returns:
+        DoctorReport with issues and details.
+    """
+    issues: list[DoctorIssue] = []
+    details: dict[str, Any] = {}
+
+    # --- Python version ---
+    py_ver = sys.version_info
+    py_str = f"{py_ver.major}.{py_ver.minor}.{py_ver.micro}"
+    if py_ver < (3, 10):
+        issues.append(
+            DoctorIssue("error", f"Python {py_str} is too old. Python 3.10+ is required.")
+        )
+    else:
+        issues.append(DoctorIssue("info", f"Python version: {py_str} ✓"))
+    details["python_version"] = py_str
+
+    # --- Load config_types.json ---
     try:
         cfg = load_config_types()
     except Exception as e:
@@ -121,21 +278,45 @@ def run_doctor() -> DoctorReport:
                 DoctorIssue("error", f"Combined regex failed to compile: {e}")
             )
 
-    # Optional dependency checks (best-effort)
-    def _check_import(mod: str, feature: str) -> None:
+    details["regex_count"] = len(regex_entries)
+    if compile_errors == 0 and regex_entries:
+        issues.append(
+            DoctorIssue("info", f"All {len(regex_entries)} regex pattern(s) compile successfully ✓")
+        )
+
+    # --- Optional dependency checks with version info ---
+    dep_results: dict[str, str] = {}
+
+    def _check_import(mod: str, feature: str, install_hint: str = "") -> None:
         try:
-            __import__(mod)
+            imported = __import__(mod)
+            ver = getattr(imported, "__version__", None) or getattr(imported, "version", None)
+            ver_str = f" v{ver}" if ver else ""
+            issues.append(
+                DoctorIssue("info", f"[OK] {feature}: '{mod}'{ver_str} installed ✓")
+            )
+            dep_results[mod] = ver_str.strip() or "installed"
         except Exception:
+            hint = f" Install with: {install_hint}" if install_hint else ""
             issues.append(
                 DoctorIssue(
-                    "info", f"Optional dependency not installed for {feature}: '{mod}'"
+                    "info", f"[--] Optional dependency not installed for {feature}: '{mod}'.{hint}"
                 )
             )
+            dep_results[mod] = "not installed"
 
-    _check_import("gliner", "GLiNER NER (--ner)")
-    _check_import("spacy", "spaCy NER (--spacy-ner)")
-    _check_import("pydantic_ai", "PydanticAI LLM (--pydantic-ai / LLM features)")
-    _check_import("requests", "multimodal/OpenAI-compatible LLM features")
+    _check_import("gliner", "GLiNER NER (--ner)", "pip install gliner")
+    _check_import("spacy", "spaCy NER (--spacy-ner)", "pip install spacy")
+    _check_import("pydantic_ai", "PydanticAI LLM (--pydantic-ai)", "pip install pydantic-ai")
+    _check_import("requests", "multimodal/OpenAI-compatible LLM", "pip install requests")
+    _check_import("pdfminer", "PDF processing", "pip install pdfminer.six")
+    _check_import("docx", "DOCX processing", "pip install python-docx")
+    _check_import("openpyxl", "XLSX processing", "pip install openpyxl")
+    _check_import("bs4", "HTML processing", "pip install beautifulsoup4")
+    _check_import("defusedxml", "Secure XML parsing", "pip install defusedxml")
+    _check_import("PIL", "Image processing (multimodal)", "pip install Pillow")
+
+    details["dependencies"] = dep_results
 
     # Multimodal (OpenAI-compatible) local UX hint (best-effort, no network calls).
     issues.append(
@@ -147,7 +328,7 @@ def run_doctor() -> DoctorReport:
         )
     )
 
-    # Check whether repo root and packaged config are in sync (developer hygiene)
+    # --- Check whether repo root and packaged config are in sync (developer hygiene) ---
     try:
         repo_root = Path(__file__).resolve().parent.parent
         repo_cfg_path = repo_root / "config_types.json"
@@ -163,11 +344,26 @@ def run_doctor() -> DoctorReport:
                         "Installed wheels may behave differently from repo runs.",
                     )
                 )
+            else:
+                issues.append(
+                    DoctorIssue("info", "config_types.json: repo root and core/ copies are in sync ✓")
+                )
     except Exception:
-        # Ignore hygiene check failures.
         pass
 
+    # --- API connectivity tests (optional, only when endpoints provided) ---
+    if api_endpoints:
+        connectivity_issues = check_api_connectivity(api_endpoints)
+        issues.extend(connectivity_issues)
+        details["api_endpoints_tested"] = list(api_endpoints.keys())
+
+    # --- Engine benchmark (optional) ---
+    if run_bench:
+        bench_issues = run_benchmark()
+        issues.extend(bench_issues)
+        details["benchmark_run"] = True
+    else:
+        details["benchmark_run"] = False
+
     ok = not any(i.level == "error" for i in issues)
-    return DoctorReport(
-        ok=ok, issues=issues, details={"regex_count": len(regex_entries)}
-    )
+    return DoctorReport(ok=ok, issues=issues, details=details)

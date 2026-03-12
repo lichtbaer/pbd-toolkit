@@ -95,6 +95,14 @@ class Config:
     pydantic_ai_api_key: str | None = None
     pydantic_ai_base_url: str | None = None
 
+    # LLM retry configuration (transient error backoff)
+    llm_max_retries: int = 3
+    llm_retry_base_delay: float = 1.0
+
+    # Incremental scanning: skip files whose content has not changed since last scan
+    use_incremental: bool = False
+    cache_path: str | None = None
+
     # Deduplication: skip identical (text, file, type) matches across engines
     enable_deduplication: bool = False
 
