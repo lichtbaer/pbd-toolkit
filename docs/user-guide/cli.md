@@ -125,6 +125,46 @@ python main.py scan /data/images --multimodal \
 !!! note "Local endpoints"
     vLLM/LocalAI are typically OpenAI-compatible and often run without auth. If your endpoint does not require a key, you can omit `--multimodal-api-key`.
 
+### `--vector-search`
+
+Enable vector-based semantic PII detection using sentence-transformers embeddings. Fully local – no API or GPU required.
+
+```bash
+# Standalone
+pii-toolkit scan /data --vector-search
+
+# Higher recall (lower threshold)
+pii-toolkit scan /data --vector-search --vector-threshold 0.65
+
+# Better multilingual (DE + EN) coverage
+pii-toolkit scan /data --vector-search \
+    --vector-model paraphrase-multilingual-MiniLM-L12-v2
+
+# Triage mode: skip chunks with no PII signal before the LLM
+pii-toolkit scan /data --vector-search --vector-triage \
+    --pydantic-ai --pydantic-ai-provider ollama --pydantic-ai-model llama3.2
+
+# Save FAISS index for cross-document analysis
+pii-toolkit scan /data --vector-search --vector-save-index ./output/my_index
+```
+
+**Options**:
+
+| Flag | Default | Description |
+|---|---|---|
+| `--vector-search` | – | Enable the engine |
+| `--vector-triage` | – | Use as pre-filter for other engines |
+| `--vector-model` | `sentence-transformers/all-MiniLM-L6-v2` | Embedding model |
+| `--vector-threshold` | `0.75` | Cosine similarity cut-off (0.0 – 1.0) |
+| `--vector-save-index` | – | Path prefix to save FAISS index |
+| `--vector-load-index` | – | Path prefix to load a saved FAISS index |
+
+**Installation**: `pip install sentence-transformers` (or `pip install "pii-toolkit[vector]"`)
+
+**Triage mode** makes the vector engine act as a cheap gate: chunks without a semantic PII signal are never forwarded to NER or LLM engines. On typical document collections this reduces LLM API calls by 70–90 %.
+
+See [Detection Methods – Vector Search](detection-methods.md#vector-search-engine) for full details.
+
 ### `--ollama` (legacy)
 
 Enable Ollama LLM-based detection (local, offline).

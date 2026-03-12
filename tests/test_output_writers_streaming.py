@@ -113,7 +113,7 @@ def test_xlsx_writer_streams_rows(tmp_path):
     ws = wb["Findings"]
     rows = list(ws.iter_rows(values_only=True))
     # header + one row
-    assert rows[0] == ("Match", "File", "Type", "Score", "Engine")
+    assert rows[0] == ("Match", "File", "Type", "Score", "Engine", "Severity")
     assert rows[1][0] == "John Doe"
     assert "Metadata" in wb.sheetnames
 

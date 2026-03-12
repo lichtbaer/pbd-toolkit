@@ -43,18 +43,19 @@ Then open `http://127.0.0.1:8000` in your browser.
 
 ## Key Features
 
-- **Multiple Detection Methods**: 
+- **Multiple Detection Methods**:
   - Regular expressions for structured PII
   - AI-powered Named Entity Recognition (GLiNER, spaCy)
   - LLM-based detection (**recommended: `--pydantic-ai`**, legacy flags kept for compatibility)
   - **Multimodal image detection** (GPT-4 Vision, local models via vLLM/LocalAI)
+  - **Vector search** (`--vector-search`): semantic similarity via sentence-transformers – fully local, no API required. Also works as a triage pre-filter to reduce LLM costs (`--vector-triage`)
 - **Wide File Format Support**: PDF, DOCX, HTML, TXT, CSV, JSON, XLSX, XLS, PPTX, ODT, RTF, ODS, EML, MSG, XML, YAML, and **image formats** (JPEG, PNG, GIF, BMP, TIFF, WebP)
 - **File Type Detection**: Optional magic number detection for files without or with incorrect extensions
 - **Flexible Output Formats**: CSV, JSON, **JSONL**, and Excel (XLSX)
 - **Advanced Features**: Whitelist support, progress tracking, detailed logging
 - **CLI Options**: Verbose mode (`-v`), quiet mode (`-q`), config file support (`--config`), structured output (`--summary-format`)
 - **Professional Architecture**: Modular design, dependency injection, no global variables
-- **Privacy-Focused**: Support for local models (vLLM, LocalAI) for complete data privacy
+- **Privacy-Focused**: Support for local models (vLLM, LocalAI, sentence-transformers) for complete data privacy
 
 ## Installation
 
@@ -86,6 +87,13 @@ python3 main.py scan /var/data-leak/ --pydantic-ai --pydantic-ai-provider openai
 python3 main.py scan /var/images/ --multimodal \
     --multimodal-api-base http://localhost:8000/v1 \
     --multimodal-model microsoft/llava-1.6-vicuna-7b
+
+# Vector search – fully local semantic detection (requires: pip install sentence-transformers)
+python3 main.py scan /var/data-leak/ --vector-search
+
+# Vector search as triage pre-filter before LLM (reduces API calls by ~70-90%)
+python3 main.py scan /var/data-leak/ --vector-search --vector-triage \
+    --pydantic-ai --pydantic-ai-provider ollama --pydantic-ai-model llama3.2
 ```
 
 See [User Guide](docs/user-guide/cli.md) for complete usage documentation.

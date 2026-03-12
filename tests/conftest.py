@@ -84,6 +84,14 @@ def mock_config():
     config.ner_threshold = 0.5
     config.ner_stats = NerStats()
 
+    # Chunking defaults (used by processor._split_into_chunks)
+    config.text_chunk_size = 0
+    config.text_chunk_overlap = 200
+
+    # Vector search defaults
+    config.use_vector_search = False
+    config.use_vector_triage = False
+
     # Mock validate_file_path to always return valid
     def validate_file_path(path):
         return True, None

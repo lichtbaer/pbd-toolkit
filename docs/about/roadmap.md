@@ -4,6 +4,12 @@ This roadmap reflects the current direction of this fork. Items are grouped by t
 
 ## Recently completed
 
+- **Vector-based PII detection engine** (`--vector-search`):
+  - Semantic similarity via sentence-transformers (fully local, no API)
+  - 13 PII categories, 90 bilingual (DE/EN) exemplar texts
+  - Triage mode (`--vector-triage`): pre-filter for LLM engines to reduce API costs
+  - Optional FAISS index persistence for cross-document analysis
+  - `pip install "pii-toolkit[vector]"`
 - Typer-based CLI with config file support (YAML/JSON) and structured summary output
 - Unified LLM engine with PydanticAI for text detection
 - **Real OpenAI-compatible multimodal image detection** (OpenAI / vLLM / LocalAI via `POST /chat/completions`)

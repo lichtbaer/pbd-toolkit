@@ -110,6 +110,8 @@ class TextProcessor:
             engines.append("gliner")
         if getattr(self.config, "use_spacy_ner", False):
             engines.append("spacy-ner")
+        if getattr(self.config, "use_vector_search", False):
+            engines.append("vector-search")
         # Use PydanticAI unified engine if explicitly enabled or if any legacy LLM engine is enabled
         # PydanticAI engine automatically handles ollama, openai-compatible, and multimodal
         if (
@@ -161,6 +163,11 @@ class TextProcessor:
 
         # Ensure engines reflect current config flags
         self._ensure_engines_current()
+
+        # Vector triage pre-filter: skip chunk if no PII signal detected
+        if getattr(self.config, "use_vector_triage", False):
+            if not self._vector_triage_pass(text):
+                return
 
         # Clean text to remove ASCII control characters that confuse NLP models (especially spaCy).
         # Fast path: if none are present, avoid O(n) Python-level filtering.
@@ -423,6 +430,34 @@ class TextProcessor:
             )
             self._add_error(error_msg, full_path, error_callback)
             return False
+
+    def _vector_triage_pass(self, text: str) -> bool:
+        """Return True if the vector engine detects a PII signal in *text*.
+
+        Used as a cheap pre-filter when ``config.use_vector_triage`` is True.
+        If the vector engine is not available the method returns True so that
+        other engines are not inadvertently skipped.
+        """
+        for engine in self.engines:
+            if engine.name == "vector-search":
+                return engine.triage_pass(text)  # type: ignore[attr-defined]
+        # Vector engine not loaded – be conservative and let others run
+        return True
+
+    def finalize(self) -> None:
+        """Run post-scan finalisation for all engines that support it.
+
+        Currently used by VectorEngine to persist the FAISS index when
+        ``--vector-save-index`` is configured.
+        """
+        for engine in self.engines:
+            if hasattr(engine, "finalize"):
+                try:
+                    engine.finalize()
+                except Exception as exc:
+                    self.config.logger.warning(
+                        f"Engine '{engine.name}' finalize error: {exc}"
+                    )
 
     def _add_error(
         self,

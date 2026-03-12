@@ -27,6 +27,14 @@ try:
 except ImportError:
     pass
 
+# Vector-search engine (requires sentence-transformers)
+try:
+    from core.engines.vector_engine import VectorEngine
+
+    EngineRegistry.register("vector-search", VectorEngine)
+except ImportError:
+    pass
+
 __all__ = [
     "DetectionEngine",
     "DetectionResult",
@@ -34,4 +42,5 @@ __all__ = [
     "RegexEngine",
     "GLiNEREngine",
     "PydanticAIEngine",
+    "VectorEngine",
 ]

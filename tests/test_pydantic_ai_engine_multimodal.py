@@ -35,6 +35,7 @@ def minimal_config() -> Mock:
     cfg.pydantic_ai_base_url = None
     cfg.ollama_labels = []
     cfg.ner_labels = ["PERSON", "EMAIL"]
+    cfg.llm_max_retries = 3
     return cfg
 
 

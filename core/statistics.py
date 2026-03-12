@@ -171,7 +171,9 @@ class Statistics:
                     key=lambda item: item[1],
                     reverse=True,
                 )
-            ) if self.matches_by_engine else None,
+            )
+            if self.matches_by_engine
+            else None,
             "errors": self.total_errors,
             "throughput_files_per_sec": self.files_per_second,
             "file_extensions": dict(

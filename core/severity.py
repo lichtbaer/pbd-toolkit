@@ -24,37 +24,37 @@ SEVERITY_MAP: dict[str, str] = {
     # ── CRITICAL ────────────────────────────────────────────────────────────
     # Directly exploitable: credentials, payment data, government identity numbers,
     # health-record identifiers.
-    "REGEX_PGPPRV": "CRITICAL",           # PGP private key
-    "REGEX_CREDIT_CARD": "CRITICAL",      # Credit card number (Luhn-validated)
-    "REGEX_SSN_US": "CRITICAL",           # US Social Security Number
-    "REGEX_SSN_AT": "CRITICAL",           # Austrian SSN
-    "REGEX_SSN_CH": "CRITICAL",           # Swiss AHV number
-    "REGEX_MRN": "CRITICAL",              # Medical record number
-    "NER_PASSWORD": "CRITICAL",           # Passwords / credentials
-    "NER_BIOMETRIC": "CRITICAL",          # Biometric data (GDPR Art. 9)
+    "REGEX_PGPPRV": "CRITICAL",  # PGP private key
+    "REGEX_CREDIT_CARD": "CRITICAL",  # Credit card number (Luhn-validated)
+    "REGEX_SSN_US": "CRITICAL",  # US Social Security Number
+    "REGEX_SSN_AT": "CRITICAL",  # Austrian SSN
+    "REGEX_SSN_CH": "CRITICAL",  # Swiss AHV number
+    "REGEX_MRN": "CRITICAL",  # Medical record number
+    "NER_PASSWORD": "CRITICAL",  # Passwords / credentials
+    "NER_BIOMETRIC": "CRITICAL",  # Biometric data (GDPR Art. 9)
     "NER_CRIMINAL_CONVICTION": "CRITICAL",  # Criminal convictions (GDPR Art. 10)
     # ── HIGH ────────────────────────────────────────────────────────────────
     # Sensitive personal data / GDPR Art. 9 special categories / financial identifiers.
-    "REGEX_RVNR": "HIGH",                 # German pension-insurance ID
-    "REGEX_IBAN": "HIGH",                 # International Bank Account Number
-    "REGEX_TAX_ID": "HIGH",               # Tax identification number
-    "REGEX_PASSPORT": "HIGH",             # Passport number
-    "REGEX_PERSONALAUSWEIS": "HIGH",      # German national ID card
-    "NER_HEALTH": "HIGH",                 # Health data (GDPR Art. 9)
-    "NER_MEDICAL_CONDITION": "HIGH",      # Medical conditions
-    "NER_MEDICATION": "HIGH",             # Medication / prescriptions
-    "NER_SEXUAL_ORIENTATION": "HIGH",     # Sexual orientation (GDPR Art. 9)
-    "NER_POLITICAL": "HIGH",              # Political opinions (GDPR Art. 9)
-    "NER_RELIGIOUS": "HIGH",              # Religious beliefs (GDPR Art. 9)
-    "NER_ETHNIC_ORIGIN": "HIGH",          # Racial / ethnic origin (GDPR Art. 9)
-    "NER_FINANCIAL": "HIGH",              # Financial information
-    "OLLAMA_SENSITIVE": "HIGH",           # Ollama: generic sensitive data
-    "OLLAMA_MONEY": "HIGH",               # Ollama: monetary values / salaries
+    "REGEX_RVNR": "HIGH",  # German pension-insurance ID
+    "REGEX_IBAN": "HIGH",  # International Bank Account Number
+    "REGEX_TAX_ID": "HIGH",  # Tax identification number
+    "REGEX_PASSPORT": "HIGH",  # Passport number
+    "REGEX_PERSONALAUSWEIS": "HIGH",  # German national ID card
+    "NER_HEALTH": "HIGH",  # Health data (GDPR Art. 9)
+    "NER_MEDICAL_CONDITION": "HIGH",  # Medical conditions
+    "NER_MEDICATION": "HIGH",  # Medication / prescriptions
+    "NER_SEXUAL_ORIENTATION": "HIGH",  # Sexual orientation (GDPR Art. 9)
+    "NER_POLITICAL": "HIGH",  # Political opinions (GDPR Art. 9)
+    "NER_RELIGIOUS": "HIGH",  # Religious beliefs (GDPR Art. 9)
+    "NER_ETHNIC_ORIGIN": "HIGH",  # Racial / ethnic origin (GDPR Art. 9)
+    "NER_FINANCIAL": "HIGH",  # Financial information
+    "OLLAMA_SENSITIVE": "HIGH",  # Ollama: generic sensitive data
+    "OLLAMA_MONEY": "HIGH",  # Ollama: monetary values / salaries
     # ── MEDIUM ──────────────────────────────────────────────────────────────
     # Personally identifiable; limited harm risk when found in isolation.
     "REGEX_EMAIL": "MEDIUM",
     "REGEX_PHONE": "MEDIUM",
-    "NER_PERSON": "MEDIUM",               # Person name
+    "NER_PERSON": "MEDIUM",  # Person name
     "NER_LOCATION": "MEDIUM",
     "OLLAMA_PERSON": "MEDIUM",
     "OLLAMA_LOCATION": "MEDIUM",
@@ -169,7 +169,5 @@ def combined_file_risk(pii_types: Collection[str]) -> str:
         return "HIGH"
 
     # Rule 5: maximum of individual levels
-    max_weight = max(
-        _LEVEL_WEIGHT.get(lvl, 2) for lvl in individual_levels.values()
-    )
+    max_weight = max(_LEVEL_WEIGHT.get(lvl, 2) for lvl in individual_levels.values())
     return _WEIGHT_LEVEL.get(max_weight, DEFAULT_SEVERITY)

@@ -60,7 +60,9 @@ class ScanCache:
         cache.close()
     """
 
-    def __init__(self, cache_path: str | None = None, logger: logging.Logger | None = None):
+    def __init__(
+        self, cache_path: str | None = None, logger: logging.Logger | None = None
+    ):
         """Initialise the scan cache.
 
         Args:
@@ -88,7 +90,9 @@ class ScanCache:
             conn.commit()
             self._conn = conn
         except Exception as exc:
-            self._logger.warning(f"ScanCache: failed to open cache at '{self._path}': {exc}")
+            self._logger.warning(
+                f"ScanCache: failed to open cache at '{self._path}': {exc}"
+            )
             self._conn = None
 
     def close(self) -> None:
@@ -217,6 +221,7 @@ class ScanCache:
 # ------------------------------------------------------------------
 # Internal helpers
 # ------------------------------------------------------------------
+
 
 def _sha256(file_path: str, chunk_size: int = 65536) -> str | None:
     """Return the SHA-256 hex digest of *file_path*, or None on error."""

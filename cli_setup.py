@@ -183,6 +183,55 @@ def __setup_args(translate_func: Callable[[str], str]) -> argparse.Namespace:
         help=translate_func("Base URL for PydanticAI (for custom endpoints)"),
     )
 
+    # Vector search engine
+    parser.add_argument(
+        "--vector-search",
+        action="store_true",
+        help=translate_func(
+            "Use vector-based semantic similarity for PII detection "
+            "(requires: pip install sentence-transformers)"
+        ),
+    )
+    parser.add_argument(
+        "--vector-triage",
+        action="store_true",
+        help=translate_func(
+            "Use vector search as a pre-filter: only chunks with a PII signal "
+            "are forwarded to other engines (saves LLM API calls)"
+        ),
+    )
+    parser.add_argument(
+        "--vector-model",
+        default="sentence-transformers/all-MiniLM-L6-v2",
+        help=translate_func(
+            "Sentence-transformers model for vector search "
+            "(default: all-MiniLM-L6-v2). "
+            "Use 'paraphrase-multilingual-MiniLM-L12-v2' for better DE/EN support."
+        ),
+    )
+    parser.add_argument(
+        "--vector-threshold",
+        type=float,
+        default=0.75,
+        help=translate_func(
+            "Cosine similarity threshold for vector PII detection (default: 0.75). "
+            "Lower values increase recall at the cost of more false positives."
+        ),
+    )
+    parser.add_argument(
+        "--vector-save-index",
+        help=translate_func(
+            "Path prefix to save the FAISS document index after scanning "
+            "(e.g. ./output/my_index). Enables cross-document analysis."
+        ),
+    )
+    parser.add_argument(
+        "--vector-load-index",
+        help=translate_func(
+            "Path prefix of a previously saved FAISS index to load before scanning."
+        ),
+    )
+
     # File type detection
     parser.add_argument(
         "--use-magic-detection",
@@ -404,6 +453,7 @@ def setup() -> tuple[
         # Sanitize outname: remove path separators and other characters that
         # could cause the output file to be written outside the output directory.
         import re as _re
+
         safe_outname = _re.sub(r"[/\\<>:\"|?*\x00-\x1f]", "_", args.outname)
         outslug += " " + safe_outname
 

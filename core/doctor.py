@@ -76,7 +76,9 @@ def check_api_connectivity(
     return issues
 
 
-def run_benchmark(text: str = "Max Mustermann, IBAN DE89370400440532013000, max@example.com") -> list[DoctorIssue]:
+def run_benchmark(
+    text: str = "Max Mustermann, IBAN DE89370400440532013000, max@example.com",
+) -> list[DoctorIssue]:
     """Run a quick benchmark: push *text* through all locally available engines.
 
     Only engines that can be initialised without network access are tested
@@ -90,6 +92,7 @@ def run_benchmark(text: str = "Max Mustermann, IBAN DE89370400440532013000, max@
     # --- Regex engine ---
     try:
         from core.resources import load_config_types as _lct
+
         cfg = _lct()
         regex_entries = cfg.get("regex", [])
         if regex_entries:
@@ -112,6 +115,7 @@ def run_benchmark(text: str = "Max Mustermann, IBAN DE89370400440532013000, max@
     try:
         import gliner  # noqa: F401
         from core.resources import load_config_types as _lct2
+
         cfg2 = _lct2()
         labels = [c["term"] for c in cfg2.get("ai-ner", [])]
         if labels:
@@ -130,17 +134,23 @@ def run_benchmark(text: str = "Max Mustermann, IBAN DE89370400440532013000, max@
                     )
                 )
             except Exception as exc:
-                issues.append(DoctorIssue("warning", f"Benchmark GLiNER model run failed: {exc}"))
+                issues.append(
+                    DoctorIssue("warning", f"Benchmark GLiNER model run failed: {exc}")
+                )
         else:
-            issues.append(DoctorIssue("info", "Benchmark GLiNER: skipped (no labels configured)"))
+            issues.append(
+                DoctorIssue("info", "Benchmark GLiNER: skipped (no labels configured)")
+            )
     except ImportError:
         issues.append(DoctorIssue("info", "Benchmark GLiNER: skipped (not installed)"))
 
     # --- spaCy engine (optional) ---
     try:
         import spacy  # noqa: F401
+
         try:
             import constants as _const
+
             model_name = getattr(_const, "SPACY_MODEL_NAME", "de_core_news_lg")
             nlp = spacy.load(model_name)
             t0 = time.perf_counter()
@@ -154,7 +164,9 @@ def run_benchmark(text: str = "Max Mustermann, IBAN DE89370400440532013000, max@
                 )
             )
         except Exception as exc:
-            issues.append(DoctorIssue("warning", f"Benchmark spaCy model run failed: {exc}"))
+            issues.append(
+                DoctorIssue("warning", f"Benchmark spaCy model run failed: {exc}")
+            )
     except ImportError:
         issues.append(DoctorIssue("info", "Benchmark spaCy: skipped (not installed)"))
 
@@ -183,7 +195,9 @@ def run_doctor(
     py_str = f"{py_ver.major}.{py_ver.minor}.{py_ver.micro}"
     if py_ver < (3, 10):
         issues.append(
-            DoctorIssue("error", f"Python {py_str} is too old. Python 3.10+ is required.")
+            DoctorIssue(
+                "error", f"Python {py_str} is too old. Python 3.10+ is required."
+            )
         )
     else:
         issues.append(DoctorIssue("info", f"Python version: {py_str} ✓"))
@@ -281,7 +295,10 @@ def run_doctor(
     details["regex_count"] = len(regex_entries)
     if compile_errors == 0 and regex_entries:
         issues.append(
-            DoctorIssue("info", f"All {len(regex_entries)} regex pattern(s) compile successfully ✓")
+            DoctorIssue(
+                "info",
+                f"All {len(regex_entries)} regex pattern(s) compile successfully ✓",
+            )
         )
 
     # --- Optional dependency checks with version info ---
@@ -290,7 +307,9 @@ def run_doctor(
     def _check_import(mod: str, feature: str, install_hint: str = "") -> None:
         try:
             imported = __import__(mod)
-            ver = getattr(imported, "__version__", None) or getattr(imported, "version", None)
+            ver = getattr(imported, "__version__", None) or getattr(
+                imported, "version", None
+            )
             ver_str = f" v{ver}" if ver else ""
             issues.append(
                 DoctorIssue("info", f"[OK] {feature}: '{mod}'{ver_str} installed ✓")
@@ -300,15 +319,20 @@ def run_doctor(
             hint = f" Install with: {install_hint}" if install_hint else ""
             issues.append(
                 DoctorIssue(
-                    "info", f"[--] Optional dependency not installed for {feature}: '{mod}'.{hint}"
+                    "info",
+                    f"[--] Optional dependency not installed for {feature}: '{mod}'.{hint}",
                 )
             )
             dep_results[mod] = "not installed"
 
     _check_import("gliner", "GLiNER NER (--ner)", "pip install gliner")
     _check_import("spacy", "spaCy NER (--spacy-ner)", "pip install spacy")
-    _check_import("pydantic_ai", "PydanticAI LLM (--pydantic-ai)", "pip install pydantic-ai")
-    _check_import("requests", "multimodal/OpenAI-compatible LLM", "pip install requests")
+    _check_import(
+        "pydantic_ai", "PydanticAI LLM (--pydantic-ai)", "pip install pydantic-ai"
+    )
+    _check_import(
+        "requests", "multimodal/OpenAI-compatible LLM", "pip install requests"
+    )
     _check_import("pdfminer", "PDF processing", "pip install pdfminer.six")
     _check_import("docx", "DOCX processing", "pip install python-docx")
     _check_import("openpyxl", "XLSX processing", "pip install openpyxl")
@@ -346,7 +370,10 @@ def run_doctor(
                 )
             else:
                 issues.append(
-                    DoctorIssue("info", "config_types.json: repo root and core/ copies are in sync ✓")
+                    DoctorIssue(
+                        "info",
+                        "config_types.json: repo root and core/ copies are in sync ✓",
+                    )
                 )
     except Exception:
         pass
