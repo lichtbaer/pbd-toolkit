@@ -106,6 +106,14 @@ class Config:
     # Deduplication: skip identical (text, file, type) matches across engines
     enable_deduplication: bool = False
 
+    # Vector search engine configuration
+    use_vector_search: bool = False
+    use_vector_triage: bool = False  # Use vector engine as pre-filter for other engines
+    vector_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    vector_threshold: float = 0.75
+    vector_save_index: str | None = None  # Path prefix to save FAISS index after scan
+    vector_load_index: str | None = None  # Path prefix to load pre-built FAISS index
+
     # Text chunking: split large texts into overlapping segments for NER.
     # 0 disables chunking (default). Recommended value: 2000 characters.
     text_chunk_size: int = 0
@@ -216,6 +224,8 @@ class Config:
             use_pydantic_ai=getattr(args, "pydantic_ai", False),
             use_magic_detection=getattr(args, "use_magic_detection", False),
             magic_detection_fallback=getattr(args, "magic_fallback", True),
+            use_vector_search=getattr(args, "vector_search", False),
+            use_vector_triage=getattr(args, "vector_triage", False),
             logger=logger,
             csv_writer=csv_writer,
             csv_file_handle=csv_file_handle,
@@ -254,6 +264,16 @@ class Config:
             config.multimodal_model = args.multimodal_model
         if hasattr(args, "multimodal_timeout"):
             config.multimodal_timeout = args.multimodal_timeout
+
+        # Vector search configuration
+        if hasattr(args, "vector_model"):
+            config.vector_model = args.vector_model
+        if hasattr(args, "vector_threshold"):
+            config.vector_threshold = float(args.vector_threshold)
+        if hasattr(args, "vector_save_index") and args.vector_save_index:
+            config.vector_save_index = args.vector_save_index
+        if hasattr(args, "vector_load_index") and args.vector_load_index:
+            config.vector_load_index = args.vector_load_index
 
         # PydanticAI configuration
         if hasattr(args, "pydantic_ai_provider"):

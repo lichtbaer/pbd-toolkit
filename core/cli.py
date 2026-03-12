@@ -198,6 +198,37 @@ def scan(
         "--pydantic-ai-base-url",
         help="Base URL for PydanticAI (for custom endpoints)",
     ),
+    # Vector search engine
+    vector_search: bool = typer.Option(
+        False,
+        "--vector-search",
+        help="Use vector-based semantic similarity for PII detection (requires: pip install sentence-transformers)",
+    ),
+    vector_triage: bool = typer.Option(
+        False,
+        "--vector-triage",
+        help="Use vector search as a pre-filter: only chunks with a PII signal are forwarded to other engines (saves LLM API calls)",
+    ),
+    vector_model: str = typer.Option(
+        "sentence-transformers/all-MiniLM-L6-v2",
+        "--vector-model",
+        help="Sentence-transformers model for vector search (default: all-MiniLM-L6-v2)",
+    ),
+    vector_threshold: float = typer.Option(
+        0.75,
+        "--vector-threshold",
+        help="Cosine similarity threshold for vector PII detection (default: 0.75)",
+    ),
+    vector_save_index: Optional[str] = typer.Option(
+        None,
+        "--vector-save-index",
+        help="Path prefix to save the FAISS document index after scanning (enables cross-document analysis)",
+    ),
+    vector_load_index: Optional[str] = typer.Option(
+        None,
+        "--vector-load-index",
+        help="Path prefix of a previously saved FAISS index to load before scanning",
+    ),
     # File type detection
     use_magic_detection: bool = typer.Option(
         False,
@@ -349,6 +380,12 @@ def scan(
         "pydantic_ai_model": pydantic_ai_model,
         "pydantic_ai_api_key": pydantic_ai_api_key,
         "pydantic_ai_base_url": pydantic_ai_base_url,
+        "vector_search": vector_search,
+        "vector_triage": vector_triage,
+        "vector_model": vector_model,
+        "vector_threshold": vector_threshold,
+        "vector_save_index": vector_save_index,
+        "vector_load_index": vector_load_index,
         "use_magic_detection": use_magic_detection,
         "magic_fallback": magic_fallback,
         "outname": outname,
@@ -489,6 +526,7 @@ def scan(
         config_obj.use_openai_compatible,
         getattr(config_obj, "use_multimodal", False),
         getattr(config_obj, "use_pydantic_ai", False),
+        getattr(config_obj, "use_vector_search", False),
     ]
     if not any(enabled_methods):
         typer.echo(
@@ -694,6 +732,9 @@ def scan(
         # Close cache connection
         if scan_cache is not None:
             scan_cache.close()
+
+    # Post-scan finalisation (e.g. persist FAISS index for vector engine)
+    text_processor.finalize()
 
     # Update statistics from scan result
     context.statistics.update_from_scan_result(

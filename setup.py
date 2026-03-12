@@ -43,6 +43,12 @@ extras_require = {
     "llm": ["pydantic-ai>=0.0.10", "pydantic>=2.0.0", "requests>=2.31.0"],
     # File type detection
     "magic": ["python-magic>=0.4.27", "filetype>=1.2.0"],
+    # Vector search engine (local semantic similarity, no network required by default)
+    "vector": [
+        "sentence-transformers>=2.2.0",
+        # faiss-cpu is optional: required only for --vector-save-index / --vector-load-index
+        # Install manually: pip install faiss-cpu
+    ],
 }
 extras_require["all"] = sorted({dep for group in extras_require.values() for dep in group})
 
