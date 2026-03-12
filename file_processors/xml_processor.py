@@ -1,14 +1,17 @@
 """XML file processor using defusedxml for secure XML parsing."""
 
+from xml.etree.ElementTree import Element
+
+_defusedxml_import_error: ImportError | None = None
 try:
     from defusedxml.ElementTree import parse as safe_parse, ParseError as SafeParseError
-    from defusedxml.ElementTree import Element
 
     DEFUSEDXML_AVAILABLE = True
-except ImportError as _defusedxml_import_error:
+except ImportError as _exc:
     # defusedxml is a required security dependency – do NOT fall back to the
     # standard-library xml.etree.ElementTree, which is vulnerable to XML bomb
     # (Billion Laughs) and other entity-expansion attacks.
+    _defusedxml_import_error = _exc
     DEFUSEDXML_AVAILABLE = False
 
     # Provide stub names so the module can be imported without defusedxml
@@ -20,9 +23,6 @@ except ImportError as _defusedxml_import_error:
         ) from _defusedxml_import_error
 
     class SafeParseError(Exception):  # type: ignore[no-redef]
-        pass
-
-    class Element:  # type: ignore[no-redef]
         pass
 
 from file_processors.base_processor import BaseFileProcessor
