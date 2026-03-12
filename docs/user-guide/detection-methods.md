@@ -620,28 +620,120 @@ Ollama is supported for **text** detection. For **image** detection, use a local
 - Detecting PII in photos of documents
 - Finding sensitive information in image files
 
+### Vector Search Engine
+
+Semantic similarity-based PII detection using sentence-transformers embeddings. The engine embeds each text chunk and compares it against a library of pre-defined PII exemplar texts – one set per category. If the cosine similarity exceeds the configured threshold, the chunk is flagged.
+
+**Usage**:
+
+```bash
+# Standalone – fully local, no API needed
+pii-toolkit scan /data --vector-search
+
+# Adjust sensitivity (lower threshold = more recall, more false positives)
+pii-toolkit scan /data --vector-search --vector-threshold 0.65
+
+# Better German/multilingual coverage
+pii-toolkit scan /data --vector-search \
+    --vector-model paraphrase-multilingual-MiniLM-L12-v2
+
+# Save FAISS index for later cross-document analysis
+pii-toolkit scan /data --vector-search --vector-save-index ./output/my_index
+```
+
+**Triage mode** – use vector search as a cheap pre-filter in front of expensive LLM engines:
+
+```bash
+# Chunks without a PII signal are skipped before being sent to the LLM
+# This can reduce LLM API calls by 70-90% on typical document collections
+pii-toolkit scan /data \
+    --vector-search --vector-triage \
+    --pydantic-ai --pydantic-ai-provider ollama --pydantic-ai-model llama3.2
+```
+
+**Installation**:
+
+```bash
+pip install "pii-toolkit[vector]"
+# For FAISS index persistence (--vector-save-index / --vector-load-index):
+pip install faiss-cpu
+```
+
+**Configuration**:
+
+| Flag | Default | Description |
+|---|---|---|
+| `--vector-search` | – | Enable vector-based detection |
+| `--vector-triage` | – | Use as pre-filter for other engines |
+| `--vector-model` | `all-MiniLM-L6-v2` | Sentence-transformers model |
+| `--vector-threshold` | `0.75` | Cosine similarity cut-off (0.0–1.0) |
+| `--vector-save-index` | – | Path prefix to save FAISS index after scan |
+| `--vector-load-index` | – | Path prefix to load a pre-built FAISS index |
+
+**Detected PII categories** (13 built-in):
+
+| Category | Examples detected |
+|---|---|
+| `VECTOR_PERSON` | Full names, titles, age references |
+| `VECTOR_ADDRESS` | Street addresses, postal codes, cities |
+| `VECTOR_EMAIL` | Email addresses |
+| `VECTOR_PHONE` | Phone and fax numbers |
+| `VECTOR_ID_DOCUMENT` | ID cards, passports, driver's licenses |
+| `VECTOR_SSN` | Social security numbers (DE/AT/CH/US) |
+| `VECTOR_FINANCIAL` | IBANs, bank accounts, BIC codes |
+| `VECTOR_CREDITCARD` | Credit card numbers, CVVs |
+| `VECTOR_HEALTH` | Diagnoses, prescriptions, insurance IDs |
+| `VECTOR_BIOMETRIC` | Fingerprints, face recognition, iris scans |
+| `VECTOR_LOCATION` | GPS coordinates, location tracking data |
+| `VECTOR_VEHICLE` | License plates, VINs |
+| `VECTOR_CREDENTIALS` | Usernames/passwords, API tokens, SSH keys |
+
+**Privacy considerations**:
+- Default model (`all-MiniLM-L6-v2`) runs **completely locally** – no network calls
+- For better multilingual (DE/EN) accuracy: `paraphrase-multilingual-MiniLM-L12-v2` (also local)
+- FAISS index stores embeddings (vectors) and chunk metadata on disk – no raw text is sent anywhere
+- Using OpenAI embeddings (`--vector-model text-embedding-ada-002`) would require a network call
+
+**Advantages**:
+- **Semantic understanding**: Catches implicit PII (e.g. "Patientendaten aktualisiert" → `VECTOR_HEALTH`)
+- **Language-agnostic**: Works across German, English, and mixed content
+- **No LLM needed**: Fast local inference with sentence-transformers
+- **Triage mode**: Cuts LLM costs significantly on large collections
+
+**Limitations**:
+- **Chunk-level precision**: Returns the whole chunk as finding, not an exact span (unlike regex/NER)
+- **Threshold sensitivity**: Requires tuning for each corpus – start with `0.75` and adjust
+- **Model download**: ~80 MB for the default model (cached after first use)
+- **False positives**: Semantically similar non-PII text may exceed the threshold
+
 ## Combined Usage
 
 Use multiple engines together for comprehensive detection:
 
 ```bash
 # Basic combination
-python main.py scan /data --regex --ner
+pii-toolkit scan /data --regex --ner
 
-# All engines (text-based)
-python main.py scan /data \
+# All local engines
+pii-toolkit scan /data \
     --regex \
     --ner \
     --spacy-ner --spacy-model de_core_news_lg \
-    --ollama --ollama-model llama3.2
+    --vector-search
 
-# German-focused
-python main.py scan /data \
+# Vector as triage + LLM for precise extraction
+pii-toolkit scan /data \
+    --vector-search --vector-triage \
+    --pydantic-ai --pydantic-ai-provider ollama --pydantic-ai-model llama3.2
+
+# German-focused, structured + semantic
+pii-toolkit scan /data \
     --regex \
-    --spacy-ner --spacy-model de_core_news_lg
+    --spacy-ner --spacy-model de_core_news_lg \
+    --vector-search --vector-model paraphrase-multilingual-MiniLM-L12-v2
 
 # With image detection
-python main.py scan /data \
+pii-toolkit scan /data \
     --regex \
     --ner \
     --multimodal --multimodal-api-key YOUR_KEY
@@ -651,59 +743,64 @@ python main.py scan /data \
 
 **Use Regex when**:
 - You need fast processing
-- You're looking for structured data (emails, IBANs, etc.)
+- You're looking for structured data (emails, IBANs, phone numbers)
 - You have limited computational resources
 - You need deterministic results
 
-**Use NER when**:
+**Use NER (GLiNER/spaCy) when**:
 - You need to detect unstructured PII (names, locations)
 - You're analyzing natural language text
 - You can tolerate longer processing times
-- You have sufficient computational resources
 
-**Use Both when**:
-- You want comprehensive coverage
-- You're analyzing diverse data types
-- You can afford the processing time
-- You want to maximize detection rate
+**Use Vector Search when**:
+- You need semantic detection (implicit PII, varied phrasing)
+- You want to triage a large collection before sending to an LLM
+- You want fully local detection without a heavy NER model
+- You need multilingual coverage (DE + EN in same corpus)
+
+**Use LLM (PydanticAI/Ollama) when**:
+- You need the highest accuracy on unstructured text
+- You want detailed entity extraction with context
+- Cost and latency are acceptable
 
 ## Performance Comparison
 
-| Engine | Speed | Memory | CPU/GPU | Accuracy (Structured) | Accuracy (Unstructured) | Local | Cost |
-|--------|-------|--------|---------|----------------------|------------------------|-------|------|
-| Regex | Very Fast | Low | Low | High | Low | Yes | Free |
-| GLiNER | Slow | High | High | Medium | High | Yes | Free |
-| spaCy | Medium | Medium | Medium | Medium | High (German) | Yes | Free |
-| Ollama | Very Slow (Adaptive) | Very High | Very High | Medium | High | Yes | Free |
-| OpenAI | Slow | Low | Low | Medium | Very High | No | Paid |
-| Multimodal | Very Slow | Low | Low | Medium | High (Images) | Optional | Paid/Free |
+| Engine | Speed | Memory | Accuracy (Structured) | Accuracy (Semantic) | Local | Cost |
+|--------|-------|--------|----------------------|---------------------|-------|------|
+| Regex | Very Fast | Low | High | None | Yes | Free |
+| GLiNER | Slow | High | Medium | High | Yes | Free |
+| spaCy | Medium | Medium | Medium | High (German) | Yes | Free |
+| Vector Search | Fast | Low–Med | Low | High | Yes | Free |
+| Ollama | Very Slow | Very High | Medium | Very High | Yes | Free |
+| OpenAI (PydanticAI) | Slow | Low | High | Very High | No | Paid |
+| Multimodal | Very Slow | Low | Medium | High (Images) | Optional | Paid/Free |
 
 ## Engine Selection Guide
 
 **For German text analysis**:
-- Use `--spacy-ner` with `de_core_news_lg` for best German-specific results
-- Combine with `--regex` for structured data
+- `--spacy-ner --spacy-model de_core_news_lg` for names/locations
+- `--regex` for structured data
+- `--vector-search --vector-model paraphrase-multilingual-MiniLM-L12-v2` for semantic coverage
 
 **For maximum privacy**:
-- Use `--ollama` for completely local processing
-- No data leaves your system
+- `--ollama` or `--vector-search` – fully local, no data leaves your system
 
-**For best accuracy**:
-- Use `--openai-compatible` with GPT-4
-- Combine with `--regex` for structured patterns
+**For large collections with LLM budget**:
+- `--vector-search --vector-triage --pydantic-ai` – vector pre-filters; only relevant chunks reach the LLM
 
 **For speed**:
-- Use `--regex` only for fastest results
-- Add `--spacy-ner` for German names/locations
+- `--regex` for fastest results
+- Add `--vector-search` for semantic coverage without model-loading overhead
 
 **For comprehensive coverage**:
-- Combine multiple engines: `--regex --ner --spacy-ner`
+- `--regex --ner --spacy-ner --vector-search`
 
 ## Best Practices
 
 1. **Start with regex** for quick scans of structured data
-2. **Add NER** when you need to find names and locations
-3. **Use whitelist** to filter known false positives
-4. **Test threshold** for NER if you get too many/too few results
-5. **Monitor performance** - NER can be slow on large datasets
-6. **Combine methods** for maximum coverage in critical scans
+2. **Add vector search** as a fast semantic layer without heavy dependencies
+3. **Use vector triage** when running LLM engines on large collections to cut costs
+4. **Use whitelist** to filter known false positives
+5. **Adjust thresholds** – both `--vector-threshold` and `ner_threshold` in `config_types.json`
+6. **Monitor performance** – NER and LLM engines are slow on large datasets
+7. **Combine methods** for maximum coverage in critical scans

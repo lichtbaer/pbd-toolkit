@@ -49,11 +49,37 @@ pip install -r requirements.txt
 - **GLiNER NER (`--ner`)**: `pip install -e ".[gliner]"`
 - **spaCy NER (`--spacy-ner`)**: `pip install -e ".[spacy]"` (plus a model download, see below)
 - **Unified LLM engine (`--pydantic-ai`)**: `pip install -e ".[llm]"`
+- **Vector search engine (`--vector-search`)**: `pip install -e ".[vector]"`
 - **Office/email/etc. processors (DOCX/XLSX/MSG/...)**: `pip install -e ".[office]"`
 - **Image validation/processing**: `pip install -e ".[images]"`
 - **Magic-number type detection (`--use-magic-detection`)**: `pip install -e ".[magic]"`
 
 ## Optional Features Setup
+
+### Vector Search Engine
+
+The vector search engine uses sentence-transformers for local semantic similarity detection.
+
+```bash
+pip install sentence-transformers
+```
+
+The default model (`all-MiniLM-L6-v2`, ~80 MB) is downloaded automatically from HuggingFace on first use and cached in `~/.cache/huggingface/`.
+
+For better German/multilingual support, use a multilingual model:
+
+```bash
+pii-toolkit scan /data --vector-search \
+    --vector-model paraphrase-multilingual-MiniLM-L12-v2
+```
+
+**Optional: FAISS index persistence** (`--vector-save-index` / `--vector-load-index`):
+
+```bash
+pip install faiss-cpu
+```
+
+FAISS is not required for the standard inline detection mode. It is only needed if you want to persist the document index to disk for cross-document analysis.
 
 ### Magic Number Detection
 

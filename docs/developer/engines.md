@@ -49,6 +49,7 @@ EngineRegistry.register("regex", RegexEngine)
 EngineRegistry.register("gliner", GLiNEREngine)
 EngineRegistry.register("spacy-ner", SpacyNEREngine)
 EngineRegistry.register("pydantic-ai", PydanticAIEngine)
+EngineRegistry.register("vector-search", VectorEngine)
 ```
 
 ## Available Engines
@@ -101,6 +102,43 @@ Unified LLM-based detection using PydanticAI. Replaces the old OllamaEngine, Ope
 - Adaptive rate limiting (preserved from OllamaEngine)
 - Automatic retry mechanism
 - Unified interface for all LLM providers
+
+### VectorEngine
+
+**Location**: `core/engines/vector_engine.py`
+**Supporting module**: `core/indexer/` (`DocumentIndexer`, `pii_queries`)
+
+Semantic similarity-based detection using sentence-transformers embeddings. Operates in two modes:
+
+**Inline mode** (default with `--vector-search`):
+- Embeds each text chunk and computes cosine similarity against pre-computed exemplar vectors
+- Returns `VECTOR_*` category results for chunks that exceed the threshold
+- Thread-safe; model is lazily loaded and cached at the class level
+
+**Triage mode** (`--vector-triage`):
+- Exposes a `triage_pass(text) -> bool` method called by `TextProcessor` before the main engine loop
+- Chunks without a PII signal are skipped entirely – other engines never see them
+- Useful for reducing LLM API costs on large collections
+
+**Optional index persistence** (`--vector-save-index`):
+- After the scan, `finalize()` is called by `TextProcessor` and the FAISS index is written to disk
+- A saved index can be reloaded with `--vector-load-index` for cross-document queries
+
+**`core/indexer/pii_queries.py`** defines 13 PII categories with 7 exemplar texts each (DE + EN):
+`VECTOR_PERSON`, `VECTOR_ADDRESS`, `VECTOR_EMAIL`, `VECTOR_PHONE`, `VECTOR_ID_DOCUMENT`,
+`VECTOR_SSN`, `VECTOR_FINANCIAL`, `VECTOR_CREDITCARD`, `VECTOR_HEALTH`, `VECTOR_BIOMETRIC`,
+`VECTOR_LOCATION`, `VECTOR_VEHICLE`, `VECTOR_CREDENTIALS`
+
+**`core/indexer/document_indexer.py`** – `DocumentIndexer`:
+- Lazily loads the sentence-transformers model (class-level cache, shared across instances)
+- Pre-computes and normalises all exemplar embeddings on first use
+- `detect(text)` → embed + cosine similarity → sorted `CategoryMatch` list
+- `add_chunk()` + `save_index()` / `_load_faiss_index()` for FAISS persistence
+
+**Key design decisions**:
+- `text` in `DetectionResult` is the full chunk (not an exact span) – use alongside NER/regex for precise spans
+- Confidence is the cosine similarity score (0.0–1.0)
+- Privacy-first defaults: local model, no network calls, FAISS index stores only embeddings + file paths
 
 ## Adding a New Engine
 
