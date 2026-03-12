@@ -1,22 +1,36 @@
 """Tests for file processors."""
 
 import os
+import sqlite3
+import zipfile
+from pathlib import Path
+
 import pytest
+
 from file_processors import (
-    PdfProcessor,
-    DocxProcessor,
-    HtmlProcessor,
-    TextProcessor,
     CsvProcessor,
-    JsonProcessor,
-    RtfProcessor,
-    OdtProcessor,
+    DocxProcessor,
     EmlProcessor,
+    HtmlProcessor,
+    IcalProcessor,
+    JsonProcessor,
+    MarkdownProcessor,
+    MboxProcessor,
     MsgProcessor,
     OdsProcessor,
-    PptxProcessor,
+    OdtProcessor,
+    PdfProcessor,
     PptProcessor,
+    PptxProcessor,
+    PropertiesProcessor,
+    RtfProcessor,
+    SqliteProcessor,
+    TextProcessor,
+    VcfProcessor,
+    XmlProcessor,
+    XlsxProcessor,
     YamlProcessor,
+    ZipProcessor,
 )
 
 
@@ -297,9 +311,21 @@ class TestOdtProcessor:
         with pytest.raises(FileNotFoundError):
             processor.extract_text(non_existent)
 
-    # Note: Testing actual ODT extraction would require creating a valid ODT file
-    # which is complex. The can_process test and file_not_found test verify
-    # the basic functionality. Full integration tests would require sample ODT files.
+    def test_extract_text_from_odt(self, temp_dir):
+        """Test text extraction from ODT file (requires odfpy)."""
+        pytest.importorskip("odf.opendocument")
+        from odf.opendocument import OpenDocumentText
+        from odf.text import P
+
+        odt_path = os.path.join(temp_dir, "test.odt")
+        doc = OpenDocumentText()
+        doc.text.addElement(P(text="Contact: John Doe at john@example.com"))
+        doc.save(odt_path)
+
+        processor = OdtProcessor()
+        text = processor.extract_text(odt_path)
+        assert "John Doe" in text
+        assert "john@example.com" in text
 
 
 class TestEmlProcessor:
@@ -441,9 +467,66 @@ class TestOdsProcessor:
         with pytest.raises(FileNotFoundError):
             processor.extract_text(non_existent)
 
-    # Note: Testing actual ODS extraction would require creating a valid ODS file
-    # which is complex. The can_process test and file_not_found test verify
-    # the basic functionality. Full integration tests would require sample ODS files.
+    def test_extract_text_from_ods(self, temp_dir):
+        """Test text extraction from ODS file (requires odfpy)."""
+        pytest.importorskip("odf.opendocument")
+        from odf.opendocument import OpenDocumentSpreadsheet
+        from odf.table import Table, TableRow, TableCell
+        from odf.text import P
+
+        ods_path = os.path.join(temp_dir, "test.ods")
+        doc = OpenDocumentSpreadsheet()
+        table = Table(name="Sheet1")
+        row = TableRow()
+        for cell_text in ["John Doe", "john@example.com"]:
+            cell = TableCell()
+            cell.addElement(P(text=cell_text))
+            row.addElement(cell)
+        table.addElement(row)
+        doc.spreadsheet.addElement(table)
+        doc.save(ods_path)
+
+        processor = OdsProcessor()
+        text = processor.extract_text(ods_path)
+        assert "John Doe" in text
+        assert "john@example.com" in text
+
+
+class TestXlsxProcessor:
+    """Tests for XLSX processor."""
+
+    def test_can_process_xlsx(self):
+        """Test that XLSX processor recognizes .xlsx extension."""
+        processor = XlsxProcessor()
+        assert processor.can_process(".xlsx")
+        assert processor.can_process(".XLSX")
+        assert not processor.can_process(".xls")
+        assert not processor.can_process(".csv")
+
+    def test_extract_text_from_xlsx(self, temp_dir):
+        """Test text extraction from XLSX file (requires openpyxl)."""
+        pytest.importorskip("openpyxl")
+        from openpyxl import Workbook
+
+        xlsx_path = os.path.join(temp_dir, "test.xlsx")
+        wb = Workbook()
+        ws = wb.active
+        ws["A1"] = "John Doe"
+        ws["B1"] = "john@example.com"
+        wb.save(xlsx_path)
+
+        processor = XlsxProcessor()
+        text = processor.extract_text(xlsx_path)
+        assert "John Doe" in text
+        assert "john@example.com" in text
+
+    def test_file_not_found(self, temp_dir):
+        """Test that non-existent file raises an error (XlsxProcessor wraps as Exception)."""
+        processor = XlsxProcessor()
+        non_existent = os.path.join(temp_dir, "nonexistent.xlsx")
+        with pytest.raises(Exception) as exc_info:
+            processor.extract_text(non_existent)
+        assert "No such file" in str(exc_info.value) or "nonexistent" in str(exc_info.value).lower()
 
 
 class TestPptxProcessor:
@@ -488,9 +571,24 @@ class TestPptxProcessor:
             # If python-pptx is not installed, that's expected
             pass
 
-    # Note: Testing actual PPTX extraction would require creating a valid PPTX file
-    # which is complex. The can_process test and error handling tests verify
-    # the basic functionality. Full integration tests would require sample PPTX files.
+    def test_extract_text_from_pptx(self, temp_dir):
+        """Test text extraction from PPTX file (requires python-pptx)."""
+        pytest.importorskip("pptx")
+        from pptx import Presentation
+        from pptx.util import Inches
+
+        pptx_path = os.path.join(temp_dir, "test.pptx")
+        prs = Presentation()
+        slide = prs.slides.add_slide(prs.slide_layouts[6])  # Blank
+        slide.shapes.add_textbox(Inches(1), Inches(1), Inches(5), Inches(1)).text_frame.text = (
+            "John Doe john@example.com"
+        )
+        prs.save(pptx_path)
+
+        processor = PptxProcessor()
+        text = processor.extract_text(pptx_path)
+        assert "John Doe" in text
+        assert "john@example.com" in text
 
 
 class TestPptProcessor:
@@ -629,3 +727,245 @@ metadata:
         except ImportError:
             # If PyYAML is not installed, that's expected
             pass
+
+
+class TestMarkdownProcessor:
+    """Tests for Markdown processor."""
+
+    def test_can_process_md(self):
+        """Test that Markdown processor recognizes .md extension."""
+        processor = MarkdownProcessor()
+        assert processor.can_process(".md")
+        assert processor.can_process(".MD")
+        assert processor.can_process(".markdown")
+        assert not processor.can_process(".txt")
+
+    def test_extract_text_from_markdown(self, temp_dir):
+        """Test text extraction from Markdown file."""
+        file_path = os.path.join(temp_dir, "test.md")
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(
+                "# Header\n\n"
+                "Contact: **John Doe** at john@example.com\n"
+                "- Item 1\n- Item 2\n"
+            )
+        processor = MarkdownProcessor()
+        text = processor.extract_text(file_path)
+        assert "John Doe" in text
+        assert "john@example.com" in text
+        assert "Header" in text
+
+
+class TestSqliteProcessor:
+    """Tests for SQLite processor."""
+
+    def test_can_process_sqlite(self):
+        """Test that SQLite processor recognizes .db extension."""
+        processor = SqliteProcessor()
+        assert processor.can_process(".db")
+        assert processor.can_process(".sqlite")
+        assert processor.can_process(".sqlite3")
+        assert not processor.can_process(".txt")
+
+    def test_extract_text_from_sqlite(self, temp_dir):
+        """Test text extraction from SQLite database."""
+        db_path = os.path.join(temp_dir, "test.db")
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            "CREATE TABLE contacts (name TEXT, email TEXT)"
+        )
+        conn.execute(
+            "INSERT INTO contacts VALUES ('John Doe', 'john@example.com')"
+        )
+        conn.commit()
+        conn.close()
+
+        processor = SqliteProcessor()
+        chunks = list(processor.extract_text(db_path))
+        text = " ".join(chunks)
+        assert "John Doe" in text
+        assert "john@example.com" in text
+        assert "contacts" in text.lower()
+
+
+class TestZipProcessor:
+    """Tests for ZIP processor."""
+
+    def test_can_process_zip(self):
+        """Test that ZIP processor recognizes .zip extension."""
+        processor = ZipProcessor()
+        assert processor.can_process(".zip")
+        assert processor.can_process(".ZIP")
+        assert not processor.can_process(".txt")
+
+    def test_extract_text_from_zip(self, temp_dir):
+        """Test text extraction from ZIP archive."""
+        zip_path = os.path.join(temp_dir, "test.zip")
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr("doc.txt", "Contact: user@example.com")
+
+        processor = ZipProcessor()
+        chunks = list(processor.extract_text(zip_path))
+        text = " ".join(chunks)
+        assert "user@example.com" in text
+        assert "doc.txt" in text
+
+    def test_extract_text_from_zip_skips_directories(self, temp_dir):
+        """Test that ZIP processor skips directory entries."""
+        zip_path = os.path.join(temp_dir, "test.zip")
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr("subdir/", "")
+            zf.writestr("subdir/file.txt", "content")
+
+        processor = ZipProcessor()
+        chunks = list(processor.extract_text(zip_path))
+        text = " ".join(chunks)
+        assert "content" in text
+
+    def test_extract_text_from_zip_multiple_files(self, temp_dir):
+        """Test ZIP with multiple text files."""
+        zip_path = os.path.join(temp_dir, "multi.zip")
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr("a.txt", "File A: alpha@example.com")
+            zf.writestr("b.txt", "File B: beta@example.com")
+
+        processor = ZipProcessor()
+        chunks = list(processor.extract_text(zip_path))
+        text = " ".join(chunks)
+        assert "alpha@example.com" in text
+        assert "beta@example.com" in text
+        assert len(chunks) == 2
+
+
+class TestXmlProcessor:
+    """Tests for XML processor."""
+
+    def test_extract_text_from_xml(self, temp_dir):
+        """Test text extraction from XML file."""
+        file_path = os.path.join(temp_dir, "test.xml")
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(
+                '<?xml version="1.0"?>'
+                "<root><name>John Doe</name><email>john@example.com</email></root>"
+            )
+        processor = XmlProcessor()
+        text = processor.extract_text(file_path)
+        assert "John Doe" in text
+        assert "john@example.com" in text
+
+    def test_extract_text_from_malformed_xml_fallback(self, temp_dir):
+        """Test that malformed XML uses regex fallback to extract text."""
+        file_path = os.path.join(temp_dir, "malformed.xml")
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write("<root><name>John Doe</name><email>john@example.com</email></root")  # missing >
+        processor = XmlProcessor()
+        text = processor.extract_text(file_path)
+        assert "John Doe" in text or "john@example.com" in text
+
+
+class TestVcfProcessor:
+    """Tests for VCF processor."""
+
+    def test_can_process_vcf(self):
+        """Test that VCF processor recognizes .vcf extension."""
+        processor = VcfProcessor()
+        assert processor.can_process(".vcf")
+        assert processor.can_process(".VCF")
+        assert not processor.can_process(".txt")
+
+    def test_extract_text_from_vcf(self, temp_dir):
+        """Test text extraction from vCard file."""
+        file_path = os.path.join(temp_dir, "test.vcf")
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(
+                "BEGIN:VCARD\n"
+                "FN:John Doe\n"
+                "EMAIL:john@example.com\n"
+                "END:VCARD\n"
+            )
+        processor = VcfProcessor()
+        text = processor.extract_text(file_path)
+        assert "John Doe" in text
+        assert "john@example.com" in text
+
+
+class TestIcalProcessor:
+    """Tests for iCal processor."""
+
+    def test_can_process_ics(self):
+        """Test that iCal processor recognizes .ics extension."""
+        processor = IcalProcessor()
+        assert processor.can_process(".ics")
+        assert processor.can_process(".ICAL")
+        assert not processor.can_process(".txt")
+
+    def test_extract_text_from_ics(self, temp_dir):
+        """Test text extraction from iCalendar file."""
+        file_path = os.path.join(temp_dir, "test.ics")
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(
+                "BEGIN:VCALENDAR\n"
+                "BEGIN:VEVENT\n"
+                "SUMMARY:Meeting with John\n"
+                "DESCRIPTION:Contact john@example.com\n"
+                "LOCATION:Room 123\n"
+                "END:VEVENT\n"
+                "END:VCALENDAR\n"
+            )
+        processor = IcalProcessor()
+        text = processor.extract_text(file_path)
+        assert "Meeting with John" in text
+        assert "john@example.com" in text
+        assert "Room 123" in text
+
+
+class TestPropertiesProcessor:
+    """Tests for Properties processor."""
+
+    def test_can_process_properties(self):
+        """Test that Properties processor recognizes .properties extension."""
+        processor = PropertiesProcessor()
+        assert processor.can_process(".properties")
+        assert processor.can_process(".ini")
+        assert processor.can_process(".cfg")
+        assert not processor.can_process(".txt")
+
+    def test_extract_text_from_properties(self, temp_dir):
+        """Test text extraction from Java properties file."""
+        file_path = os.path.join(temp_dir, "test.properties")
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write("user.name=John Doe\napi.key=secret123\n")
+        processor = PropertiesProcessor()
+        text = processor.extract_text(file_path)
+        assert "John Doe" in text
+        assert "secret123" in text
+
+
+class TestMboxProcessor:
+    """Tests for MBOX processor."""
+
+    def test_can_process_mbox(self):
+        """Test that MBOX processor recognizes .mbox extension."""
+        processor = MboxProcessor()
+        assert processor.can_process(".mbox")
+        assert processor.can_process(".MBOX")
+        assert not processor.can_process(".eml")
+
+    def test_extract_text_from_mbox(self, temp_dir):
+        """Test text extraction from MBOX mailbox file."""
+        file_path = os.path.join(temp_dir, "test.mbox")
+        with open(file_path, "wb") as f:
+            f.write(
+                b"From sender@example.com Mon Jan 01 00:00:00 2024\n"
+                b"From: sender@example.com\n"
+                b"To: recipient@example.com\n"
+                b"Subject: Test\n"
+                b"\n"
+                b"Body with contact@example.com\n"
+            )
+        processor = MboxProcessor()
+        chunks = list(processor.extract_text(file_path))
+        text = " ".join(chunks)
+        assert "sender@example.com" in text
+        assert "recipient@example.com" in text
+        assert "contact@example.com" in text

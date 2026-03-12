@@ -1,0 +1,6 @@
+CID,Customer_Name,Months_as_Customer,Support_Tickets_Last_6m,Product_Usage_Score,Payment_Status,CLV_EUR,Churn_Probability_%,Driver
+CUST-001,Klaus Mueller,37,2,92,On-time,25000000,3%,N/A - Stable
+CUST-002,Sarah Schmidt,33,8,78,On-time,22000000,18%,Competitive calls detected
+CUST-003,Thomas Weber,40,25,45,Late Payment,18000000,72%,System issues + competitor interest
+CUST-004,Anna Fischer,24,5,68,On-time,8000000,28%,Price sensitivity
+CUST-005,Robert Hoffmann,55,34,12,Multiple Late,3000000,94%,Financial distress + service issues

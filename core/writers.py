@@ -50,12 +50,12 @@ class CsvWriter(OutputWriter):
             self._file = open(file_path, "w", newline="", encoding="utf-8")
             self._writer = csv.writer(self._file)
             if self.include_header:
-                self._writer.writerow(["Match", "File", "Type", "Score", "Engine"])
+                self._writer.writerow(["Match", "File", "Type", "Score", "Engine", "Severity"])
         except IOError as e:
             raise OutputError(f"Failed to open output file: {e}")
 
     def write_match(self, match: PiiMatch) -> None:
-        row = [match.text, match.file, match.type, match.ner_score, match.engine]
+        row = [match.text, match.file, match.type, match.ner_score, match.engine, match.severity]
         self._writer.writerow(row)
 
     def finalize(self, metadata: Optional[dict] = None) -> None:
@@ -90,6 +90,7 @@ class JsonWriter(OutputWriter):
             "type": match.type,
             "score": match.ner_score,
             "engine": match.engine,
+            "severity": match.severity,
             "metadata": match.metadata,
         }
         self.matches.append(match_dict)
@@ -129,6 +130,7 @@ class JsonlWriter(OutputWriter):
             "type": match.type,
             "score": match.ner_score,
             "engine": match.engine,
+            "severity": match.severity,
             "metadata": match.metadata,
         }
         self._file.write(json.dumps(payload, ensure_ascii=False) + "\n")
@@ -168,10 +170,12 @@ class XlsxWriter(OutputWriter):
         self._wb = openpyxl.Workbook(write_only=True)
         self._ws = self._wb.create_sheet("Findings")
         if self.include_header:
-            self._ws.append(["Match", "File", "Type", "Score", "Engine"])
+            self._ws.append(["Match", "File", "Type", "Score", "Engine", "Severity"])
 
     def write_match(self, match: PiiMatch) -> None:
-        self._ws.append([match.text, match.file, match.type, match.ner_score, match.engine])
+        self._ws.append(
+            [match.text, match.file, match.type, match.ner_score, match.engine, match.severity]
+        )
 
     def finalize(self, metadata: Optional[dict] = None) -> None:
         # Add metadata sheet

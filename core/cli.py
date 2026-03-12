@@ -256,6 +256,21 @@ def scan(
         "--no-header",
         help="Don't include header row in CSV output (for backward compatibility)",
     ),
+    deduplicate: bool = typer.Option(
+        False,
+        "--deduplicate",
+        help="Remove duplicate findings with identical text, file, and type across all engines",
+    ),
+    text_chunk_size: int = typer.Option(
+        0,
+        "--text-chunk-size",
+        help="Split large texts into overlapping chunks of this size for NER engines (0 = disabled). Recommended: 2000",
+    ),
+    text_chunk_overlap: int = typer.Option(
+        200,
+        "--text-chunk-overlap",
+        help="Number of characters shared between adjacent text chunks (default: 200)",
+    ),
     statistics_mode: bool = typer.Option(
         False,
         "--statistics-mode",
@@ -270,6 +285,17 @@ def scan(
         None,
         "--statistics-output",
         help="Path for statistics JSON output file (default: auto-generated in output directory)",
+    ),
+    # Incremental scanning
+    incremental: bool = typer.Option(
+        False,
+        "--incremental",
+        help="Skip files whose content has not changed since the last scan (SHA-256 + mtime cache).",
+    ),
+    cache_path: Optional[str] = typer.Option(
+        None,
+        "--cache-path",
+        help="Path to the incremental scan cache database (default: .pbd_scan_cache.db in the output directory).",
     ),
     # Output options
     verbose: bool = typer.Option(
@@ -334,12 +360,17 @@ def scan(
         "mode": mode,
         "jobs": jobs,
         "no_header": no_header,
+        "deduplicate": deduplicate,
+        "text_chunk_size": text_chunk_size,
+        "text_chunk_overlap": text_chunk_overlap,
         "statistics_mode": statistics_mode,
         "statistics_strict": statistics_strict,
         "statistics_output": statistics_output,
         "verbose": verbose,
         "quiet": quiet,
         "config": config,
+        "incremental": incremental,
+        "cache_path": cache_path,
     }
 
     args = _create_argparse_namespace_from_typer_args(**typer_args)
@@ -365,10 +396,14 @@ def scan(
 
     # Construct name for output files
     import datetime
+    import re as _re
 
     outslug: str = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
     if args.outname is not None:
-        outslug += " " + args.outname
+        # Sanitize outname: remove path separators and other characters that
+        # could cause the output file to be written outside the output directory.
+        safe_outname = _re.sub(r"[/\\<>:\"|?*\x00-\x1f]", "_", args.outname)
+        outslug += " " + safe_outname
 
     # Get output directory from args or use default
     output_dir = (
@@ -430,6 +465,15 @@ def scan(
         typer.echo(f"Configuration error: {e}", err=True)
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
 
+    # Apply extra CLI flags to config object
+    config_obj.enable_deduplication = bool(getattr(args, "deduplicate", False))
+    _chunk_size = getattr(args, "text_chunk_size", 0)
+    if isinstance(_chunk_size, int) and _chunk_size >= 0:
+        config_obj.text_chunk_size = _chunk_size
+    _chunk_overlap = getattr(args, "text_chunk_overlap", 200)
+    if isinstance(_chunk_overlap, int) and _chunk_overlap >= 0:
+        config_obj.text_chunk_overlap = _chunk_overlap
+
     # Validate configuration
     is_valid, error_msg = config_obj.validate_path()
     if not is_valid:
@@ -466,7 +510,8 @@ def scan(
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
 
     # Initialize components
-    pmc: PiiMatchContainer = PiiMatchContainer()
+    _dedup_enabled = bool(getattr(args, "deduplicate", False))
+    pmc: PiiMatchContainer = PiiMatchContainer(enable_deduplication=_dedup_enabled)
     pmc.set_csv_writer(csv_writer)
     pmc.set_output_format(args.format if hasattr(args, "format") else "csv")
     # Enable streaming writes for writers that support it (e.g. csv/jsonl/xlsx).
@@ -547,6 +592,21 @@ def scan(
             else:
                 errors[msg].append(path)
 
+    # Initialize incremental scan cache (if requested)
+    _use_incremental = bool(getattr(args, "incremental", False))
+    scan_cache = None
+    if _use_incremental:
+        from core.scan_cache import ScanCache
+        _cache_path = getattr(args, "cache_path", None) or os.path.join(
+            output_dir, ".pbd_scan_cache.db"
+        )
+        scan_cache = ScanCache(cache_path=_cache_path, logger=logger)
+        _cache_stats = scan_cache.stats()
+        context.logger.info(
+            f"Incremental scanning enabled. Cache: {_cache_path} "
+            f"({_cache_stats['total_entries']} entries)"
+        )
+
     # Initialize text processor for PII detection
     text_processor = TextProcessor(
         context.config, context.match_container, statistics=context.statistics
@@ -573,7 +633,18 @@ def scan(
 
     def _process_file_impl(file_info: FileInfo) -> None:
         """Process a single file: extract text and detect PII."""
+        # Incremental scan: skip unchanged files
+        if scan_cache is not None and scan_cache.is_unchanged(file_info.path):
+            if context.config.verbose:
+                context.logger.debug(f"Incremental: skipping unchanged file {file_info.path}")
+            return
+
         text_processor.process_file(file_info, error_callback=add_error)
+
+        # Update incremental cache after successful processing
+        if scan_cache is not None:
+            scan_cache.mark_scanned(file_info.path)
+
         # Track file for statistics aggregator
         if statistics_aggregator:
             with _stats_lock:
@@ -586,13 +657,16 @@ def scan(
                 if context.config.use_ner:
                     statistics_aggregator.add_file_processed(file_info.path, "gliner")
                 if getattr(context.config, "use_spacy_ner", False):
-                    statistics_aggregator.add_file_processed(file_info.path, "spacy-ner")
+                    statistics_aggregator.add_file_processed(
+                        file_info.path, "spacy-ner"
+                    )
                 if getattr(context.config, "use_pydantic_ai", False):
                     statistics_aggregator.add_file_processed(
                         file_info.path, "pydantic-ai"
                     )
 
     if worker_count <= 1:
+
         def process_file(file_info: FileInfo) -> None:
             _process_file_impl(file_info)
     else:
@@ -617,6 +691,9 @@ def scan(
                 executor.shutdown(wait=True)
             except Exception:
                 pass
+        # Close cache connection
+        if scan_cache is not None:
+            scan_cache.close()
 
     # Update statistics from scan result
     context.statistics.update_from_scan_result(
@@ -912,8 +989,7 @@ def scan(
                     "errors": context.statistics.total_errors,
                     "throughput_files_per_sec": context.statistics.files_per_second,
                 },
-                "output_file": context.output_file_path
-                or output_file_path,
+                "output_file": context.output_file_path or output_file_path,
                 "output_directory": output_dir,
                 "errors_summary": (
                     {k: len(v) for k, v in errors.items()} if errors else {}
@@ -1006,6 +1082,7 @@ def doctor(
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
     if strict and any(i.level == "warning" for i in report.issues):
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
+
 
 def cli() -> None:
     """Entry point for CLI - calls Typer app."""

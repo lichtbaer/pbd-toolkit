@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from core.resources import load_config_types
+from core.severity import classify as _classify_severity
 
 # configure support match types
 config = load_config_types()
@@ -46,6 +47,8 @@ class PiiMatch:
     engine: str | None = None
     # Additional engine-specific metadata
     metadata: dict = field(default_factory=dict)
+    # Severity level: LOW | MEDIUM | HIGH | CRITICAL
+    severity: str | None = None
 
 
 """ Class for holding all PII matches found. The aim is to provide helpful functions for processing
@@ -59,8 +62,13 @@ class PiiMatchContainer:
     pii_matches: list[PiiMatch] = field(default_factory=list)
     # Whitelist used for excluding strings from being identified as PII
     whitelist: list[str] = field(default_factory=list)
+    # When True, suppress duplicate (text, file, type) matches across engines.
+    # The first match (highest confidence if available) wins.
+    enable_deduplication: bool = False
     # Compiled regex pattern for efficient whitelist matching
     _whitelist_pattern: re.Pattern | None = field(default=None, init=False, repr=False)
+    # Set of (text_lower, file, type) keys for O(1) deduplication lookup
+    _seen_keys: set = field(default_factory=set, init=False, repr=False)
     # CSV writer for output (injected dependency, only used for CSV format)
     _csv_writer: Optional[csv.writer] = field(default=None, init=False, repr=False)
     # Output format (csv, json, xlsx)
@@ -153,6 +161,13 @@ class PiiMatchContainer:
             if whitelisted:
                 return
 
+            # Deduplication: skip if an identical (text, file, type) match is already stored
+            if self.enable_deduplication:
+                dedup_key = (text.lower(), file, type)
+                if dedup_key in self._seen_keys:
+                    return
+                self._seen_keys.add(dedup_key)
+
             pm: PiiMatch = PiiMatch(
                 text=text,
                 file=file,
@@ -160,13 +175,14 @@ class PiiMatchContainer:
                 ner_score=ner_score,
                 engine=engine,
                 metadata=metadata or {},
+                severity=_classify_severity(type) if type else None,
             )
             self.pii_matches.append(pm)
 
             # Only write directly for CSV format
             if self._output_format == "csv" and self._csv_writer:
-                # Keep CSV row shape stable: Match, File, Type, Score, Engine
-                row = [pm.text, pm.file, pm.type, pm.ner_score, pm.engine]
+                # Keep CSV row shape stable: Match, File, Type, Score, Engine, Severity
+                row = [pm.text, pm.file, pm.type, pm.ner_score, pm.engine, pm.severity]
                 try:
                     self._csv_writer.writerow(row)
                 except TypeError:
@@ -183,7 +199,9 @@ class PiiMatchContainer:
             # Stream to output writer for non-CSV formats that support streaming.
             # CSV is handled above to keep backward-compatible behavior stable.
             if self._output_format != "csv" and self._output_writer is not None:
-                supports_streaming = getattr(self._output_writer, "supports_streaming", False)
+                supports_streaming = getattr(
+                    self._output_writer, "supports_streaming", False
+                )
                 if supports_streaming:
                     write_match = getattr(self._output_writer, "write_match", None)
                     if callable(write_match):

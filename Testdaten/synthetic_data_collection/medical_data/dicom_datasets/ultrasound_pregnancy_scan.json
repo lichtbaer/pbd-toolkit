@@ -1,0 +1,27 @@
+{
+  "dicom_metadata": {
+    "patient_id": "PAT-2024-003245",
+    "patient_name": "Pregnant^Woman",
+    "patient_dob": "19900812",
+    "patient_age": "33Y",
+    "study_date": "20240320",
+    "modality": "US",
+    "body_part_examined": "OBSTETRIC",
+    "obstetric_gestation_age": "28 weeks",
+    "protocol": "OB Screening Trimester 3"
+  },
+  "clinical_indication": "Schwangerschaftsvorsorgung, Wachstumskontrolle",
+  "findings": [
+    "Ein Leben des fetalen Geschlechts weiblich",
+    "Biometrische Messungen entsprechen 28+2 SSW",
+    "Nabelschnur im Querschnitt mit 3 Gefäßen",
+    "Placenta Grad I-II, fundal gelegen",
+    "Fruchtwassermenge angemessen",
+    "Doppler: Normaler Blutfluss Nabelarterie",
+    "Herzfrequenz fetal: 142 bpm"
+  ],
+  "assessment": "Unauffällige Schwangerschaft im 3. Trimenon",
+  "recommendation": "Normales Follow-up in 4 Wochen",
+  "obstetrician": "Dr. med. Petra Schmidt",
+  "report_date": "20240320"
+}

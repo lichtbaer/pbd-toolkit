@@ -60,3 +60,5 @@ mkdocs gh-deploy
 ## Note
 
 This documentation is for the **fork** of the HBDI PII Toolkit. It is not official documentation from HBDI.
+
+For installation and feature extras (recommended), see `getting-started/installation.md`.

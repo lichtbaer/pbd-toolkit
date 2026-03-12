@@ -1,0 +1,40 @@
+{
+  "employee_info": {
+    "employee_id": "EMP-0456",
+    "name": "Klaus Mueller",
+    "position": "Information Security Manager"
+  },
+  "certifications": [
+    {
+      "cert_name": "Certified Information Systems Security Professional (CISSP)",
+      "issuer": "ISC²",
+      "issue_date": "2019-06-15",
+      "expiry_date": "2025-06-15",
+      "status": "ACTIVE",
+      "credential_id": "CISSP-123456"
+    },
+    {
+      "cert_name": "Secret Level Security Clearance",
+      "issuer": "German Federal Office for Information Security (BSI)",
+      "issue_date": "2018-03-10",
+      "expiry_date": "2026-03-10",
+      "status": "ACTIVE",
+      "access_level": "Government Classified Information - Secret"
+    },
+    {
+      "cert_name": "CompTIA Security+",
+      "issuer": "CompTIA",
+      "issue_date": "2017-09-22",
+      "expiry_date": "2024-09-22",
+      "status": "EXPIRED",
+      "action_required": "Renewal or recertification needed"
+    }
+  ],
+  "security_clearance_details": {
+    "clearance_type": "Secret Level",
+    "government_projects": "Access to classified infrastructure projects",
+    "last_review": "2023-12-01",
+    "next_review_due": "2025-12-01",
+    "restrictions": "Cannot share classified information outside secure facilities"
+  }
+}

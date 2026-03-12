@@ -15,7 +15,7 @@ Thank you for your interest in contributing to this fork of the PII Toolkit!
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - Git
 - (Optional) Virtual environment
 
@@ -30,11 +30,11 @@ cd pbd-toolkit
 python3 -m venv .venv
 source .venv/bin/activate
 
-# Install dependencies
-pip install -r requirements.txt
+# Recommended: install dev + feature extras (same baseline as CI)
+pip install -e ".[dev,office,images,magic,llm]"
 
-# Install development/test dependencies
-pip install -r requirements-dev.txt
+# Optional: enable additional local NER engines
+# pip install -e ".[gliner,spacy]"
 
 # Optional: docs preview tooling
 pip install mkdocs mkdocs-material
@@ -115,8 +115,8 @@ pytest
 # Run with coverage
 pytest --cov=. --cov-report=html
 
-# Check code style (if using linter)
-# flake8 .  # or your preferred linter
+# Lint (lightweight; CI runs Ruff)
+ruff check core file_processors validators config.py matches.py main.py cli_setup.py
 ```
 
 ## Documentation

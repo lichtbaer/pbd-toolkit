@@ -183,8 +183,56 @@ class TestConfig:
         is_valid, error_msg = config.validate_file_path(small_file)
         assert is_valid is True
 
-        # Note: Creating a file larger than 1KB for testing would require
-        # more setup, but the logic is tested above
+        # Create a file larger than 1KB (should fail)
+        large_file = os.path.join(temp_dir, "large.txt")
+        with open(large_file, "w") as f:
+            f.write("x" * 2000)  # 2000 bytes > 1KB
+
+        is_valid, error_msg = config.validate_file_path(large_file)
+        assert is_valid is False
+        assert "too large" in error_msg.lower()
+
+    def test_from_args_with_engine_flags(self):
+        """Test Config.from_args with engine-specific arguments."""
+        from unittest.mock import Mock
+
+        mock_args = Mock()
+        mock_args.path = "/test"
+        mock_args.regex = False
+        mock_args.ner = False
+        mock_args.verbose = False
+        mock_args.outname = None
+        mock_args.whitelist = None
+        mock_args.stop_count = None
+        mock_args.spacy_model = "de_core_news_sm"
+        mock_args.ollama_url = "http://localhost:11435"
+        mock_args.ollama_model = "llama2"
+        mock_args.openai_api_base = "https://api.example.com"
+        mock_args.openai_api_key = "sk-xxx"
+        mock_args.openai_model = "gpt-4"
+        mock_args.use_magic_detection = True
+        mock_args.magic_fallback = False
+
+        mock_logger = Mock()
+        mock_csv_writer = Mock()
+        mock_csv_file = Mock()
+
+        config = Config.from_args(
+            args=mock_args,
+            logger=mock_logger,
+            csv_writer=mock_csv_writer,
+            csv_file_handle=mock_csv_file,
+            translate_func=lambda x: x,
+        )
+
+        assert config.spacy_model_name == "de_core_news_sm"
+        assert config.ollama_base_url == "http://localhost:11435"
+        assert config.ollama_model == "llama2"
+        assert config.openai_api_base == "https://api.example.com"
+        assert config.openai_api_key == "sk-xxx"
+        assert config.openai_model == "gpt-4"
+        assert config.use_magic_detection is True
+        assert config.magic_detection_fallback is False
 
 
 class TestExtendedConfig:

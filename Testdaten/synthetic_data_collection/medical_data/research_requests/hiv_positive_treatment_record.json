@@ -1,0 +1,55 @@
+{
+  "patient_identifier": {
+    "patient_id": "PAT-HIV-001",
+    "name": "Mr. Robert Schmidt",
+    "dob": "19870520",
+    "age": "37Y",
+    "gender": "Male",
+    "status": "MSM (Men who have sex with men)"
+  },
+  "hiv_diagnosis": {
+    "diagnosis_date": "2019-06-15",
+    "years_since_diagnosis": "5 years",
+    "initial_cd4_count": 145,
+    "initial_viral_load": "1,250,000 copies/mL",
+    "initial_stage": "AIDS (CD4 < 200)"
+  },
+  "current_status": {
+    "cd4_count": 487,
+    "viral_load": "<50 copies/mL (UNDETECTABLE)",
+    "hiv_status": "Virally suppressed"
+  },
+  "antiretroviral_therapy": [
+    {
+      "drug": "Bictegravir/Tenofovir/Emtricitabine",
+      "dose": "1 tablet daily",
+      "start_date": "2019-07"
+    },
+    {
+      "drug": "Dolutegravir",
+      "dose": "50mg daily",
+      "start_date": "2020-03"
+    }
+  ],
+  "comorbidities": [
+    "HBV (Hepatitis B) - Chronic carrier",
+    "History of PCP (Pneumocystis Pneumonia) - 2019",
+    "Oesophageal Candidiasis - 2019"
+  ],
+  "sexual_history": {
+    "partners_per_year": "3-5 partners",
+    "condom_use": "Inconsistent (70-80%)",
+    "prep_status": "No - Relies on U=U (Undetectable = Untransmittable)"
+  },
+  "disclosure_status": {
+    "family_knows": "Yes - Parents & Sister",
+    "work_knows": "No - Employer unaware",
+    "social_circle": "Close friends only"
+  },
+  "psychological_impact": {
+    "depression_history": "Major depression 2019-2021",
+    "current_mental_status": "Stable on Sertraline",
+    "trauma": "Diagnosed with complex PTSD from stigma & discrimination"
+  },
+  "life_expectancy": "Normal lifespan with adherence to treatment (U=U)"
+}

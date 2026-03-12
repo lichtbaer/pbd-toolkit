@@ -1,0 +1,41 @@
+{
+  "test_metadata": {
+    "patient_id": "PAT-LAB-002",
+    "patient_name": "Female^Genetic-Patient",
+    "dob": "19760512",
+    "age": "48Y",
+    "test_date": "2024-03-15",
+    "test_type": "Multi-Gene Cancer Predisposition Panel",
+    "lab": "GeneDiagnostics Munich"
+  },
+  "gene_mutations": {
+    "brca1": {
+      "result": "Pathogenic Variant Detected",
+      "mutation": "c.68_69delAG",
+      "location": "Exon 2",
+      "zygosity": "Heterozygous",
+      "significance": "HIGH - Breast/Ovarian Cancer Risk"
+    },
+    "brca2": {
+      "result": "No pathogenic variants detected",
+      "status": "Wild-type"
+    },
+    "tp53": {
+      "result": "Likely pathogenic variant",
+      "mutation": "c.742C>T (p.Arg248Trp)",
+      "significance": "HIGH - Li-Fraumeni Syndrome Risk"
+    },
+    "pten": {
+      "result": "No variants detected",
+      "status": "Wild-type"
+    }
+  },
+  "risk_assessment": {
+    "breast_cancer_lifetime_risk": "65-87% (vs general population 12%)",
+    "ovarian_cancer_risk": "39-46% (vs general population 1.4%)",
+    "pancreatic_cancer_risk": "1-2%",
+    "recommendation": "Prophylactic bilateral mastectomy and oophorectomy should be considered"
+  },
+  "counseling_recommendation": "Genetic counseling strongly recommended. Family screening indicated.",
+  "genetic_counselor": "Dr. Anna Weber"
+}

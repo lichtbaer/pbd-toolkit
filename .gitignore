@@ -27,7 +27,11 @@ output/*.txt
 site/
 .idea/
 
-# Bandit security reports
-bandit-report*.json
-bandit-report*.txt
-BANDIT_*.md
+# Test data
+Testdaten/Review/
+
+Testdaten/_meta/docs/
+Testdaten/_meta/
+
+# Performance test reports
+tests/perf/reports/

@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 from core.scanner import FileScanner, FileInfo, ScanResult
 
 
@@ -90,6 +89,53 @@ class TestFileScanner:
         # Errors should be tracked (if validation fails)
         # The exact behavior depends on file size and config
         assert isinstance(result.errors, dict)
+
+    def test_scan_callback_raises_exception(self, mock_config, temp_dir):
+        """Test that callback exceptions are caught and tracked as errors."""
+        test_file = Path(temp_dir) / "test.txt"
+        test_file.write_text("content")
+
+        def failing_callback(file_info: FileInfo):
+            raise RuntimeError("Callback failed intentionally")
+
+        scanner = FileScanner(mock_config)
+        result = scanner.scan(temp_dir, file_callback=failing_callback)
+
+        assert len(result.errors) > 0
+        assert result.files_processed == 0
+        assert "Callback error" in str(list(result.errors.keys())[0])
+
+    def test_scan_validation_failure_tracked(self, mock_config, temp_dir):
+        """Test that validation failures are tracked as errors."""
+        (Path(temp_dir) / "valid.txt").write_text("content")
+        (Path(temp_dir) / "rejected.txt").write_text("content")
+
+        def validate_reject_some(file_path: str):
+            if "rejected" in file_path:
+                return False, "Path traversal detected"
+            return True, None
+
+        mock_config.validate_file_path = validate_reject_some
+
+        scanner = FileScanner(mock_config)
+        result = scanner.scan(temp_dir)
+
+        assert result.total_files_found == 2
+        assert len(result.errors) > 0
+        assert "Path traversal" in str(list(result.errors.keys())[0])
+
+    def test_scan_with_subdirectory(self, mock_config, temp_dir):
+        """Test scanning directory with subdirectories."""
+        subdir = Path(temp_dir) / "subdir"
+        subdir.mkdir()
+        (Path(temp_dir) / "root.txt").write_text("root")
+        (subdir / "nested.txt").write_text("nested")
+
+        scanner = FileScanner(mock_config)
+        result = scanner.scan(temp_dir)
+
+        assert result.total_files_found == 2
+        assert result.extension_counts[".txt"] == 2
 
     def test_file_info_creation(self):
         """Test FileInfo dataclass."""

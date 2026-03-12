@@ -1,0 +1,56 @@
+{
+  "case_metadata": {
+    "case_id": "2024-IP-1111",
+    "case_type": "Industrial Espionage & Trade Secret Theft",
+    "victim_company": "PharmaTech Innovations GmbH",
+    "suspect": "Dr. Michael Schmidt (Former R&D Manager)",
+    "jurisdiction": "Landgericht Munich",
+    "investigation_date": "2024-01-25"
+  },
+  "incident_description": "Former R&D manager allegedly copied proprietary drug formulations before leaving to join competitor",
+  "discovery_method": "Security audit detected unauthorized data downloads 2 days before resignation",
+  "evidence": {
+    "download_logs": [
+      {
+        "date": "2024-01-05",
+        "time": "18:45",
+        "user": "mschmidt",
+        "files_downloaded": [
+          "Compound_XYZ-2024_formulation.txt (450 KB)",
+          "Drug_efficacy_trials_summary.xlsx (2.3 MB)",
+          "Preclinical_safety_data.pdf (8.5 MB)",
+          "Competitor_comparison_analysis.doc (320 KB)"
+        ],
+        "total_size": "11.6 MB",
+        "device": "USB flash drive",
+        "destination": "Personal computer (not company)"
+      }
+    ],
+    "computer_forensics": {
+      "finding": "Email to competitor (BioPharm Inc) found on company computer",
+      "email_content": {
+        "from": "mschmidt@biomail.de",
+        "to": "recruitment@biopharminc.de",
+        "date": "2024-01-02",
+        "subject": "Ready to join - Have proprietary IP",
+        "body": "I can bring PharmaTech's latest drug formulations and trial data. This will accelerate your pipeline by 3 years. We can launch competing product within 12 months."
+      }
+    },
+    "witness_statements": {
+      "witness": "Dr. Anna Mueller (Colleague)",
+      "statement": "Michael told me 'I'm taking insurance before I leave. They didn't appreciate my work.' He meant the data."
+    }
+  },
+  "value_of_stolen_ip": {
+    "estimated_development_cost_to_recreate": "€15M",
+    "estimated_time_saved_for_competitor": "36 months",
+    "estimated_market_advantage": "€50M (5-year revenue opportunity)"
+  },
+  "legal_actions": {
+    "criminal_charges": "Diebstahl (Theft), Industriespionage (Industrial Espionage)",
+    "civil_lawsuit": "Damages claim €20M against Michael Schmidt",
+    "injunction": "Court order preventing use of stolen data",
+    "employee_liability": "PharmaTech suing own employee for damages"
+  },
+  "status": "UNDER INVESTIGATION - Criminal charges pending"
+}

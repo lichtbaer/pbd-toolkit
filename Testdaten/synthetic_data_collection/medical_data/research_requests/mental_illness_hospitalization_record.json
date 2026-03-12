@@ -1,0 +1,78 @@
+{
+  "admission_metadata": {
+    "hospital": "Charité Berlin - Psychiatry Department",
+    "admission_date": "2024-01-10",
+    "discharge_date": "2024-01-24",
+    "length_of_stay": "14 days",
+    "admission_type": "Involuntary (72-hour hold)"
+  },
+  "patient_information": {
+    "patient_id": "PAT-PSY-H001",
+    "name": "Michael Fischer",
+    "dob": "19870320",
+    "age": "37Y",
+    "gender": "Male"
+  },
+  "reason_for_admission": "Acute suicidal crisis following job loss and relationship breakup",
+  "presenting_symptoms": [
+    "Suicidal ideation with specific plan (hanging)",
+    "Severe depression (PHQ-9 score 27/27)",
+    "Anxiety with panic attacks",
+    "Insomnia (no sleep x 3 days)",
+    "Hopelessness and despair",
+    "Substance use escalation (alcohol + cocaine)"
+  ],
+  "psychiatric_history": {
+    "previous_episodes": "3 prior depressive episodes (2015, 2018, 2021)",
+    "previous_hospitalizations": "1 (2018 - 3 weeks)",
+    "family_history": "Father: suicide (1995)",
+    "previous_attempts": "1 (2018 - overdose attempt, survived)"
+  },
+  "treatment_during_stay": {
+    "medications": [
+      {
+        "drug": "Sertraline",
+        "dose": "200mg",
+        "frequency": "Daily"
+      },
+      {
+        "drug": "Quetiapine",
+        "dose": "400mg",
+        "frequency": "Evening"
+      },
+      {
+        "drug": "Lorazepam",
+        "dose": "2mg",
+        "frequency": "TID"
+      },
+      {
+        "drug": "Lithium",
+        "dose": "900mg",
+        "frequency": "Daily"
+      }
+    ],
+    "psychotherapy": "Daily individual therapy + group therapy",
+    "electroconvulsive_therapy": "3 sessions (ECT) - for treatment-resistant depression",
+    "safety_measures": "1:1 observation for first 5 days, then standard precautions"
+  },
+  "clinical_course": {
+    "day_1_3": "High suicide risk, constant monitoring",
+    "day_4_7": "Slight improvement after ECT, reduced ideation",
+    "day_8_14": "Stabilization, discharge planning begun"
+  },
+  "discharge_assessment": {
+    "suicide_risk": "MODERATE (down from VERY HIGH)",
+    "discharge_plan": [
+      "Outpatient psychiatry (weekly visits)",
+      "Psychotherapy (2x weekly)",
+      "Job training/employment support",
+      "Social support coordination"
+    ],
+    "discharge_medications": [
+      "Sertraline 200mg daily",
+      "Quetiapine 300mg evening",
+      "Lithium 900mg daily"
+    ],
+    "prognosis": "GUARDED - Chronic recurrent depression with suicidal tendencies"
+  }
+}

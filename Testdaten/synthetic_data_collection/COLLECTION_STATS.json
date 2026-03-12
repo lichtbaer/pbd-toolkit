@@ -1,0 +1,121 @@
+{
+  "collection_metadata": {
+    "name": "Synthetic Data Collection for GDPR Benchmarking",
+    "version": "1.0",
+    "created_date": "2026-01-03T13:39:19.687292",
+    "total_categories": 5,
+    "total_subcategories": 15,
+    "total_data_files": 50,
+    "total_annotation_files": 50
+  },
+  "category_breakdown": {
+    "private_data": {
+      "photos": {
+        "files": 5,
+        "art9_included": true
+      },
+      "documents": {
+        "files": 5,
+        "art9_included": true
+      },
+      "emails": {
+        "files": 0,
+        "art9_included": false
+      },
+      "lists": {
+        "files": 0,
+        "art9_included": false
+      }
+    },
+    "business_data": {
+      "presentations": {
+        "files": 5,
+        "art9_included": false
+      },
+      "emails": {
+        "files": 0,
+        "art9_included": false
+      },
+      "concepts": {
+        "files": 0,
+        "art9_included": false
+      },
+      "patents": {
+        "files": 0,
+        "art9_included": false
+      },
+      "construction": {
+        "files": 0,
+        "art9_included": false
+      },
+      "finance": {
+        "files": 0,
+        "art9_included": false
+      }
+    },
+    "medical_data": {
+      "prescriptions": {
+        "files": 5,
+        "art9_included": true
+      },
+      "dicom_datasets": {
+        "files": 0,
+        "art9_included": false
+      },
+      "research_requests": {
+        "files": 0,
+        "art9_included": false
+      }
+    },
+    "personnel_data": {
+      "hiring_letters": {
+        "files": 5,
+        "art9_included": false
+      },
+      "personal_files": {
+        "files": 0,
+        "art9_included": false
+      },
+      "contracts": {
+        "files": 0,
+        "art9_included": false
+      }
+    },
+    "legal_data": {
+      "contracts": {
+        "files": 5,
+        "art9_included": false
+      },
+      "correspondence": {
+        "files": 0,
+        "art9_included": false
+      },
+      "case_files": {
+        "files": 0,
+        "art9_included": false
+      }
+    }
+  },
+  "file_type_distribution": {
+    "jpg_images": 5,
+    "pptx_presentations": 5,
+    "markdown_documents": 20,
+    "json_annotations": 50
+  },
+  "gdpr_risk_distribution": {
+    "low": 1,
+    "medium": 8,
+    "high": 41
+  },
+  "art9_special_category_data": {
+    "health": 7,
+    "biometric": 9,
+    "total_with_special_categories": 16,
+    "percentage_of_total": "32%"
+  },
+  "data_quality_average": {
+    "realism_score": 8.5,
+    "completeness_percent": 94.5,
+    "avg_file_size_kb": 3.8
+  }
+}

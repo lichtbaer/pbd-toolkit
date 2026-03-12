@@ -1,0 +1,51 @@
+{
+  "metadata": {
+    "id": "LEG005",
+    "category": "legal_data",
+    "subcategory": "contracts",
+    "data_type": "md",
+    "generated_date": "2026-01-19T11:38:07.549875",
+    "version": "1.0"
+  },
+  "file_info": {
+    "filename": "data_processing_agreement_dpa.md",
+    "file_format": "Markdown document",
+    "file_size_kb": 5.0,
+    "description": "Auto-generated annotation for data_processing_agreement_dpa.md"
+  },
+  "personal_data_assessment": {
+    "contains_personal_data": true,
+    "personal_data_categories": [
+      "legal_info"
+    ],
+    "gdpr_risk_level": "high",
+    "identified_individuals": 2,
+    "notes": "AUTO-GENERATED; legal data assumed."
+  },
+  "special_category_data": {
+    "has_special_category": true,
+    "special_categories": [
+      "potentially"
+    ],
+    "article_9_applicable": true,
+    "justification": "AUTO-GENERATED from inventory."
+  },
+  "data_quality": {
+    "realism_score": 9,
+    "synthetic_quality": "high",
+    "data_completeness": 100,
+    "anonymization_status": "not_anonymized"
+  },
+  "use_case": {
+    "primary_purpose": "GDPR compliance",
+    "benchmarking_scenario": "AUTO-GENERATED; needs review.",
+    "ai_model_training_suitable": true,
+    "data_retention_recommendation": "TBD"
+  },
+  "data_protection": {
+    "encryption_recommended": true,
+    "access_control_level": "highly_confidential",
+    "pii_indicators": [],
+    "compliance_notes": "AUTO-GENERATED; needs review."
+  }
+}

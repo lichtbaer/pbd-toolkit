@@ -1,22 +1,25 @@
-# PII Toolkit (Fork)
+# pbD Toolkit (Fork)
 
-> **⚠️ This is an unofficial fork of the HBDI PII Toolkit. This project is not maintained by or affiliated with the Hessian Commissioner for Data Protection and Freedom of Information (HBDI).**
+> **⚠️ This is an unofficial fork of the HBDI pbD Toolkit. This project is not maintained by or affiliated with the Hessian Commissioner for Data Protection and Freedom of Information (HBDI).**
 
 ## Overview
 
-The PII Toolkit is a command-line tool for scanning directories and identifying potentially personally identifiable information (PII) within files. It supports multiple detection methods (regex and AI-based NER) and a wide range of file formats.
+The pbD Toolkit is a command-line tool for scanning directories and identifying potentially personally identifiable information (PII) within files. It supports multiple detection methods (regex and AI-based NER) and a wide range of file formats.
 
 ## Quick Start
 
 ```bash
-# Install runtime dependencies
-pip install -r requirements.txt
+# Minimal runtime dependencies (regex + basic processors)
+python3 -m pip install -r requirements.txt
 
-# Optional: dev/tests + additional processors/engines
-pip install -r requirements-dev.txt
+# Recommended for contributors: install feature extras
+python3 -m pip install -e ".[dev,office,images,magic,llm]"
+
+# Optional (if you want these engines available locally):
+# python3 -m pip install -e ".[gliner,spacy]"
 
 # Basic usage
-python main.py scan /path/to/scan --regex --ner
+python3 main.py scan /path/to/scan --regex --ner
 
 # Or, after installation
 pii-toolkit scan /path/to/scan --regex --ner
@@ -43,11 +46,11 @@ Then open `http://127.0.0.1:8000` in your browser.
 - **Multiple Detection Methods**: 
   - Regular expressions for structured PII
   - AI-powered Named Entity Recognition (GLiNER, spaCy)
-  - LLM-based detection (Ollama, OpenAI-compatible)
+  - LLM-based detection (**recommended: `--pydantic-ai`**, legacy flags kept for compatibility)
   - **Multimodal image detection** (GPT-4 Vision, local models via vLLM/LocalAI)
 - **Wide File Format Support**: PDF, DOCX, HTML, TXT, CSV, JSON, XLSX, XLS, PPTX, ODT, RTF, ODS, EML, MSG, XML, YAML, and **image formats** (JPEG, PNG, GIF, BMP, TIFF, WebP)
 - **File Type Detection**: Optional magic number detection for files without or with incorrect extensions
-- **Flexible Output Formats**: CSV, JSON, and Excel (XLSX)
+- **Flexible Output Formats**: CSV, JSON, **JSONL**, and Excel (XLSX)
 - **Advanced Features**: Whitelist support, progress tracking, detailed logging
 - **CLI Options**: Verbose mode (`-v`), quiet mode (`-q`), config file support (`--config`), structured output (`--summary-format`)
 - **Professional Architecture**: Modular design, dependency injection, no global variables
@@ -57,20 +60,30 @@ Then open `http://127.0.0.1:8000` in your browser.
 
 See [Installation Guide](docs/getting-started/installation.md) for detailed instructions.
 
+## Docker / Compose
+
+Container variants (minimal, features, NER, full) and optional vLLM setup are documented here:
+
+- [Docker / Compose](docs/getting-started/docker.md)
+
 ## Usage
 
 ```bash
 # Basic text-based detection
-python main.py scan /var/data-leak/ --regex --ner --format json --outname "scan-2024"
+python3 main.py scan /var/data-leak/ --regex --ner --format json --outname "scan-2024"
 
 # With magic number file type detection
-python main.py scan /var/data-leak/ --regex --use-magic-detection
+python3 main.py scan /var/data-leak/ --regex --use-magic-detection
 
 # With multimodal image detection (OpenAI)
-python main.py scan /var/images/ --multimodal --multimodal-api-key YOUR_KEY
+python3 main.py scan /var/images/ --multimodal --multimodal-api-key YOUR_KEY
+
+# LLM-based detection (recommended unified engine)
+python3 main.py scan /var/data-leak/ --pydantic-ai --pydantic-ai-provider openai \
+  --pydantic-ai-api-key YOUR_KEY --pydantic-ai-model gpt-4o-mini
 
 # With local multimodal models (vLLM)
-python main.py scan /var/images/ --multimodal \
+python3 main.py scan /var/images/ --multimodal \
     --multimodal-api-base http://localhost:8000/v1 \
     --multimodal-model microsoft/llava-1.6-vicuna-7b
 ```
@@ -81,7 +94,7 @@ See [User Guide](docs/user-guide/cli.md) for complete usage documentation.
 
 This fork is based on the **pbD-Toolkit** (Personenbezogene Daten Toolkit) developed by the Hessian Commissioner for Data Protection and Freedom of Information (HBDI).
 
-- **Original Repository**: [hessen-datenschutz/pbd-toolkit](https://github.com/hessen-datenschutz/pbd-toolkit)
+- **Original Repository**: [hessen-datenschutz/pbd-toolkit](https://gitlab.opencode.de/hbdi/pbd-toolkit/)
 - **Original Website**: [datenschutz.hessen.de](https://datenschutz.hessen.de)
 
 ## Privacy and Security

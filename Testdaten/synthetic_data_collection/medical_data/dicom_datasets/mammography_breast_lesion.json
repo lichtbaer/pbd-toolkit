@@ -1,0 +1,25 @@
+{
+  "dicom_metadata": {
+    "patient_id": "PAT-2024-003892",
+    "patient_name": "Female^Screening",
+    "patient_dob": "19620407",
+    "patient_age": "61Y",
+    "study_date": "20240315",
+    "modality": "MG",
+    "body_part_examined": "BREAST BILATERAL",
+    "protocol": "Standard Mammography Screening",
+    "mammography_technique": "Full Field Digital",
+    "facility": "Breast Cancer Screening Center Berlin"
+  },
+  "clinical_indication": "Mammographisches Screening",
+  "findings": [
+    "Links: Verdächtige Läsion in der oberen inneren Quadranten",
+    "Läsion ca. 1,2 cm, unscharf begrenzt",
+    "Rechts: Regelrechte Befunde",
+    "Keine Mikroverkalkungen"
+  ],
+  "bi_rads_category": "BI-RADS 4",
+  "recommendation": "Dringende Biopsi-Empfehlung, sonographische Verifikation erforderlich",
+  "radiologist": "Prof. Dr. Angela Weber",
+  "report_date": "20240315"
+}

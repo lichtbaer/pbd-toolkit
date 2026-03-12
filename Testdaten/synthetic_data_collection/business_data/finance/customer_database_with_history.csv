@@ -1,0 +1,6 @@
+CID,Name,Email,Phone,Address,Industry,Company_Size,Revenue_EUR,Status,Created_Date,Notes
+CUST-001,Klaus Mueller,klaus.mueller@siemens.de,+49-30-12345678,"Siemens AG, Berlin",Manufacturing,10000+,€8.5M,Active,2022-01-15,"Key account, monthly reviews"
+CUST-002,Sarah Schmidt,s.schmidt@sap.de,+49-89-87654321,"SAP SE, Walldorf",Software,20000+,€12.3M,Active,2021-06-22,Strategic partner
+CUST-003,Thomas Weber,t.weber@bmw.de,+49-89-12345678,"BMW AG, Munich",Automotive,15000+,€15.8M,At Risk,2020-11-05,"Renewal in 3 months, considering competitors"
+CUST-004,Anna Fischer,anna.f@telekom.de,+49-228-12345678,"Deutsche Telekom, Bonn",Telecom,5000+,€6.2M,Active,2023-02-10,Growing account
+CUST-005,Robert Hoffmann,r.hoffmann@dax-corp.de,+49-69-87654321,"DAX Corp, Frankfurt",Financial Services,500+,€2.1M,Churning,2019-08-20,"Missed 2 payments, considering exit"

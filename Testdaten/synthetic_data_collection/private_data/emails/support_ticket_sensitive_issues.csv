@@ -1,0 +1,6 @@
+Ticket_ID,Customer,Created_Date,Category,Severity,Issue_Summary,Resolution_Status,Days_Open
+TKT-2024-0845,CUST-003,2024-02-28,Technical,High,System down - losing €50K/hour in revenue,Resolved,4
+TKT-2024-0923,CUST-005,2024-03-01,Billing,Critical,Invoice discrepancy - overcharged €120K,Escalated,7
+TKT-2024-0987,CUST-002,2024-03-02,Account,Medium,License renewal payment processing issue,Pending,2
+TKT-2024-1034,CUST-001,2024-03-03,Training,Low,User training session postponed due to scheduling,Closed,1
+TKT-2024-1089,CUST-004,2024-03-04,Technical,High,Data synchronization failure - compliance risk,In Progress,3

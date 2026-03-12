@@ -543,6 +543,16 @@ python main.py scan /data/images --multimodal \
     --multimodal-model gpt-4o-mini
 ```
 
+**Recommended local combo (uncomplicated)**:
+
+```bash
+# Text PII: Ollama (local)
+# Image PII: vLLM or LocalAI (OpenAI-compatible, local)
+python main.py scan /data \
+  --pydantic-ai --pydantic-ai-provider ollama --pydantic-ai-model llama3.2 \
+  --multimodal --multimodal-api-base http://localhost:8000/v1 --multimodal-model microsoft/llava-1.6-vicuna-7b
+```
+
 **Configuration**:
 - `--pydantic-ai-provider`: Provider (`ollama`, `openai`, `anthropic`) - default: `openai`
 - `--pydantic-ai-model`: Model name (auto-determined if not specified)
@@ -585,8 +595,8 @@ The `--multimodal` option performs **real image analysis** by sending the image 
 - vLLM (OpenAI-compatible server)
 - LocalAI (OpenAI-compatible server)
 
-**Does not work with**:
-- Ollama (in this toolkit, image detection requires an OpenAI-compatible vision endpoint)
+**Note about Ollama**:
+Ollama is supported for **text** detection. For **image** detection, use a local OpenAI-compatible server (vLLM/LocalAI).
 
 **Requirements**:
 - `requests` installed (included in `requirements.txt`)
@@ -616,7 +626,6 @@ Use multiple engines together for comprehensive detection:
 
 ```bash
 # Basic combination
-python main.py scan /data --regex --ner
 python main.py scan /data --regex --ner
 
 # All engines (text-based)

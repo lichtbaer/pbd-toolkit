@@ -1,0 +1,6 @@
+Employee_ID,Name,Position,Salary_EUR,Performance_Rating,Bonus_EUR,Disciplinary_Issues,Last_Written_Warning
+EMP-2024-0101,Anna Mueller,Senior Manager,92000,4.5/5,18000,None,Never
+EMP-2024-0202,Klaus Weber,Engineer,68000,2/5,2000,"Tardiness, Insubordination",2024-01-15 - Final Warning
+EMP-2024-0303,Sarah Schmidt,Analyst,52000,3.5/5,3500,One minor incident,None
+EMP-2024-0404,Michael Fischer,Sales,75000,5/5,22000,None,Never
+EMP-2024-0505,Julia Hoffmann,HR Manager,58000,2.5/5,1500,"Conflict with staff, Complaintsof bias",2023-11-20

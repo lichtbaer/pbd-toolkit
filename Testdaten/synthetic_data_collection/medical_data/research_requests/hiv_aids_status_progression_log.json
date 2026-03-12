@@ -1,0 +1,87 @@
+{
+  "patient_info": {
+    "patient_id": "PAT-HIV-PROG-001",
+    "name": "Thomas Mueller",
+    "dob": "19780815",
+    "age": "46Y",
+    "hiv_diagnosis_date": "2001-03-15",
+    "years_with_hiv": "23 years"
+  },
+  "clinical_progression": [
+    {
+      "date": "2001-03-15",
+      "phase": "ACUTE INFECTION",
+      "cd4_count": 650,
+      "viral_load": "450000 copies/mL",
+      "clinical_status": "Symptomatic - Fever, rash, lymphadenopathy",
+      "notes": "Diagnosed after acute illness"
+    },
+    {
+      "date": "2002-06-01",
+      "phase": "EARLY CHRONIC",
+      "cd4_count": 420,
+      "viral_load": "85000 copies/mL",
+      "clinical_status": "Asymptomatic",
+      "antiretroviral_therapy": "Started ART (Triple therapy)"
+    },
+    {
+      "date": "2005-12-10",
+      "phase": "TREATMENT FAILURE",
+      "cd4_count": 180,
+      "viral_load": "220000 copies/mL",
+      "clinical_status": "Immunosuppression - Opportunistic infections",
+      "opportunistic_infections": [
+        "PCP (Pneumocystis)",
+        "Candidiasis",
+        "CMV retinitis"
+      ],
+      "regimen_change": "Changed to second-line ART"
+    },
+    {
+      "date": "2008-03-20",
+      "phase": "AIDS STAGE",
+      "cd4_count": 45,
+      "viral_load": "1200000 copies/mL",
+      "clinical_status": "AIDS-defining illness (PCP pneumonia)",
+      "hospitalization": "ICU admission for mechanical ventilation",
+      "near_death": "Nearly died (CD4 < 50)"
+    },
+    {
+      "date": "2012-07-15",
+      "phase": "IMMUNE RECONSTITUTION",
+      "cd4_count": 280,
+      "viral_load": "<50 copies/mL (UNDETECTABLE)",
+      "clinical_status": "Recovering with persistent complications",
+      "interventions": "3rd-line ART regimen working",
+      "residual_damage": "Permanent vision loss from CMV, IRIS (Immune Reconstitution Inflammatory Syndrome)"
+    },
+    {
+      "date": "2024-01-20",
+      "phase": "CHRONIC STABLE (LONG-TERM SURVIVOR)",
+      "cd4_count": 412,
+      "viral_load": "<20 copies/mL (UNDETECTABLE)",
+      "clinical_status": "Stable on current regimen",
+      "comorbidities": [
+        "Partial blindness (CMV sequelae)",
+        "Peripheral neuropathy",
+        "Chronic diarrhea (unclear etiology)",
+        "Depression"
+      ],
+      "life_expectancy": "Approaching normal (with adherence to ART)"
+    }
+  ],
+  "current_medication_regimen": [
+    "Bictegravir/Tenofovir/Emtricitabine",
+    "Ritonavir-boosted Darunavir",
+    "Sertraline (for depression)"
+  ],
+  "complications_from_hiv_progression": [
+    "Permanent vision loss",
+    "Peripheral neuropathy",
+    "Chronic diarrhea",
+    "Lipodystrophy (body fat redistribution)",
+    "Bone disease (osteoporosis from ART)"
+  ],
+  "psychosocial_notes": "23-year HIV survivor. Has experienced multiple near-death experiences. Depression related to permanent disabilities. Strong advocate for HIV awareness.",
+  "viral_suppression_status": "Excellent - Undetectable viral load = Untransmittable (U=U)"
+}

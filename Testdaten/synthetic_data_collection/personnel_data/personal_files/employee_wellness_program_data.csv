@@ -1,0 +1,6 @@
+Employee_ID,Name,Position,Weight_kg,BMI,Blood_Pressure,Cholesterol_mg/dL,Glucose_mg/dL,Health_Risk
+EMP-0001,Anna Mueller,Manager,68,23.5,120/80,190,95,Low
+EMP-0002,Klaus Weber,Engineer,95,32.1,145/95,280,150,CRITICAL
+EMP-0003,Sarah Schmidt,Analyst,62,21.5,118/78,165,88,Low
+EMP-0004,Michael Fischer,Sales,78,26.2,135/85,210,110,Moderate
+EMP-0005,Julia Hoffmann,HR,72,28.5,142/88,245,125,HIGH

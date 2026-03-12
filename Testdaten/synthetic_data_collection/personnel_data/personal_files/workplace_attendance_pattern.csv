@@ -1,0 +1,8 @@
+Date,Time_In,Time_Out,Location,Card_ID,Duration_Hours,Department,Floor
+2024-03-01,08:45,18:00,TechCorp HQ,EMP-00234,9.25,Engineering,4
+2024-03-02,09:00,17:30,TechCorp HQ,EMP-00234,8.5,Engineering,4
+2024-03-03,08:30,12:00,TechCorp HQ,EMP-00234,3.5,Engineering,4
+2024-03-03,14:00,18:30,Off-Site Medical,EMP-00234,0,Medical Leave,
+2024-03-04,Off,,,EMP-00234,0,Sick Leave,
+2024-03-05,09:15,17:00,TechCorp HQ,EMP-00234,7.75,Engineering,4
+2024-03-06,08:00,18:30,TechCorp HQ,EMP-00234,10.5,Engineering,4

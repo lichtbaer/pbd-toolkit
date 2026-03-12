@@ -79,6 +79,12 @@ Application-wide constants:
     "min_pdf_text_length": 10,
     "max_file_size_mb": 500.0,
     "max_processing_time_seconds": 300,
+    "max_pending_futures": 512,
+    "engine_concurrency_limits": {
+      "pydantic-ai": 2,
+      "gliner": 1,
+      "spacy-ner": 1
+    },
     "supported_extensions": [".pdf", ".docx", ...],
     "logging": {
       "level": "INFO",
@@ -87,6 +93,10 @@ Application-wide constants:
   }
 }
 ```
+
+**Performance settings**:
+- `max_pending_futures`: Limits how many pending async file-processing tasks the scanner keeps before draining completed tasks (prevents unbounded memory growth on large scans).
+- `engine_concurrency_limits`: Per-engine concurrency caps. Engines that implement internal concurrency limiting (notably `pydantic-ai`) will respect this to avoid overwhelming local endpoints.
 
 ### Regex Patterns
 

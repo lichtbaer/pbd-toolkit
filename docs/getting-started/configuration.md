@@ -27,13 +27,48 @@ path: "/path/to/scan"
 regex: true
 ner: true
 spacy_ner: false
+spacy_model: "de_core_news_lg"
 ollama: false
+ollama_url: "http://localhost:11434"
+ollama_model: "llama3.2"
 openai_compatible: false
+openai_api_base: "https://api.openai.com/v1"
+openai_api_key: null
+openai_model: "gpt-3.5-turbo"
+
+# Recommended unified LLM engine:
+pydantic_ai: false
+pydantic_ai_provider: "openai"
+pydantic_ai_model: null
+pydantic_ai_api_key: null
+pydantic_ai_base_url: null
+
+# Image detection (OpenAI-compatible vision endpoint):
+multimodal: false
+multimodal_api_base: null
+multimodal_api_key: null
+multimodal_model: "gpt-4o-mini"
+multimodal_timeout: 60
+
+# File type detection:
+use_magic_detection: false
+magic_fallback: true
+
 format: "json"
 verbose: false
 output_dir: "./output/"
 whitelist: "./whitelist.txt"
 stop_count: 1000
+mode: "balanced"
+jobs: null
+summary_format: "human"
+no_header: false
+quiet: false
+
+# Privacy-focused statistics output:
+statistics_mode: false
+statistics_strict: false
+statistics_output: null
 ```
 
 ### JSON Configuration File
@@ -48,6 +83,8 @@ Example `config.json`:
   "spacy_ner": false,
   "ollama": false,
   "openai_compatible": false,
+  "pydantic_ai": false,
+  "multimodal": false,
   "format": "json",
   "verbose": false,
   "output_dir": "./output/",
@@ -62,9 +99,13 @@ All command-line arguments can be specified in the config file using their long 
 - `path`, `regex`, `ner`, `spacy_ner`, `ollama`, `openai_compatible`
 - `spacy_model`, `ollama_url`, `ollama_model`
 - `openai_api_base`, `openai_api_key`, `openai_model`
+- `multimodal`, `multimodal_api_base`, `multimodal_api_key`, `multimodal_model`, `multimodal_timeout`
+- `pydantic_ai`, `pydantic_ai_provider`, `pydantic_ai_model`, `pydantic_ai_api_key`, `pydantic_ai_base_url`
+- `use_magic_detection`, `magic_fallback`
 - `outname`, `whitelist`, `stop_count`, `output_dir`, `format`
 - `mode`, `jobs`
 - `summary_format`, `no_header`, `verbose`, `quiet`
+- `statistics_mode`, `statistics_strict`, `statistics_output`
 
 See example files: `docs/CONFIG_FILE_EXAMPLE.yaml` and `docs/CONFIG_FILE_EXAMPLE.json`
 
@@ -89,6 +130,12 @@ The configuration file contains:
     "min_pdf_text_length": 10,
     "max_file_size_mb": 500.0,
     "max_processing_time_seconds": 300,
+    "max_pending_futures": 512,
+    "engine_concurrency_limits": {
+      "pydantic-ai": 2,
+      "gliner": 1,
+      "spacy-ner": 1
+    },
     "supported_extensions": [".pdf", ".docx", ".html", ".txt", ...],
     "logging": {
       "level": "INFO",
@@ -97,6 +144,10 @@ The configuration file contains:
   }
 }
 ```
+
+**Performance-related settings**:
+- `max_pending_futures`: Bounds memory usage during parallel scans by limiting how many pending worker tasks are kept before draining completed tasks.
+- `engine_concurrency_limits`: Per-engine concurrency caps (useful for local model servers). For example, keep `pydantic-ai` low to avoid overwhelming vLLM/LocalAI/Ollama.
 
 ### Regex Patterns
 

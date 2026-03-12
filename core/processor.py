@@ -21,10 +21,8 @@ from matches import PiiMatchContainer
 _ASCII_CONTROL_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")
 # Remove ASCII control chars (except \n, \t, \r). This is what typically breaks NLP.
 _ASCII_CONTROL_TRANSLATION = {
-    i: None for i in list(range(0x00, 0x09))
-    + [0x0B, 0x0C]
-    + list(range(0x0E, 0x20))
-    + [0x7F]
+    i: None
+    for i in list(range(0x00, 0x09)) + [0x0B, 0x0C] + list(range(0x0E, 0x20)) + [0x7F]
 }
 
 
@@ -123,6 +121,34 @@ class TextProcessor:
             engines.append("pydantic-ai")
         return engines
 
+    @staticmethod
+    def _split_into_chunks(text: str, chunk_size: int, overlap: int) -> list[str]:
+        """Split *text* into overlapping segments of at most *chunk_size* characters.
+
+        Adjacent chunks share *overlap* characters so that entities near a
+        boundary are not cut off. If the text is shorter than *chunk_size*,
+        it is returned as-is in a single-element list.
+
+        Args:
+            text: The text to chunk.
+            chunk_size: Maximum number of characters per chunk (must be > 0).
+            overlap: Number of characters shared between adjacent chunks.
+
+        Returns:
+            List of text segments.
+        """
+        if chunk_size <= 0 or len(text) <= chunk_size:
+            return [text]
+
+        overlap = max(0, min(overlap, chunk_size - 1))
+        step = chunk_size - overlap
+        chunks = []
+        start = 0
+        while start < len(text):
+            chunks.append(text[start : start + chunk_size])
+            start += step
+        return chunks
+
     def process_text(self, text: str, file_path: str) -> None:
         """Process text content with all enabled detection engines.
 
@@ -153,15 +179,22 @@ class TextProcessor:
 
         all_results = []
 
+        # Determine text chunks for processing.  Chunking applies when
+        # text_chunk_size > 0 AND the text exceeds that size.
+        chunk_size = getattr(self.config, "text_chunk_size", 0)
+        chunk_overlap = getattr(self.config, "text_chunk_overlap", 200)
+        text_chunks = self._split_into_chunks(text, chunk_size, chunk_overlap)
+
         # Run all enabled engines
         for engine in self.engines:
             start_time = time.time()
             try:
-                engine_lock = self._engine_locks.get(engine.name)
-                lock_ctx = engine_lock if engine_lock is not None else nullcontext()
-
-                with lock_ctx:
-                    results = engine.detect(text, self.config.ner_labels)
+                results = []
+                for chunk in text_chunks:
+                    chunk_results = self._run_engine_detect(
+                        engine, chunk, labels=self.config.ner_labels
+                    )
+                    results.extend(chunk_results)
 
                 processing_time = time.time() - start_time
                 all_results.extend(results)
@@ -241,10 +274,37 @@ class TextProcessor:
                 )
                 self._add_error(f"{engine.name} error: {type(e).__name__}", file_path)
 
-        # Add all results to match container
+        # Add all results to match container and update per-engine statistics
         if all_results:
             with self._process_lock:
                 self.match_container.add_detection_results(all_results, file_path)
+                if self.statistics:
+                    for result in all_results:
+                        self.statistics.add_match(engine=result.engine_name)
+
+    def _run_engine_detect(
+        self,
+        engine: DetectionEngine,
+        text: str,
+        labels: list[str] | None = None,
+        image_path: str | None = None,
+    ):
+        """Run a single engine detect call with appropriate synchronization.
+
+        Thread safety is handled by:
+        - per-engine locks in this processor for engines marked thread_safe=False
+        - engine-internal locks (if implemented by the engine)
+
+        This helper is used for both text and image detection to avoid bypassing
+        synchronization in the image path.
+        """
+        engine_lock = self._engine_locks.get(engine.name)
+        lock_ctx = engine_lock if engine_lock is not None else nullcontext()
+        with lock_ctx:
+            if image_path is not None:
+                # PydanticAIEngine supports image_path kwarg; other engines ignore it
+                return engine.detect(text, labels, image_path=image_path)  # type: ignore[arg-type]
+            return engine.detect(text, labels)
 
     def process_file(
         self,
@@ -294,8 +354,11 @@ class TextProcessor:
 
                     if pydantic_ai_engine:
                         # Process image with PydanticAI engine
-                        results = pydantic_ai_engine.detect(
-                            "", self.config.ner_labels, image_path=full_path
+                        results = self._run_engine_detect(
+                            pydantic_ai_engine,
+                            "",
+                            labels=self.config.ner_labels,
+                            image_path=full_path,
                         )
                         if results:
                             with self._process_lock:

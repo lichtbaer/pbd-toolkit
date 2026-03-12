@@ -74,7 +74,7 @@ class MarkdownProcessor(BaseFileProcessor):
 
         # Restore code blocks
         for i, code_block in enumerate(code_blocks):
-            content = content.replace(f"[CODE_BLOCK_{i+1}]", f"\n{code_block}\n")
+            content = content.replace(f"[CODE_BLOCK_{i + 1}]", f"\n{code_block}\n")
 
         # Clean up multiple blank lines
         content = re.sub(r"\n{3,}", "\n\n", content)

@@ -44,9 +44,12 @@ python -m vllm.entrypoints.openai.api_server \
 ```
 
 **Recommended Models**:
-- `microsoft/llava-1.6-vicuna-7b` - Good balance of speed and quality
-- `microsoft/llava-1.5-7b` - Slightly older but stable
-- `llava-hf/llava-1.5-7b-hf` - HuggingFace variant
+- `Qwen2.5-VL-7B-Instruct` - Strong 7B vision model, multilingual (incl. German), good speed on RTX 4090
+- `Phi-3.5-Vision-Instruct` - Compact 4B model, excellent visual reasoning, fits in <8GB VRAM when quantized
+- `LLaVA-OneVision-Qwen2-0.5B` - Tiny 0.5B model, surprisingly capable for documents/videos, good for real-time
+- `VILA-1.5` (7B variants) - NVIDIA-optimized, multi-image/video, works well with 4-bit on RTX 4090
+- `Gemma-3-Vision` (4B/9B) - Strong multimodal family; larger variants benefit from quantization
+- `microsoft/llava-1.6-vicuna-7b` - Solid baseline for compatibility
 
 ### Using with PII Toolkit
 
@@ -140,22 +143,29 @@ python main.py scan /data/images \
     --multimodal-model llava
 ```
 
-## Model Recommendations
+## Model Recommendations (Current)
 
-### For Best Quality
+### High-Quality, General Purpose
 
-- **LLaVA 1.6** (7B or 13B): Excellent vision-language understanding
-- **GPT-4 Vision** (via OpenAI): Best quality but requires API access
+- **Qwen2.5-VL-7B-Instruct**: Strong 7B model for images and videos, multilingual, fast on modern GPUs
+- **VILA-1.5 (7B)**: Optimized for multi-image and video; good balance of quality and throughput
+- **Gemma-3-Vision (9B)**: Higher-quality option when you can afford more VRAM
 
-### For Best Speed
+### Compact / Low VRAM
 
-- **LLaVA 1.5 7B**: Faster inference, good quality
-- Smaller quantized models (4-bit, 8-bit)
+- **Phi-3.5-Vision-Instruct (4B)**: Excellent reasoning in a small footprint; fits <8GB VRAM quantized
+- **Gemma-3-Vision (4B)**: Efficient for mid-tier GPUs
 
-### For Limited Resources
+### Ultra-Light / Real-Time
 
-- **LLaVA 1.5 7B (4-bit quantized)**: Lower memory requirements
-- **Smaller vision models**: Trade quality for speed
+- **LLaVA-OneVision-Qwen2-0.5B**: Very small but strong for documents and short videos
+
+### Legacy / Compatibility
+
+- **LLaVA 1.6 (7B/13B)**: Stable baseline for OpenAI-compatible endpoints
+  - Use when you need a well-tested model that is widely supported
+
+**Note**: Exact repository names and supported formats vary by provider (vLLM, LocalAI, Ollama). Always check the model card and required tokenizer/vision configs.
 
 ## Performance Optimization
 
@@ -173,6 +183,13 @@ docker run --gpus all localai/localai:latest-aio-cuda
 Use quantized models to reduce memory:
 - 4-bit quantization: ~4x memory reduction
 - 8-bit quantization: ~2x memory reduction
+ - Prefer AWQ or GGUF formats for efficient local inference where supported
+
+### Hardware Fit (RTX 4090 and Similar)
+
+- RTX 4090 comfortably runs up to ~30B parameters with Q4/Q5 quantization and full GPU offload for ~8k context
+- Larger models (e.g., Qwen2.5-VL-72B) require aggressive quantization or multi-GPU and are slower (~20 tokens/s)
+- If latency matters, favor 7B and smaller models with high-quality quantization
 
 ### Batch Processing
 

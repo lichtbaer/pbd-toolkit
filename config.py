@@ -95,9 +95,30 @@ class Config:
     pydantic_ai_api_key: str | None = None
     pydantic_ai_base_url: str | None = None
 
+    # LLM retry configuration (transient error backoff)
+    llm_max_retries: int = 3
+    llm_retry_base_delay: float = 1.0
+
+    # Incremental scanning: skip files whose content has not changed since last scan
+    use_incremental: bool = False
+    cache_path: str | None = None
+
+    # Deduplication: skip identical (text, file, type) matches across engines
+    enable_deduplication: bool = False
+
+    # Text chunking: split large texts into overlapping segments for NER.
+    # 0 disables chunking (default). Recommended value: 2000 characters.
+    text_chunk_size: int = 0
+    text_chunk_overlap: int = 200
+
     # Resource limits
     max_file_size_mb: float = 500.0
     max_processing_time_seconds: int = 300
+    # Performance tuning
+    # - max_pending_futures: bounds memory usage in FileScanner for async callbacks
+    # - engine_concurrency_limits: per-engine concurrency caps (applied by engines that manage concurrency internally)
+    max_pending_futures: int = 512
+    engine_concurrency_limits: dict[str, int] = field(default_factory=dict)
 
     # Translation function
     _: Callable[[str], str] = field(default=lambda x: x)
@@ -201,6 +222,9 @@ class Config:
             _=translate_func,
         )
 
+        # Load runtime settings from config_types.json (best-effort).
+        config._load_runtime_settings()
+
         # Set engine-specific configuration from args
         if hasattr(args, "spacy_model"):
             config.spacy_model_name = args.spacy_model
@@ -249,6 +273,43 @@ class Config:
             config._load_ner_model()
 
         return config
+
+    def _load_runtime_settings(self) -> None:
+        """Load runtime settings from config_types.json.
+
+        This is best-effort: missing keys or malformed values should not break scans.
+        """
+        try:
+            cfg = load_config_types()
+        except Exception:
+            return
+
+        settings = cfg.get("settings", {}) if isinstance(cfg, dict) else {}
+        if not isinstance(settings, dict):
+            return
+
+        max_file_size_mb = settings.get("max_file_size_mb")
+        if isinstance(max_file_size_mb, (int, float)) and max_file_size_mb > 0:
+            self.max_file_size_mb = float(max_file_size_mb)
+
+        max_processing_time_seconds = settings.get("max_processing_time_seconds")
+        if (
+            isinstance(max_processing_time_seconds, int)
+            and max_processing_time_seconds > 0
+        ):
+            self.max_processing_time_seconds = int(max_processing_time_seconds)
+
+        max_pending_futures = settings.get("max_pending_futures")
+        if isinstance(max_pending_futures, int) and max_pending_futures > 0:
+            self.max_pending_futures = int(max_pending_futures)
+
+        limits = settings.get("engine_concurrency_limits")
+        if isinstance(limits, dict):
+            cleaned: dict[str, int] = {}
+            for k, v in limits.items():
+                if isinstance(k, str) and isinstance(v, int) and v >= 1:
+                    cleaned[k] = v
+            self.engine_concurrency_limits = cleaned
 
     def _load_regex_pattern(self) -> None:
         """Load and compile regex pattern from config file."""
