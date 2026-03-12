@@ -113,6 +113,7 @@ class Config:
     vector_threshold: float = 0.75
     vector_save_index: str | None = None  # Path prefix to save FAISS index after scan
     vector_load_index: str | None = None  # Path prefix to load pre-built FAISS index
+    vector_custom_exemplars: str | None = None  # Path to YAML/JSON with custom PII exemplar categories
 
     # Text chunking: split large texts into overlapping segments for NER.
     # 0 disables chunking (default). Recommended value: 2000 characters.
@@ -274,6 +275,8 @@ class Config:
             config.vector_save_index = args.vector_save_index
         if hasattr(args, "vector_load_index") and args.vector_load_index:
             config.vector_load_index = args.vector_load_index
+        if hasattr(args, "vector_custom_exemplars") and args.vector_custom_exemplars:
+            config.vector_custom_exemplars = args.vector_custom_exemplars
 
         # PydanticAI configuration
         if hasattr(args, "pydantic_ai_provider"):

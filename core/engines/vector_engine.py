@@ -64,17 +64,23 @@ class VectorEngine:
         )
         save_index: Optional[str] = getattr(config, "vector_save_index", None) or None
         load_index: Optional[str] = getattr(config, "vector_load_index", None) or None
+        custom_exemplars: Optional[str] = (
+            getattr(config, "vector_custom_exemplars", None) or None
+        )
 
         self._indexer = DocumentIndexer(
             model_name=model_name,
             threshold=threshold,
             save_index_path=save_index,
             load_index_path=load_index,
+            custom_exemplars_path=custom_exemplars,
             verbose=bool(getattr(config, "verbose", False)),
         )
 
         self._chunk_counter: int = 0
         self._counter_lock = threading.Lock()
+        # Thread-local storage for current file context (path + hash)
+        self._thread_local = threading.local()
         self._available: Optional[bool] = None
 
     # ------------------------------------------------------------------
@@ -119,8 +125,14 @@ class VectorEngine:
                 idx = self._chunk_counter
                 self._chunk_counter += 1
             try:
+                file_path = (
+                    getattr(self._thread_local, "file_path", None) or "<scan>"
+                )
+                file_hash = getattr(self._thread_local, "file_hash", "") or ""
                 # add_chunk is non-blocking and thread-safe
-                self._indexer.add_chunk(text, file_path="<scan>", chunk_idx=idx)
+                self._indexer.add_chunk(
+                    text, file_path=file_path, chunk_idx=idx, file_hash=file_hash
+                )
             except Exception:
                 pass  # indexing failures must not abort detection
 
@@ -155,6 +167,25 @@ class VectorEngine:
                     "  or: pip install 'pii-toolkit[vector]'"
                 )
         return self._available
+
+    # ------------------------------------------------------------------
+    # File context (called by TextProcessor before each file)
+    # ------------------------------------------------------------------
+
+    def set_current_file(self, file_path: str, file_hash: str = "") -> None:
+        """Set the file context for subsequent ``detect()`` calls in this thread.
+
+        Called by ``TextProcessor`` before processing each file so that
+        ``add_chunk`` records the correct source file path and SHA-256 hash
+        in the document index.  This enables proper cross-document analysis
+        and incremental-scan checks after the fact.
+
+        Args:
+            file_path: Absolute path of the file being processed.
+            file_hash: SHA-256 hex digest of the file; empty if not computed.
+        """
+        self._thread_local.file_path = file_path
+        self._thread_local.file_hash = file_hash
 
     # ------------------------------------------------------------------
     # Triage helper (called by TextProcessor when use_vector_triage=True)
