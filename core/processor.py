@@ -335,6 +335,25 @@ class TextProcessor:
         ext = file_info.extension
         mime_type = getattr(file_info, "mime_type", None) or ""
 
+        # Notify the vector engine of the current file so that indexed chunks
+        # carry the correct file path and hash (enables cross-document analysis
+        # and incremental-scan support).
+        if getattr(self.config, "vector_save_index", None):
+            for engine in self.engines:
+                if engine.name == "vector-search" and hasattr(
+                    engine, "set_current_file"
+                ):
+                    _file_hash = ""
+                    try:
+                        import hashlib as _hashlib
+
+                        with open(full_path, "rb") as _fh:
+                            _file_hash = _hashlib.sha256(_fh.read()).hexdigest()
+                    except OSError:
+                        pass
+                    engine.set_current_file(full_path, _file_hash)
+                    break
+
         # Get appropriate processor for this file type
         processor = FileProcessorRegistry.get_processor(ext, full_path, mime_type)
 

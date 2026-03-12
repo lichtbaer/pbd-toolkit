@@ -4,6 +4,11 @@ This roadmap reflects the current direction of this fork. Items are grouped by t
 
 ## Recently completed
 
+- **Vector Search Extensions**:
+  - **Post-scan `query` CLI** (`pii-toolkit query <index> <text>`): interactive FAISS index queries after a scan, with `--top-k`, `--threshold`, and `--format json` support
+  - **Custom exemplars** (`--vector-custom-exemplars`): extend or override built-in PII categories with domain-specific YAML/JSON exemplar files
+  - **File hash tracking**: SHA-256 hashes stored per chunk in the FAISS `.meta` file; foundation for future incremental index updates
+  - **FAISS query bug fix**: disk-loaded FAISS indices now correctly use FAISS for similarity search instead of falling back to a broken brute-force path
 - **Vector-based PII detection engine** (`--vector-search`):
   - Semantic similarity via sentence-transformers (fully local, no API)
   - 13 PII categories, 90 bilingual (DE/EN) exemplar texts

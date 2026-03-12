@@ -45,6 +45,7 @@ class IndexedChunk:
     chunk_idx: int
     text: str
     embedding: np.ndarray = field(repr=False)
+    file_hash: str = ""  # SHA-256 of file content; empty if not tracked
 
 
 class DocumentIndexer:
@@ -74,12 +75,14 @@ class DocumentIndexer:
         threshold: float = 0.75,
         save_index_path: Optional[str] = None,
         load_index_path: Optional[str] = None,
+        custom_exemplars_path: Optional[str] = None,
         verbose: bool = False,
     ) -> None:
         self.model_name = model_name
         self.threshold = threshold
         self.save_index_path = save_index_path
         self.load_index_path = load_index_path
+        self.custom_exemplars_path = custom_exemplars_path
         self.verbose = verbose
 
         self._embed_lock = threading.Lock()
@@ -154,9 +157,32 @@ class DocumentIndexer:
             self._model = DocumentIndexer._model_cache[self.model_name]
 
     def _precompute_exemplars(self) -> None:
-        """Embed all exemplar texts and build normalised reference matrix."""
-        categories = [pair[0] for pair in EXEMPLAR_PAIRS]
-        texts = [pair[1] for pair in EXEMPLAR_PAIRS]
+        """Embed all exemplar texts and build normalised reference matrix.
+
+        Starts with the built-in exemplars from ``pii_queries.py`` and
+        optionally merges additional exemplar texts from
+        ``custom_exemplars_path`` (YAML or JSON).  Custom categories that
+        share a name with a built-in category extend that category's exemplar
+        list; unknown names create new detection categories.
+        """
+        # Start with built-in exemplars
+        exemplars: dict[str, list[str]] = {k: list(v) for k, v in PII_EXEMPLARS.items()}
+
+        # Merge custom exemplars if configured
+        if self.custom_exemplars_path:
+            custom = self._load_custom_exemplars(self.custom_exemplars_path)
+            for category, texts in custom.items():
+                if category in exemplars:
+                    exemplars[category] = exemplars[category] + texts
+                else:
+                    exemplars[category] = texts
+
+        categories: list[str] = []
+        texts: list[str] = []
+        for category, category_texts in exemplars.items():
+            for text in category_texts:
+                categories.append(category)
+                texts.append(text)
 
         if self.verbose:
             logger.debug(f"[vector] Pre-computing {len(texts)} exemplar embeddings …")
@@ -171,6 +197,67 @@ class DocumentIndexer:
             logger.debug(
                 f"[vector] Exemplar matrix ready: {self._exemplar_embeddings.shape}"
             )
+
+    def _load_custom_exemplars(self, path: str) -> dict[str, list[str]]:
+        """Load custom PII exemplar texts from a YAML or JSON file.
+
+        The file must be a mapping of category name → list of example strings.
+        YAML format requires PyYAML (``pip install PyYAML``).
+
+        Returns an empty dict on any error (non-fatal; built-in exemplars
+        are always used regardless).
+        """
+        import json as _json
+
+        try:
+            if path.lower().endswith((".yaml", ".yml")):
+                try:
+                    import yaml  # type: ignore
+
+                    with open(path, encoding="utf-8") as fh:
+                        data = yaml.safe_load(fh)
+                except ImportError:
+                    logger.warning(
+                        "[vector] PyYAML not installed; cannot load YAML exemplars. "
+                        "Install with: pip install PyYAML"
+                    )
+                    return {}
+            else:
+                with open(path, encoding="utf-8") as fh:
+                    data = _json.load(fh)
+
+            if not isinstance(data, dict):
+                logger.warning(
+                    f"[vector] Custom exemplars file must be a mapping of "
+                    f"category → [texts]; got {type(data).__name__}"
+                )
+                return {}
+
+            result: dict[str, list[str]] = {}
+            for key, val in data.items():
+                if isinstance(val, list) and all(isinstance(t, str) for t in val):
+                    result[str(key)] = val
+                else:
+                    logger.warning(
+                        f"[vector] Skipping custom exemplar '{key}': "
+                        f"value must be a list of strings"
+                    )
+
+            if self.verbose:
+                logger.debug(
+                    f"[vector] Loaded {len(result)} custom exemplar categories "
+                    f"from {path}"
+                )
+            return result
+
+        except FileNotFoundError:
+            logger.warning(f"[vector] Custom exemplars file not found: {path}")
+            return {}
+        except Exception as exc:
+            logger.warning(
+                f"[vector] Failed to load custom exemplars from {path}: {exc}"
+            )
+            return {}
 
     # ------------------------------------------------------------------
     # Embedding
@@ -245,8 +332,17 @@ class DocumentIndexer:
     # Full-document index (optional, for cross-document analysis)
     # ------------------------------------------------------------------
 
-    def add_chunk(self, text: str, file_path: str, chunk_idx: int = 0) -> None:
+    def add_chunk(
+        self, text: str, file_path: str, chunk_idx: int = 0, file_hash: str = ""
+    ) -> None:
         """Embed *text* and add it to the in-memory document index.
+
+        Args:
+            text: Text content to embed and store.
+            file_path: Absolute path of the source file.
+            chunk_idx: Sequential chunk index within the file.
+            file_hash: SHA-256 hex digest of the source file; used for
+                incremental-scan checks.  Pass an empty string if not tracked.
 
         Call ``save_index()`` afterwards to persist to disk.
         """
@@ -257,6 +353,7 @@ class DocumentIndexer:
             chunk_idx=chunk_idx,
             text=text,
             embedding=embedding,
+            file_hash=file_hash,
         )
         with self._index_lock:
             self._chunks.append(chunk)
@@ -271,7 +368,10 @@ class DocumentIndexer:
     ) -> list[tuple[float, IndexedChunk]]:
         """Find the *top_k* indexed chunks most similar to *text*.
 
-        Requires FAISS or falls back to brute-force numpy search.
+        Uses the FAISS index when available (required when the index was loaded
+        from disk, since chunk embeddings are stored in FAISS rather than in
+        the in-memory ``IndexedChunk.embedding`` field).  Falls back to
+        brute-force numpy search for in-memory-only indices.
 
         Returns:
             List of (similarity_score, IndexedChunk) sorted by score descending.
@@ -279,6 +379,8 @@ class DocumentIndexer:
         if not self._chunks:
             return []
         query_emb = self.embed_text(text)
+        if self._faiss_index is not None:
+            return self._faiss_search(query_emb, top_k, threshold)
         return self._brute_force_search(query_emb, top_k, threshold)
 
     def _brute_force_search(
@@ -294,6 +396,33 @@ class DocumentIndexer:
             sims = (matrix @ query).tolist()
             ranked = sorted(zip(sims, self._chunks), key=lambda x: x[0], reverse=True)
         return [(s, c) for s, c in ranked[:top_k] if s >= threshold]
+
+    def _faiss_search(
+        self,
+        query: np.ndarray,
+        top_k: int,
+        threshold: float,
+    ) -> list[tuple[float, IndexedChunk]]:
+        """Search using the FAISS index.
+
+        Used when the index was loaded from disk, where chunk embeddings are
+        stored in FAISS rather than in the ``IndexedChunk.embedding`` field.
+        """
+        with self._index_lock:
+            if self._faiss_index is None or not self._chunks:
+                return []
+            n = min(top_k, self._faiss_index.ntotal)
+            if n == 0:
+                return []
+            scores, indices = self._faiss_index.search(query.reshape(1, -1), n)
+            results: list[tuple[float, IndexedChunk]] = []
+            for score, idx in zip(scores[0].tolist(), indices[0].tolist()):
+                if idx < 0 or idx >= len(self._chunks):
+                    continue
+                if float(score) >= threshold:
+                    results.append((float(score), self._chunks[idx]))
+            results.sort(key=lambda x: x[0], reverse=True)
+            return results
 
     # ------------------------------------------------------------------
     # FAISS persistence
@@ -319,7 +448,12 @@ class DocumentIndexer:
             faiss.write_index(idx, target + ".faiss")
 
             meta = [
-                {"file_path": c.file_path, "chunk_idx": c.chunk_idx, "text": c.text}
+                {
+                    "file_path": c.file_path,
+                    "chunk_idx": c.chunk_idx,
+                    "text": c.text,
+                    "file_hash": c.file_hash,
+                }
                 for c in self._chunks
             ]
             with open(target + ".meta", "w", encoding="utf-8") as fh:
@@ -352,6 +486,7 @@ class DocumentIndexer:
                     chunk_idx=m["chunk_idx"],
                     text=m["text"],
                     embedding=np.zeros(1, dtype=np.float32),  # placeholder
+                    file_hash=m.get("file_hash", ""),
                 )
                 for m in meta
             ]
@@ -376,6 +511,19 @@ class DocumentIndexer:
     # ------------------------------------------------------------------
     # Introspection
     # ------------------------------------------------------------------
+
+    def get_indexed_file_hashes(self) -> dict[str, str]:
+        """Return a mapping of ``file_path → file_hash`` for all indexed chunks.
+
+        Only includes entries for which a non-empty hash was recorded.
+        Useful for incremental scanning: compare against current file hashes
+        to determine which files need to be re-processed.
+        """
+        result: dict[str, str] = {}
+        for chunk in self._chunks:
+            if chunk.file_hash:
+                result[chunk.file_path] = chunk.file_hash
+        return result
 
     @property
     def num_categories(self) -> int:

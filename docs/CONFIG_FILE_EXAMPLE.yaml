@@ -24,6 +24,15 @@ stop_count: null  # Set to number to limit files processed
 mode: "balanced"
 jobs: null
 
+# Optional: Vector search
+# vector_search: true
+# vector_triage: false
+# vector_model: "sentence-transformers/all-MiniLM-L6-v2"
+# vector_threshold: 0.75
+# vector_save_index: "./output/my_index"
+# vector_load_index: null
+# vector_custom_exemplars: "./my_exemplars.yaml"
+
 # Optional: Output options
 verbose: false
 quiet: false

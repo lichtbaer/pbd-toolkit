@@ -229,6 +229,12 @@ def scan(
         "--vector-load-index",
         help="Path prefix of a previously saved FAISS index to load before scanning",
     ),
+    vector_custom_exemplars: Optional[str] = typer.Option(
+        None,
+        "--vector-custom-exemplars",
+        help="Path to a YAML or JSON file with additional PII exemplar categories for vector search. "
+        "Existing built-in categories are extended; new names add new detection categories.",
+    ),
     # File type detection
     use_magic_detection: bool = typer.Option(
         False,
@@ -386,6 +392,7 @@ def scan(
         "vector_threshold": vector_threshold,
         "vector_save_index": vector_save_index,
         "vector_load_index": vector_load_index,
+        "vector_custom_exemplars": vector_custom_exemplars,
         "use_magic_detection": use_magic_detection,
         "magic_fallback": magic_fallback,
         "outname": outname,
@@ -1086,6 +1093,145 @@ def scan(
             typer.echo(f"{context._('Output file:')} {output_file}")
             typer.echo(f"{context._('Output directory:')} {output_dir}")
             typer.echo("=" * 50 + "\n")
+
+
+@app.command()
+def query(
+    index: str = typer.Argument(
+        ...,
+        help="Path prefix of the saved FAISS index (same value used for --vector-save-index during scanning)",
+    ),
+    query_text: Optional[str] = typer.Argument(
+        None,
+        help="Text to search for semantically similar document chunks",
+    ),
+    query_opt: Optional[str] = typer.Option(
+        None,
+        "--query",
+        "-q",
+        help="Query text (alternative to the positional argument)",
+    ),
+    top_k: int = typer.Option(
+        5,
+        "--top-k",
+        "-k",
+        help="Maximum number of results to return (default: 5)",
+    ),
+    threshold: float = typer.Option(
+        0.70,
+        "--threshold",
+        help="Minimum cosine similarity score 0.0–1.0 (default: 0.70)",
+    ),
+    model: str = typer.Option(
+        "sentence-transformers/all-MiniLM-L6-v2",
+        "--model",
+        help="Embedding model name (must match the model used during the scan)",
+    ),
+    output_format: str = typer.Option(
+        "human",
+        "--format",
+        help="Output format: 'human' (default) or 'json'",
+        case_sensitive=False,
+    ),
+) -> None:
+    """Query a saved vector index for semantically similar document chunks.
+
+    The index must have been created during a scan with [bold]--vector-save-index[/bold].
+
+    [bold]Examples:[/bold]
+
+        pii-toolkit query ./my_index "Name und Adresse des Kunden"
+
+        pii-toolkit query ./my_index --query "credit card number" --top-k 10
+
+        pii-toolkit query ./my_index -q "Krankenversicherungsnummer" --format json
+    """
+    resolved_query = query_opt or query_text
+    if not resolved_query:
+        typer.echo(
+            "Error: provide query text as a positional argument or via --query / -q",
+            err=True,
+        )
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+
+    # Validate that index metadata file exists
+    meta_path = index + ".meta"
+    if not os.path.isfile(meta_path):
+        typer.echo(
+            f"Error: Index metadata file not found: {meta_path}\n"
+            "Run a scan with --vector-save-index to create an index first.",
+            err=True,
+        )
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+
+    from core.indexer.document_indexer import DocumentIndexer
+
+    indexer = DocumentIndexer(
+        model_name=model,
+        load_index_path=index,
+        verbose=False,
+    )
+
+    if not indexer.is_available():
+        typer.echo(
+            "Error: sentence-transformers is not installed.\n"
+            "Install with:  pip install sentence-transformers\n"
+            "           or: pip install 'pii-toolkit[vector]'",
+            err=True,
+        )
+        raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
+
+    typer.echo(f"Loading index from '{index}' …", err=True)
+    try:
+        results = indexer.query_similar_chunks(
+            resolved_query, top_k=top_k, threshold=threshold
+        )
+    except Exception as exc:
+        typer.echo(f"Error querying index: {exc}", err=True)
+        raise typer.Exit(code=constants.EXIT_GENERAL_ERROR)
+
+    num_indexed = indexer.num_indexed_chunks
+
+    if output_format.lower() == "json":
+        import json
+
+        output = {
+            "query": resolved_query,
+            "index": index,
+            "index_size": num_indexed,
+            "top_k": top_k,
+            "threshold": threshold,
+            "results": [
+                {
+                    "rank": i + 1,
+                    "score": round(score, 4),
+                    "file": chunk.file_path,
+                    "chunk_idx": chunk.chunk_idx,
+                    "text": chunk.text,
+                }
+                for i, (score, chunk) in enumerate(results)
+            ],
+        }
+        typer.echo(json.dumps(output, indent=2, ensure_ascii=False))
+    else:
+        typer.echo(f"\nQuery:     {resolved_query!r}")
+        typer.echo(f"Index:     {index}  ({num_indexed:,} chunks indexed)")
+        typer.echo(f"Threshold: {threshold}   Top-k: {top_k}\n")
+        if not results:
+            typer.echo(f"No results found above threshold {threshold}.")
+        else:
+            sep = "─" * 72
+            typer.echo(f"Found {len(results)} result(s):\n")
+            for i, (score, chunk) in enumerate(results, 1):
+                typer.echo(sep)
+                typer.echo(
+                    f"#{i}  Score: {score:.4f}  │  File: {chunk.file_path}  │  Chunk #{chunk.chunk_idx}"
+                )
+                preview = chunk.text.replace("\n", " ").strip()
+                if len(preview) > 300:
+                    preview = preview[:300] + " …"
+                typer.echo(f"    {preview}")
+            typer.echo(sep)
 
 
 @app.command()

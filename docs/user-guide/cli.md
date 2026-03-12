@@ -158,12 +158,19 @@ pii-toolkit scan /data --vector-search --vector-save-index ./output/my_index
 | `--vector-threshold` | `0.75` | Cosine similarity cut-off (0.0 – 1.0) |
 | `--vector-save-index` | – | Path prefix to save FAISS index |
 | `--vector-load-index` | – | Path prefix to load a saved FAISS index |
+| `--vector-custom-exemplars` | – | Path to custom exemplar file (YAML or JSON) |
 
 **Installation**: `pip install sentence-transformers` (or `pip install "pii-toolkit[vector]"`)
 
 **Triage mode** makes the vector engine act as a cheap gate: chunks without a semantic PII signal are never forwarded to NER or LLM engines. On typical document collections this reduces LLM API calls by 70–90 %.
 
-See [Detection Methods – Vector Search](detection-methods.md#vector-search-engine) for full details.
+**Custom exemplars** let you extend or override the built-in PII categories with domain-specific examples:
+
+```bash
+pii-toolkit scan /data --vector-search --vector-custom-exemplars ./my_exemplars.yaml
+```
+
+See [Detection Methods – Vector Search](detection-methods.md#vector-search-engine) for full details including the exemplar file format.
 
 ### `--ollama` (legacy)
 
@@ -501,6 +508,66 @@ Display help message:
 ```bash
 python main.py --help
 ```
+
+## Query
+
+Query a saved FAISS vector index for semantically similar chunks. Useful for ad-hoc investigation of documents already indexed with `--vector-save-index`.
+
+```bash
+# Basic query (human-readable output)
+pii-toolkit query ./output/my_index "patient medical record"
+
+# Short option
+pii-toolkit query ./output/my_index -q "Kreditkartennummer"
+
+# Return top 10 results with lower threshold
+pii-toolkit query ./output/my_index "IBAN" --top-k 10 --threshold 0.60
+
+# Machine-readable JSON output (for scripting / CI)
+pii-toolkit query ./output/my_index "SSH private key" --format json
+```
+
+**Arguments**:
+- `<index>` (required): Path prefix of the saved index (the `.faiss` and `.meta` files must exist at `<index>.faiss` and `<index>.meta`)
+- `<query>` (optional positional): Query text
+
+**Options**:
+
+| Flag | Default | Description |
+|---|---|---|
+| `--query` / `-q` | – | Query text (alternative to positional argument) |
+| `--top-k` / `-k` | `5` | Number of results to return |
+| `--threshold` | `0.70` | Minimum cosine similarity for a result |
+| `--model` | `sentence-transformers/all-MiniLM-L6-v2` | Embedding model (must match the model used during indexing) |
+| `--format` | `human` | Output format: `human` or `json` |
+
+**Example output (human)**:
+
+```
+Index: ./output/my_index  (42 chunks)
+Query: "patient medical record"  threshold=0.70
+
+[1] score=0.847  file=/data/patient_records/2023/q4.pdf
+    Chunk: "Der Patient wurde am 14.03.2023 mit der Diagnose..."
+
+[2] score=0.812  file=/data/emails/clinic_ref.eml
+    Chunk: "Bitte übermitteln Sie die Krankenakte des Patienten..."
+```
+
+**Example output (JSON)**:
+
+```json
+[
+  {
+    "rank": 1,
+    "score": 0.847,
+    "file": "/data/patient_records/2023/q4.pdf",
+    "chunk": "Der Patient wurde am 14.03.2023 mit der Diagnose..."
+  }
+]
+```
+
+**Requirements**: `pip install sentence-transformers faiss-cpu`
 
 ## Doctor
 
