@@ -1,9 +1,10 @@
 """XML file processor using defusedxml for secure XML parsing."""
 
+from xml.etree.ElementTree import Element
+
 _defusedxml_import_error: ImportError | None = None
 try:
     from defusedxml.ElementTree import parse as safe_parse, ParseError as SafeParseError
-    from defusedxml.ElementTree import Element
 
     DEFUSEDXML_AVAILABLE = True
 except ImportError as _exc:
@@ -22,9 +23,6 @@ except ImportError as _exc:
         ) from _defusedxml_import_error
 
     class SafeParseError(Exception):  # type: ignore[no-redef]
-        pass
-
-    class Element:  # type: ignore[no-redef]
         pass
 
 from file_processors.base_processor import BaseFileProcessor
