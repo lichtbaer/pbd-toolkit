@@ -83,7 +83,9 @@ class DocumentIndexer:
         self.verbose = verbose
 
         self._embed_lock = threading.Lock()
-        self._model: Optional[object] = None  # sentence-transformers SentenceTransformer
+        self._model: Optional[object] = (
+            None  # sentence-transformers SentenceTransformer
+        )
 
         # Pre-computed exemplar matrix: shape (n_exemplars, embedding_dim)
         self._exemplar_embeddings: Optional[np.ndarray] = None
@@ -108,6 +110,7 @@ class DocumentIndexer:
             return self._available
         try:
             import sentence_transformers  # noqa: F401
+
             self._available = True
         except ImportError:
             self._available = False
@@ -138,6 +141,7 @@ class DocumentIndexer:
                     logger.debug(f"[vector] Loading embedding model: {self.model_name}")
                 try:
                     from sentence_transformers import SentenceTransformer
+
                     model = SentenceTransformer(self.model_name)
                     DocumentIndexer._model_cache[self.model_name] = model
                     if self.verbose:
@@ -230,7 +234,9 @@ class DocumentIndexer:
         matches.sort(key=lambda m: m.score, reverse=True)
         return matches
 
-    def detect(self, text: str, threshold: Optional[float] = None) -> list[CategoryMatch]:
+    def detect(
+        self, text: str, threshold: Optional[float] = None
+    ) -> list[CategoryMatch]:
         """Convenience method: embed *text* and return PII category matches."""
         embedding = self.embed_text(text)
         return self.query_pii_categories(embedding, threshold)
@@ -286,9 +292,7 @@ class DocumentIndexer:
                 return []
             matrix = np.stack([c.embedding for c in self._chunks])  # (n, dim)
             sims = (matrix @ query).tolist()
-            ranked = sorted(
-                zip(sims, self._chunks), key=lambda x: x[0], reverse=True
-            )
+            ranked = sorted(zip(sims, self._chunks), key=lambda x: x[0], reverse=True)
         return [(s, c) for s, c in ranked[:top_k] if s >= threshold]
 
     # ------------------------------------------------------------------
@@ -321,7 +325,9 @@ class DocumentIndexer:
                 pickle.dump(meta, fh)
 
             if self.verbose:
-                logger.debug(f"[vector] Index saved to {target} ({len(self._chunks)} chunks)")
+                logger.debug(
+                    f"[vector] Index saved to {target} ({len(self._chunks)} chunks)"
+                )
         except ImportError:
             logger.warning("[vector] faiss-cpu not installed; index not saved.")
         except Exception as exc:

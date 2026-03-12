@@ -131,7 +131,5 @@ PII_EXEMPLARS: dict[str, list[str]] = {
 
 # Flat list of (category, exemplar_text) tuples for batch embedding
 EXEMPLAR_PAIRS: list[tuple[str, str]] = [
-    (category, text)
-    for category, texts in PII_EXEMPLARS.items()
-    for text in texts
+    (category, text) for category, texts in PII_EXEMPLARS.items() for text in texts
 ]

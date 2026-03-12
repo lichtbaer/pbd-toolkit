@@ -453,6 +453,7 @@ def setup() -> tuple[
         # Sanitize outname: remove path separators and other characters that
         # could cause the output file to be written outside the output directory.
         import re as _re
+
         safe_outname = _re.sub(r"[/\\<>:\"|?*\x00-\x1f]", "_", args.outname)
         outslug += " " + safe_outname
 

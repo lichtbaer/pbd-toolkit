@@ -25,6 +25,7 @@ except ImportError as _exc:
     class SafeParseError(Exception):  # type: ignore[no-redef]
         pass
 
+
 from file_processors.base_processor import BaseFileProcessor
 
 

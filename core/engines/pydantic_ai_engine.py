@@ -35,6 +35,7 @@ def _is_retryable_error(exc: Exception) -> bool:
     msg = str(exc).lower()
     return any(kw in msg for kw in _RETRYABLE_EXCEPTION_SUBSTRINGS)
 
+
 try:
     # Optional dependency: used for text-only LLM detection.
     from pydantic_ai import Agent  # type: ignore
@@ -128,7 +129,9 @@ class PydanticAIEngine:
 
         # Retry configuration for transient API errors
         self.max_retries: int = int(getattr(config, "llm_max_retries", 3))
-        self.retry_base_delay: float = float(getattr(config, "llm_retry_base_delay", 1.0))
+        self.retry_base_delay: float = float(
+            getattr(config, "llm_retry_base_delay", 1.0)
+        )
 
         # Internal synchronization and concurrency limiting
         limits = getattr(self.config, "engine_concurrency_limits", {}) or {}
@@ -372,7 +375,7 @@ class PydanticAIEngine:
                 last_exc = exc
                 if attempt >= self.max_retries or not _is_retryable_error(exc):
                     raise
-                delay = self.retry_base_delay * (2 ** attempt)
+                delay = self.retry_base_delay * (2**attempt)
                 if self.config.verbose:
                     self.config.logger.warning(
                         f"[{self.name}] Transient error (attempt {attempt + 1}/{self.max_retries + 1}), "

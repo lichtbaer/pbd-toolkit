@@ -635,6 +635,7 @@ def scan(
     scan_cache = None
     if _use_incremental:
         from core.scan_cache import ScanCache
+
         _cache_path = getattr(args, "cache_path", None) or os.path.join(
             output_dir, ".pbd_scan_cache.db"
         )
@@ -674,7 +675,9 @@ def scan(
         # Incremental scan: skip unchanged files
         if scan_cache is not None and scan_cache.is_unchanged(file_info.path):
             if context.config.verbose:
-                context.logger.debug(f"Incremental: skipping unchanged file {file_info.path}")
+                context.logger.debug(
+                    f"Incremental: skipping unchanged file {file_info.path}"
+                )
             return
 
         text_processor.process_file(file_info, error_callback=add_error)

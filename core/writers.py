@@ -50,12 +50,21 @@ class CsvWriter(OutputWriter):
             self._file = open(file_path, "w", newline="", encoding="utf-8")
             self._writer = csv.writer(self._file)
             if self.include_header:
-                self._writer.writerow(["Match", "File", "Type", "Score", "Engine", "Severity"])
+                self._writer.writerow(
+                    ["Match", "File", "Type", "Score", "Engine", "Severity"]
+                )
         except IOError as e:
             raise OutputError(f"Failed to open output file: {e}")
 
     def write_match(self, match: PiiMatch) -> None:
-        row = [match.text, match.file, match.type, match.ner_score, match.engine, match.severity]
+        row = [
+            match.text,
+            match.file,
+            match.type,
+            match.ner_score,
+            match.engine,
+            match.severity,
+        ]
         self._writer.writerow(row)
 
     def finalize(self, metadata: Optional[dict] = None) -> None:
@@ -174,7 +183,14 @@ class XlsxWriter(OutputWriter):
 
     def write_match(self, match: PiiMatch) -> None:
         self._ws.append(
-            [match.text, match.file, match.type, match.ner_score, match.engine, match.severity]
+            [
+                match.text,
+                match.file,
+                match.type,
+                match.ner_score,
+                match.engine,
+                match.severity,
+            ]
         )
 
     def finalize(self, metadata: Optional[dict] = None) -> None:
