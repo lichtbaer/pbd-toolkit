@@ -21,7 +21,7 @@ if requirements_file.exists():
 extras_require = {
     # Development / testing
     "dev": [
-        "pytest~=8.0.0",
+        "pytest~=9.0.2",
         "pytest-cov~=4.1.0",
         "pytest-mock~=3.15.1",
     ],
