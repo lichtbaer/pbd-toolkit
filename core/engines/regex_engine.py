@@ -12,6 +12,21 @@ try:
 except Exception:  # pragma: no cover - optional dependency / import-time issues
     CreditCardValidator = None  # type: ignore[assignment]
 
+try:
+    from validators.iban_validator import IbanValidator
+except Exception:  # pragma: no cover
+    IbanValidator = None  # type: ignore[assignment]
+
+try:
+    from validators.tax_id_validator import TaxIdValidator
+except Exception:  # pragma: no cover
+    TaxIdValidator = None  # type: ignore[assignment]
+
+try:
+    from validators.bic_validator import BicValidator
+except Exception:  # pragma: no cover
+    BicValidator = None  # type: ignore[assignment]
+
 
 class RegexEngine:
     """Regex-based detection engine.
@@ -60,12 +75,15 @@ class RegexEngine:
             if config_entry and not self._validate_match(match, config_entry):
                 continue
 
+            # Assign synthetic confidence: 1.0 for validated patterns, 0.8 for unvalidated
+            _confidence = 1.0 if (config_entry and "validation" in config_entry) else 0.8
             results.append(
                 DetectionResult(
                     text=match.group(),
                     entity_type=entity_type,
-                    confidence=None,  # Regex has no confidence score
+                    confidence=_confidence,
                     engine_name="regex",
+                    offset=match.start(),
                 )
             )
 
@@ -103,12 +121,25 @@ class RegexEngine:
         validation_type = config_entry["validation"]
 
         if validation_type == "luhn":
-            # Credit card validation using Luhn algorithm
             if CreditCardValidator is None:
-                # If validator module not available, skip validation
                 return True
             is_valid, _card_type = CreditCardValidator.validate(match.group())
             return is_valid
+
+        if validation_type == "iban":
+            if IbanValidator is None:
+                return True
+            return IbanValidator.validate(match.group())
+
+        if validation_type == "tax_id":
+            if TaxIdValidator is None:
+                return True
+            return TaxIdValidator.validate(match.group())
+
+        if validation_type == "bic":
+            if BicValidator is None:
+                return True
+            return BicValidator.validate(match.group())
 
         return True
 

@@ -1,0 +1,55 @@
+"""BIC (Bank Identifier Code / SWIFT code) validation.
+
+A valid BIC has the structure: BBBB CC LL [BBB]
+  - BBBB: 4-letter bank code (alpha only)
+  - CC:   2-letter ISO 3166-1 country code
+  - LL:   2-character location code (alphanumeric)
+  - BBB:  optional 3-character branch code (alphanumeric, "XXX" = head office)
+"""
+
+import re
+
+# ISO 3166-1 alpha-2 country codes (common subset used in banking)
+_VALID_COUNTRY_CODES: frozenset[str] = frozenset({
+    "AD", "AE", "AF", "AG", "AI", "AL", "AM", "AO", "AR", "AS", "AT", "AU",
+    "AW", "AZ", "BA", "BB", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BM",
+    "BN", "BO", "BR", "BS", "BT", "BW", "BY", "BZ", "CA", "CD", "CF", "CG",
+    "CH", "CI", "CL", "CM", "CN", "CO", "CR", "CU", "CV", "CW", "CY", "CZ",
+    "DE", "DJ", "DK", "DM", "DO", "DZ", "EC", "EE", "EG", "ER", "ES", "ET",
+    "FI", "FJ", "FK", "FM", "FO", "FR", "GA", "GB", "GD", "GE", "GH", "GI",
+    "GL", "GM", "GN", "GQ", "GR", "GT", "GU", "GW", "GY", "HK", "HN", "HR",
+    "HT", "HU", "ID", "IE", "IL", "IN", "IQ", "IR", "IS", "IT", "JM", "JO",
+    "JP", "KE", "KG", "KH", "KI", "KM", "KN", "KP", "KR", "KW", "KY", "KZ",
+    "LA", "LB", "LC", "LI", "LK", "LR", "LS", "LT", "LU", "LV", "LY", "MA",
+    "MC", "MD", "ME", "MG", "MH", "MK", "ML", "MM", "MN", "MO", "MR", "MT",
+    "MU", "MV", "MW", "MX", "MY", "MZ", "NA", "NE", "NG", "NI", "NL", "NO",
+    "NP", "NR", "NZ", "OM", "PA", "PE", "PG", "PH", "PK", "PL", "PR", "PS",
+    "PT", "PW", "PY", "QA", "RO", "RS", "RU", "RW", "SA", "SB", "SC", "SD",
+    "SE", "SG", "SI", "SK", "SL", "SM", "SN", "SO", "SR", "SS", "ST", "SV",
+    "SX", "SY", "SZ", "TD", "TG", "TH", "TJ", "TL", "TM", "TN", "TO", "TR",
+    "TT", "TV", "TW", "TZ", "UA", "UG", "US", "UY", "UZ", "VA", "VC", "VE",
+    "VG", "VI", "VN", "VU", "WS", "XK", "YE", "ZA", "ZM", "ZW",
+})
+
+
+class BicValidator:
+    """Validates Bank Identifier Codes (BIC/SWIFT codes)."""
+
+    _BIC_RE = re.compile(r"^[A-Z]{4}([A-Z]{2})[A-Z0-9]{2}(?:[A-Z0-9]{3})?$")
+
+    @staticmethod
+    def validate(bic: str) -> bool:
+        """Validate a BIC/SWIFT code.
+
+        Args:
+            bic: BIC string (8 or 11 characters).
+
+        Returns:
+            True if the BIC has valid structure and a real country code.
+        """
+        cleaned = bic.strip().upper()
+        m = BicValidator._BIC_RE.match(cleaned)
+        if not m:
+            return False
+        country = m.group(1)
+        return country in _VALID_COUNTRY_CODES

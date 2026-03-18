@@ -22,6 +22,8 @@ class DetectionResult:
     confidence: float | None = None
     engine_name: str = ""
     metadata: dict = field(default_factory=dict)
+    # Character offset within the analyzed text chunk (for context extraction)
+    offset: int | None = None
 
 
 class DetectionEngine(Protocol):

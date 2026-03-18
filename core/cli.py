@@ -323,6 +323,29 @@ def scan(
         "--statistics-output",
         help="Path for statistics JSON output file (default: auto-generated in output directory)",
     ),
+    # Confidence filtering
+    min_confidence: float = typer.Option(
+        0.0,
+        "--min-confidence",
+        help="Minimum confidence score (0.0-1.0) to include a finding. Regex matches without validation default to 0.8, validated matches to 1.0.",
+    ),
+    # Context extraction
+    context_chars: int = typer.Option(
+        0,
+        "--context-chars",
+        help="Number of surrounding characters to capture around each finding for context (0 = disabled, recommended: 50-100)",
+    ),
+    # Redaction
+    redact: bool = typer.Option(
+        False,
+        "--redact",
+        help="Create redacted copies of files with PII replaced by [REDACTED:TYPE] placeholders",
+    ),
+    redact_dir: Optional[str] = typer.Option(
+        None,
+        "--redact-dir",
+        help="Directory for redacted output files (default: output_dir/redacted/)",
+    ),
     # Incremental scanning
     incremental: bool = typer.Option(
         False,
@@ -346,6 +369,13 @@ def scan(
         None,
         "--config",
         help="Path to configuration file (YAML or JSON). CLI arguments override config file values.",
+    ),
+    # Scan profile
+    profile: Optional[str] = typer.Option(
+        None,
+        "--profile",
+        help="Load a built-in scan profile (quick, standard, deep, gdpr-audit, ci). CLI arguments override profile values.",
+        case_sensitive=False,
     ),
 ) -> None:
     """Scan directory for PII using specified detection methods.
@@ -415,9 +445,24 @@ def scan(
         "config": config,
         "incremental": incremental,
         "cache_path": cache_path,
+        "redact": redact,
+        "redact_dir": redact_dir,
+        "context_chars": context_chars,
+        "min_confidence": min_confidence,
     }
 
     args = _create_argparse_namespace_from_typer_args(**typer_args)
+
+    # Load scan profile if provided (applied before config file so config can override)
+    if profile:
+        from core.profiles import get_profile
+
+        try:
+            profile_data = get_profile(profile)
+            args = ConfigLoader.merge_with_args(profile_data, args)
+        except ValueError as e:
+            typer.echo(f"Profile error: {e}", err=True)
+            raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
 
     # Load config file if provided
     if config:
@@ -466,7 +511,7 @@ def scan(
     output_format = args.format if hasattr(args, "format") else "csv"
 
     # Determine file extension and create output file path
-    extension_map = {"csv": ".csv", "json": ".json", "jsonl": ".jsonl", "xlsx": ".xlsx"}
+    extension_map = {"csv": ".csv", "json": ".json", "jsonl": ".jsonl", "xlsx": ".xlsx", "html": ".html", "sarif": ".sarif"}
     extension = extension_map.get(output_format, ".csv")
     output_file_path = output_dir + outslug + "_findings" + extension
 
@@ -517,6 +562,12 @@ def scan(
     _chunk_overlap = getattr(args, "text_chunk_overlap", 200)
     if isinstance(_chunk_overlap, int) and _chunk_overlap >= 0:
         config_obj.text_chunk_overlap = _chunk_overlap
+    _context_chars = getattr(args, "context_chars", 0)
+    if isinstance(_context_chars, int) and _context_chars >= 0:
+        config_obj.context_chars = _context_chars
+    _min_conf = getattr(args, "min_confidence", 0.0)
+    if isinstance(_min_conf, (int, float)):
+        config_obj.min_confidence = float(_min_conf)
 
     # Validate configuration
     is_valid, error_msg = config_obj.validate_path()
@@ -556,7 +607,11 @@ def scan(
 
     # Initialize components
     _dedup_enabled = bool(getattr(args, "deduplicate", False))
-    pmc: PiiMatchContainer = PiiMatchContainer(enable_deduplication=_dedup_enabled)
+    _min_conf_val = config_obj.min_confidence
+    pmc: PiiMatchContainer = PiiMatchContainer(
+        enable_deduplication=_dedup_enabled,
+        min_confidence=_min_conf_val,
+    )
     pmc.set_csv_writer(csv_writer)
     pmc.set_output_format(args.format if hasattr(args, "format") else "csv")
     # Enable streaming writes for writers that support it (e.g. csv/jsonl/xlsx).
@@ -763,6 +818,15 @@ def scan(
     # Update match count in statistics
     context.statistics.matches_found = len(context.match_container.pii_matches)
 
+    # Compute per-file risk scores using combination-risk escalation
+    from core.severity import combined_file_risk
+
+    file_risk_scores: dict[str, str] = {}
+    matches_by_file = context.match_container.by_file()
+    for fpath, file_matches in matches_by_file.items():
+        pii_types = [m.type for m in file_matches if m.type]
+        file_risk_scores[fpath] = combined_file_risk(pii_types)
+
     # Aggregate matches for statistics mode
     if statistics_aggregator:
         for match in context.match_container.pii_matches:
@@ -897,6 +961,20 @@ def scan(
             {"type": error_type, "files": file_list}
             for error_type, file_list in errors.items()
         ],
+        "file_risk_scores": {
+            fpath: {
+                "risk_level": risk,
+                "match_count": len(matches_by_file.get(fpath, [])),
+                "pii_types": list(
+                    {m.type for m in matches_by_file.get(fpath, []) if m.type}
+                ),
+            }
+            for fpath, risk in sorted(
+                file_risk_scores.items(),
+                key=lambda x: {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1, "NONE": 0}.get(x[1], 0),
+                reverse=True,
+            )
+        },
     }
 
     # Write output using writer
@@ -917,6 +995,19 @@ def scan(
         # Fallback: Close CSV file handle if it exists
         if csv_file_handle:
             csv_file_handle.close()
+
+    # Redaction: create redacted copies if requested
+    if getattr(args, "redact", False) and matches_by_file:
+        from core.redactor import redact_files
+
+        _redact_dir = getattr(args, "redact_dir", None) or os.path.join(output_dir, "redacted")
+        redacted_paths = redact_files(
+            matches_by_file=matches_by_file,
+            output_dir=_redact_dir,
+            logger=context.logger,
+        )
+        if redacted_paths and not (hasattr(args, "quiet") and args.quiet):
+            typer.echo(f"\nRedacted {len(redacted_paths)} files to: {_redact_dir}")
 
     # Generate and write statistics output if statistics mode is enabled
     if statistics_aggregator:
@@ -1045,6 +1136,7 @@ def scan(
                 "errors_summary": (
                     {k: len(v) for k, v in errors.items()} if errors else {}
                 ),
+                "file_risk_scores": file_risk_scores,
             }
             typer.echo(json.dumps(summary_data, indent=2))
         else:
@@ -1085,6 +1177,35 @@ def scan(
                 typer.echo(context._("Errors Summary:"))
                 for k, v in errors.items():
                     typer.echo(f"  {k}: {len(v)} {context._('files')}")
+                typer.echo()
+
+            # Per-file risk summary: show highest-risk files
+            if file_risk_scores:
+                # Count files per risk level
+                risk_distribution: dict[str, int] = {}
+                for _risk_level in file_risk_scores.values():
+                    risk_distribution[_risk_level] = risk_distribution.get(_risk_level, 0) + 1
+
+                typer.echo(context._("File Risk Assessment:"))
+                for _rl in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+                    if _rl in risk_distribution:
+                        typer.echo(f"  {_rl}: {risk_distribution[_rl]} {context._('files')}")
+
+                # Show top 5 highest-risk files
+                _risk_weight = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1, "NONE": 0}
+                top_risk_files = sorted(
+                    file_risk_scores.items(),
+                    key=lambda x: _risk_weight.get(x[1], 0),
+                    reverse=True,
+                )[:5]
+                _high_risk = [(f, r) for f, r in top_risk_files if r in ("CRITICAL", "HIGH")]
+                if _high_risk:
+                    typer.echo()
+                    typer.echo(context._("Highest risk files:"))
+                    for _fpath, _risk in _high_risk:
+                        _match_count = len(matches_by_file.get(_fpath, []))
+                        _types = ", ".join(sorted({m.type for m in matches_by_file.get(_fpath, []) if m.type}))
+                        typer.echo(f"  [{_risk}] {_fpath} ({_match_count} findings: {_types})")
                 typer.echo()
 
             # Get output file name
@@ -1232,6 +1353,84 @@ def query(
                     preview = preview[:300] + " …"
                 typer.echo(f"    {preview}")
             typer.echo(sep)
+
+
+@app.command()
+def diff(
+    old_file: str = typer.Argument(..., help="Path to the baseline (old) findings file (JSON or JSONL)"),
+    new_file: str = typer.Argument(..., help="Path to the current (new) findings file (JSON or JSONL)"),
+    output_format: str = typer.Option(
+        "human",
+        "--format",
+        help="Output format: 'human' (default) or 'json'",
+        case_sensitive=False,
+    ),
+) -> None:
+    """Compare two scan result files to show new, removed, and unchanged findings.
+
+    Useful for tracking remediation progress over time.
+
+    [bold]Examples:[/bold]
+
+        pii-toolkit diff old_findings.json new_findings.json
+
+        pii-toolkit diff baseline.jsonl current.jsonl --format json
+    """
+    import json
+
+    from core.diff import load_findings, compute_diff
+
+    try:
+        old_findings = load_findings(old_file)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        typer.echo(f"Error reading old file: {e}", err=True)
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+
+    try:
+        new_findings = load_findings(new_file)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        typer.echo(f"Error reading new file: {e}", err=True)
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+
+    result = compute_diff(old_findings, new_findings)
+
+    if output_format.lower() == "json":
+        import json as _json
+        typer.echo(_json.dumps(result, indent=2, ensure_ascii=False))
+    else:
+        s = result["summary"]
+        typer.echo("\n" + "=" * 50)
+        typer.echo("Scan Diff Report")
+        typer.echo("=" * 50)
+        typer.echo(f"  Old scan: {s['old_total']} findings ({old_file})")
+        typer.echo(f"  New scan: {s['new_total']} findings ({new_file})")
+        typer.echo()
+        typer.echo(f"  New findings:       +{s['added']}")
+        typer.echo(f"  Resolved findings:  -{s['removed']}")
+        typer.echo(f"  Unchanged:           {s['unchanged']}")
+
+        if result["added_by_severity"]:
+            typer.echo("\n  New findings by severity:")
+            for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+                count = result["added_by_severity"].get(sev, 0)
+                if count:
+                    typer.echo(f"    {sev}: +{count}")
+
+        if result["removed_by_severity"]:
+            typer.echo("\n  Resolved findings by severity:")
+            for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+                count = result["removed_by_severity"].get(sev, 0)
+                if count:
+                    typer.echo(f"    {sev}: -{count}")
+
+        # Show top new CRITICAL/HIGH findings
+        critical_new = [f for f in result["added_findings"] if f.get("severity") in ("CRITICAL", "HIGH")]
+        if critical_new:
+            typer.echo("\n  New CRITICAL/HIGH findings:")
+            for f in critical_new[:10]:
+                typer.echo(f"    [{f.get('severity')}] {f.get('file')} - {f.get('type')}: {f.get('text', '')[:60]}")
+
+        typer.echo("=" * 50 + "\n")
 
 
 @app.command()
