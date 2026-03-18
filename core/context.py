@@ -32,6 +32,10 @@ class ApplicationContext:
     # Translation function
     translate_func: Callable[[str], str] = lambda x: x
 
+    # Analytics store (optional, duck-typed to avoid import cycles)
+    analytics_store: Optional[object] = None
+    analytics_session_id: Optional[str] = None
+
     # Backward compatibility: CSV writer and file handle
     csv_writer: Optional[csv.writer] = None
     csv_file_handle: Optional[object] = None

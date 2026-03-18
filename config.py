@@ -123,6 +123,10 @@ class Config:
     # Context extraction: number of chars to capture around each finding (0 = disabled)
     context_chars: int = 0
 
+    # Analytics: persist scan results to an analytics database for dashboards
+    analytics_enabled: bool = False
+    analytics_db_path: str = ".pbd_analytics.db"
+
     # Minimum confidence threshold for all engines (0.0 = accept all, 1.0 = only perfect matches)
     min_confidence: float = 0.0
 

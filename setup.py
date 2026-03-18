@@ -49,6 +49,12 @@ extras_require = {
         # faiss-cpu is optional: required only for --vector-save-index / --vector-load-index
         # Install manually: pip install faiss-cpu
     ],
+    # REST API server
+    "api": [
+        "fastapi>=0.104.0",
+        "uvicorn[standard]>=0.24.0",
+        "pydantic>=2.0.0",
+    ],
 }
 extras_require["all"] = sorted({dep for group in extras_require.values() for dep in group})
 

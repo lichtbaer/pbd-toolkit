@@ -370,6 +370,17 @@ def scan(
         "--config",
         help="Path to configuration file (YAML or JSON). CLI arguments override config file values.",
     ),
+    # Analytics
+    analytics: bool = typer.Option(
+        False,
+        "--analytics",
+        help="Persist scan results to an analytics database for dashboards and trend analysis (no PII text stored)",
+    ),
+    analytics_db: str = typer.Option(
+        ".pbd_analytics.db",
+        "--analytics-db",
+        help="Path to the analytics database file (default: .pbd_analytics.db)",
+    ),
     # Scan profile
     profile: Optional[str] = typer.Option(
         None,
@@ -449,6 +460,8 @@ def scan(
         "redact_dir": redact_dir,
         "context_chars": context_chars,
         "min_confidence": min_confidence,
+        "analytics": analytics,
+        "analytics_db": analytics_db,
     }
 
     args = _create_argparse_namespace_from_typer_args(**typer_args)
@@ -638,6 +651,46 @@ def scan(
         translate_func=translate_func,
     )
     context.output_file_path = output_file_path
+
+    # Analytics database (optional)
+    _analytics_enabled = getattr(args, "analytics", False)
+    _analytics_db_path = getattr(args, "analytics_db", ".pbd_analytics.db")
+    analytics_store = None
+    analytics_session_id = None
+    if _analytics_enabled:
+        try:
+            from analytics.store import AnalyticsStore
+
+            analytics_store = AnalyticsStore(db_path=_analytics_db_path, logger=logger)
+            config_summary = {
+                "engines": [
+                    name
+                    for name, flag in [
+                        ("regex", config_obj.use_regex),
+                        ("gliner", config_obj.use_ner),
+                        ("spacy", config_obj.use_spacy_ner),
+                        ("ollama", config_obj.use_ollama),
+                        ("openai", config_obj.use_openai_compatible),
+                        ("pydantic-ai", config_obj.use_pydantic_ai),
+                        ("vector", config_obj.use_vector_search),
+                    ]
+                    if flag
+                ],
+                "profile": getattr(args, "profile", None),
+                "deduplicate": config_obj.enable_deduplication,
+                "incremental": config_obj.use_incremental,
+            }
+            analytics_session_id = analytics_store.create_session(
+                scan_path=config_obj.path,
+                config_summary=config_summary,
+                source="cli",
+            )
+            context.analytics_store = analytics_store
+            context.analytics_session_id = analytics_session_id
+            pmc.set_analytics_store(analytics_store, analytics_session_id)
+            logger.info(translate_func("Analytics database enabled: %s") % _analytics_db_path)
+        except Exception as exc:
+            logger.warning("Failed to initialize analytics database: %s", exc)
 
     # Load whitelist if provided
     if context.config.whitelist_path and os.path.isfile(context.config.whitelist_path):
@@ -834,6 +887,35 @@ def scan(
 
     # Stop timing
     context.statistics.stop()
+
+    # Complete analytics session (if enabled)
+    if analytics_store and analytics_session_id:
+        try:
+            analytics_store.complete_session(
+                session_id=analytics_session_id,
+                total_files=context.statistics.total_files_found,
+                files_processed=context.statistics.files_processed,
+                total_matches=context.statistics.matches_found,
+                total_errors=context.statistics.total_errors,
+                duration_sec=context.statistics.duration_seconds,
+            )
+            # Record per-engine stats
+            for engine_name, match_count in context.statistics.matches_by_engine.items():
+                analytics_store.record_engine_stats(
+                    session_id=analytics_session_id,
+                    engine=engine_name,
+                    matches_found=match_count,
+                )
+            # Record per-file-type stats
+            for ext, ext_count in context.statistics.extension_counts.items():
+                analytics_store.record_file_type_stats(
+                    session_id=analytics_session_id,
+                    extension=ext,
+                    files_scanned=ext_count,
+                )
+            analytics_store.close()
+        except Exception as exc:
+            logger.warning("Failed to finalize analytics session: %s", exc)
 
     # Calculate total errors
     total_errors = sum(len(v) for v in errors.values())
@@ -1471,6 +1553,30 @@ def doctor(
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
     if strict and any(i.level == "warning" for i in report.issues):
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
+
+
+@app.command()
+def serve(
+    host: str = typer.Option("127.0.0.1", "--host", help="Bind address"),
+    port: int = typer.Option(8000, "--port", help="Port number"),
+    analytics_db: str = typer.Option(
+        ".pbd_analytics.db", "--analytics-db", help="Path to analytics database"
+    ),
+    reload: bool = typer.Option(False, "--reload", help="Auto-reload on code changes (dev only)"),
+) -> None:
+    """Start the REST API server for scanning and analytics."""
+    try:
+        from api.server import main as serve_main
+    except ImportError:
+        typer.echo(
+            "The API module requires additional dependencies.\n"
+            "Install them with:  pip install 'pii-toolkit[api]'",
+            err=True,
+        )
+        raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
+
+    serve_main(["--host", host, "--port", str(port), "--analytics-db", analytics_db]
+               + (["--reload"] if reload else []))
 
 
 def cli() -> None:
