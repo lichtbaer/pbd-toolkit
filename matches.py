@@ -81,6 +81,9 @@ class PiiMatchContainer:
     _output_format: str = field(default="csv", init=False, repr=False)
     # Optional output writer for streaming formats (duck-typed: must implement write_match()).
     _output_writer: Optional[object] = field(default=None, init=False, repr=False)
+    # Optional analytics store (duck-typed: must implement record_finding_from_match())
+    _analytics_store: Optional[object] = field(default=None, init=False, repr=False)
+    _analytics_session_id: Optional[str] = field(default=None, init=False, repr=False)
     # Internal lock for thread-safe match aggregation / streaming writes
     _lock: threading.Lock = field(
         default_factory=threading.Lock, init=False, repr=False
@@ -103,6 +106,18 @@ class PiiMatchContainer:
         """
         with self._lock:
             self._output_format = output_format
+
+    def set_analytics_store(
+        self, store: Optional[object], session_id: Optional[str] = None
+    ) -> None:
+        """Set an analytics store for persisting findings.
+
+        Duck-typed to avoid circular imports – the store must implement
+        ``record_finding_from_match(session_id, match)``.
+        """
+        with self._lock:
+            self._analytics_store = store
+            self._analytics_session_id = session_id
 
     def set_output_writer(self, output_writer: Optional[object]) -> None:
         """Set an output writer for streaming formats.
@@ -241,6 +256,15 @@ class PiiMatchContainer:
                     write_match = getattr(self._output_writer, "write_match", None)
                     if callable(write_match):
                         write_match(pm)
+
+            # Persist finding to analytics database (if configured).
+            if self._analytics_store is not None and self._analytics_session_id:
+                try:
+                    record = getattr(self._analytics_store, "record_finding_from_match", None)
+                    if callable(record):
+                        record(self._analytics_session_id, pm)
+                except Exception:
+                    pass  # Never let analytics recording break the scan
 
     """ Helper function for adding regex-based matches to the matches container. """
 
