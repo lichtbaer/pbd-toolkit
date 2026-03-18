@@ -283,8 +283,14 @@ class TextProcessor:
 
         # Add all results to match container and update per-engine statistics
         if all_results:
+            _ctx_chars = getattr(self.config, "context_chars", 0)
             with self._process_lock:
-                self.match_container.add_detection_results(all_results, file_path)
+                self.match_container.add_detection_results(
+                    all_results,
+                    file_path,
+                    source_text=text if _ctx_chars > 0 else None,
+                    context_chars=_ctx_chars,
+                )
                 if self.statistics:
                     for result in all_results:
                         self.statistics.add_match(engine=result.engine_name)

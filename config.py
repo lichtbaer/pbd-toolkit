@@ -120,6 +120,12 @@ class Config:
     text_chunk_size: int = 0
     text_chunk_overlap: int = 200
 
+    # Context extraction: number of chars to capture around each finding (0 = disabled)
+    context_chars: int = 0
+
+    # Minimum confidence threshold for all engines (0.0 = accept all, 1.0 = only perfect matches)
+    min_confidence: float = 0.0
+
     # Resource limits
     max_file_size_mb: float = 500.0
     max_processing_time_seconds: int = 300

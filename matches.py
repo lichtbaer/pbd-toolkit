@@ -49,6 +49,10 @@ class PiiMatch:
     metadata: dict = field(default_factory=dict)
     # Severity level: LOW | MEDIUM | HIGH | CRITICAL
     severity: str | None = None
+    # Context: surrounding text for easier review (populated when --context-chars > 0)
+    context_before: str | None = None
+    context_after: str | None = None
+    char_offset: int | None = None
 
 
 """ Class for holding all PII matches found. The aim is to provide helpful functions for processing
@@ -65,6 +69,8 @@ class PiiMatchContainer:
     # When True, suppress duplicate (text, file, type) matches across engines.
     # The first match (highest confidence if available) wins.
     enable_deduplication: bool = False
+    # Minimum confidence threshold (0.0 = accept all)
+    min_confidence: float = 0.0
     # Compiled regex pattern for efficient whitelist matching
     _whitelist_pattern: re.Pattern | None = field(default=None, init=False, repr=False)
     # Set of (text_lower, file, type) keys for O(1) deduplication lookup
@@ -122,14 +128,34 @@ class PiiMatchContainer:
                 results[pm.file].append(pm)
             return results
 
+    @staticmethod
+    def _entry_to_regex(entry: str) -> str:
+        """Convert a single whitelist entry to a regex fragment.
+
+        Supported formats:
+          - ``regex:PATTERN``  – raw regex (used as-is)
+          - ``*foo*``          – wildcard (``*`` maps to ``.*``)
+          - ``plain text``     – exact substring match (escaped)
+        """
+        if entry.startswith("regex:"):
+            return entry[6:]
+        if "*" in entry:
+            # Wildcard mode: split on *, escape non-wildcard parts
+            parts = entry.split("*")
+            return ".*".join(re.escape(p) for p in parts)
+        return re.escape(entry)
+
     def _compile_whitelist_pattern(self) -> None:
-        """Compile whitelist entries into a regex pattern for efficient matching."""
+        """Compile whitelist entries into a regex pattern for efficient matching.
+
+        Supports three entry formats: plain text, wildcard (``*``), and raw
+        regex (``regex:`` prefix).
+        """
         with self._lock:
             if self.whitelist and self._whitelist_pattern is None:
-                # Escape special regex characters and create pattern
-                escaped_patterns = [re.escape(word) for word in self.whitelist if word]
-                if escaped_patterns:
-                    self._whitelist_pattern = re.compile("|".join(escaped_patterns))
+                patterns = [self._entry_to_regex(w) for w in self.whitelist if w]
+                if patterns:
+                    self._whitelist_pattern = re.compile("|".join(patterns))
 
     """ Helper function for adding matches to the matches container. This generic, internal method is
         called by the other methods intended for public use, its aim is to reduce redundancy. """
@@ -142,6 +168,9 @@ class PiiMatchContainer:
         ner_score: float | None = None,
         engine: str | None = None,
         metadata: dict | None = None,
+        context_before: str | None = None,
+        context_after: str | None = None,
+        char_offset: int | None = None,
     ) -> None:
         with self._lock:
             whitelisted: bool = False
@@ -150,16 +179,19 @@ class PiiMatchContainer:
             if self.whitelist:
                 if self._whitelist_pattern is None:
                     # Inline compile while holding lock (avoid races)
-                    escaped_patterns = [
-                        re.escape(word) for word in self.whitelist if word
-                    ]
-                    if escaped_patterns:
-                        self._whitelist_pattern = re.compile("|".join(escaped_patterns))
+                    patterns = [self._entry_to_regex(w) for w in self.whitelist if w]
+                    if patterns:
+                        self._whitelist_pattern = re.compile("|".join(patterns))
                 if self._whitelist_pattern and self._whitelist_pattern.search(text):
                     whitelisted = True
 
             if whitelisted:
                 return
+
+            # Confidence filtering: skip findings below threshold
+            if self.min_confidence > 0.0 and ner_score is not None:
+                if ner_score < self.min_confidence:
+                    return
 
             # Deduplication: skip if an identical (text, file, type) match is already stored
             if self.enable_deduplication:
@@ -176,6 +208,9 @@ class PiiMatchContainer:
                 engine=engine,
                 metadata=metadata or {},
                 severity=_classify_severity(type) if type else None,
+                context_before=context_before,
+                context_after=context_after,
+                char_offset=char_offset,
             )
             self.pii_matches.append(pm)
 
@@ -225,7 +260,6 @@ class PiiMatchContainer:
                 validation_type = config_entry["validation"]
 
                 if validation_type == "luhn":
-                    # Credit card validation using Luhn algorithm
                     try:
                         from validators.credit_card_validator import CreditCardValidator
 
@@ -233,9 +267,35 @@ class PiiMatchContainer:
                             matches.group()
                         )
                         if not is_valid:
-                            return  # Skip invalid credit card numbers
+                            return
                     except ImportError:
-                        # If validator module not available, skip validation
+                        pass
+
+                elif validation_type == "iban":
+                    try:
+                        from validators.iban_validator import IbanValidator
+
+                        if not IbanValidator.validate(matches.group()):
+                            return
+                    except ImportError:
+                        pass
+
+                elif validation_type == "tax_id":
+                    try:
+                        from validators.tax_id_validator import TaxIdValidator
+
+                        if not TaxIdValidator.validate(matches.group()):
+                            return
+                    except ImportError:
+                        pass
+
+                elif validation_type == "bic":
+                    try:
+                        from validators.bic_validator import BicValidator
+
+                        if not BicValidator.validate(matches.group()):
+                            return
+                    except ImportError:
                         pass
 
             self.__add_match(text=matches.group(), file=path, type=type, engine="regex")
@@ -260,14 +320,29 @@ class PiiMatchContainer:
 
     """ Helper function for adding detection results from engines. """
 
-    def add_detection_results(self, results: list, file_path: str) -> None:
+    def add_detection_results(
+        self, results: list, file_path: str, source_text: str | None = None, context_chars: int = 0
+    ) -> None:
         """Add detection results from engine registry.
 
         Args:
             results: List of DetectionResult objects
             file_path: Path to the file where matches were found
+            source_text: Original text chunk (for context extraction)
+            context_chars: Number of surrounding chars to capture (0 = disabled)
         """
         for result in results:
+            ctx_before = None
+            ctx_after = None
+            offset = getattr(result, "offset", None)
+
+            if context_chars > 0 and source_text and offset is not None:
+                start = max(0, offset - context_chars)
+                end_match = offset + len(result.text)
+                end = min(len(source_text), end_match + context_chars)
+                ctx_before = source_text[start:offset]
+                ctx_after = source_text[end_match:end]
+
             self.__add_match(
                 text=result.text,
                 file=file_path,
@@ -275,4 +350,7 @@ class PiiMatchContainer:
                 ner_score=result.confidence,
                 engine=result.engine_name,
                 metadata=result.metadata,
+                context_before=ctx_before,
+                context_after=ctx_after,
+                char_offset=offset,
             )
