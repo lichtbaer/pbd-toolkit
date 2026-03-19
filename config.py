@@ -314,7 +314,11 @@ class Config:
         """
         try:
             cfg = load_config_types()
-        except Exception:
+        except FileNotFoundError:
+            self.logger.debug("config_types.json not found, skipping runtime settings")
+            return
+        except Exception as exc:
+            self.logger.warning("Failed to load config_types.json for runtime settings: %s", exc)
             return
 
         settings = cfg.get("settings", {}) if isinstance(cfg, dict) else {}
@@ -484,8 +488,8 @@ class Config:
                         if self.verbose:
                             self.logger.debug("NER model warmed up")
                 except Exception as e:
-                    # Warm-up failure is not critical, just log it
-                    self.logger.debug(f"NER warm-up failed (non-critical): {e}")
+                    # Warm-up failure is not critical, but users should know
+                    self.logger.warning(f"NER warm-up failed (non-critical): {e}")
 
         except FileNotFoundError as e:
             error_msg = (

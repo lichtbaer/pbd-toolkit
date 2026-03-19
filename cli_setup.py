@@ -327,7 +327,7 @@ def __setup_args(translate_func: Callable[[str], str]) -> argparse.Namespace:
         try:
             config_data = ConfigLoader.load_config(args.config)
             args = ConfigLoader.merge_with_args(config_data, args)
-        except ValueError as e:
+        except (ValueError, FileNotFoundError, PermissionError) as e:
             parser.error(f"Configuration file error: {e}")
 
     return args
@@ -437,9 +437,20 @@ def setup() -> tuple[
 ]:
     """Setup application: parse arguments, setup logging, create output writer.
 
+    .. deprecated::
+        This legacy argparse-based setup is deprecated. Use the Typer-based CLI
+        via ``core.cli`` instead (``pii-toolkit scan ...``). This function will
+        be removed in a future release.
+
     Returns:
         Tuple of (args, logger, translate_func, output_writer, output_file_path)
     """
+    import warnings
+    warnings.warn(
+        "cli_setup.setup() is deprecated. Use the Typer-based CLI (core.cli) instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     # Disable telemetry in dependencies for privacy
     __check_telemetry_settings()
 

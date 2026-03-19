@@ -1,6 +1,18 @@
 # Configuration
 
-The PII Toolkit can be configured through command-line arguments and configuration files (YAML or JSON).
+The PII Toolkit can be configured through command-line arguments, configuration files (YAML or JSON), and environment variables.
+
+## Configuration Precedence
+
+When the same setting is specified in multiple places, the following precedence order applies (highest wins):
+
+1. **CLI arguments** (e.g. `--regex`, `--format json`) — always take precedence
+2. **Configuration file** (via `--config config.yaml`) — overrides defaults, overridden by CLI
+3. **Scan profiles** (via `--profile deep`) — applied before config file
+4. **Environment variables** (e.g. `OPENAI_API_KEY`, `LANGUAGE`)
+5. **Built-in defaults** — fallback values
+
+In verbose mode (`-v`), the resolved configuration is logged so you can verify which values are active.
 
 ## Command-Line Configuration
 

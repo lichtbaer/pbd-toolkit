@@ -482,7 +482,7 @@ def scan(
         try:
             config_data = ConfigLoader.load_config(config)
             args = ConfigLoader.merge_with_args(config_data, args)
-        except ValueError as e:
+        except (ValueError, FileNotFoundError, PermissionError) as e:
             typer.echo(f"Configuration file error: {e}", err=True)
             raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
 
@@ -494,6 +494,23 @@ def scan(
             ),
             err=True,
         )
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+
+    # --- Early path validation ---
+    scan_path = getattr(args, "path")
+    if not os.path.exists(scan_path):
+        typer.echo(f"Scan path does not exist: {scan_path}", err=True)
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+    if not os.path.isdir(scan_path):
+        typer.echo(f"Scan path is not a directory: {scan_path}", err=True)
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+    if not os.access(scan_path, os.R_OK):
+        typer.echo(f"Scan path is not readable: {scan_path}", err=True)
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+
+    whitelist_arg = getattr(args, "whitelist", None)
+    if whitelist_arg and not os.path.isfile(whitelist_arg):
+        typer.echo(f"Whitelist file not found: {whitelist_arg}", err=True)
         raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
 
     # Construct name for output files
@@ -1288,6 +1305,21 @@ def scan(
                         _match_count = len(matches_by_file.get(_fpath, []))
                         _types = ", ".join(sorted({m.type for m in matches_by_file.get(_fpath, []) if m.type}))
                         typer.echo(f"  [{_risk}] {_fpath} ({_match_count} findings: {_types})")
+                typer.echo()
+
+            # Actionable recommendations based on findings
+            _critical_count = risk_distribution.get("CRITICAL", 0)
+            _high_count = risk_distribution.get("HIGH", 0)
+            if _critical_count > 0 or _high_count > 0:
+                typer.echo(context._("Recommended actions:"))
+                if _critical_count > 0:
+                    typer.echo(
+                        f"  ! {_critical_count} {context._('files with CRITICAL risk - immediate review recommended')}"
+                    )
+                if _high_count > 0:
+                    typer.echo(
+                        f"  ! {_high_count} {context._('files with HIGH risk - review recommended')}"
+                    )
                 typer.echo()
 
             # Get output file name

@@ -1,7 +1,10 @@
 """File type detection using magic numbers (file headers)."""
 
+import logging
 import os
 from typing import Optional
+
+_logger = logging.getLogger(__name__)
 
 
 class FileTypeDetector:
@@ -37,9 +40,9 @@ class FileTypeDetector:
             self._magic = magic.Magic(mime=True)
         except ImportError:
             pass
-        except Exception:
-            # python-magic might be installed but libmagic not available
-            pass
+        except Exception as exc:
+            # python-magic installed but libmagic not available, or other init error
+            _logger.warning("python-magic available but failed to initialize: %s", exc)
 
         # Fallback to filetype (pure Python)
         if not self._magic:
@@ -69,8 +72,8 @@ class FileTypeDetector:
         if self._magic:
             try:
                 return self._magic.from_file(file_path)
-            except Exception:
-                pass
+            except Exception as exc:
+                _logger.debug("python-magic detection failed for %s: %s", file_path, exc)
 
         # Fallback to filetype
         if self._filetype:
@@ -78,8 +81,8 @@ class FileTypeDetector:
                 kind = self._filetype.guess(file_path)
                 if kind:
                     return kind.mime
-            except Exception:
-                pass
+            except Exception as exc:
+                _logger.debug("filetype detection failed for %s: %s", file_path, exc)
 
         return None
 
