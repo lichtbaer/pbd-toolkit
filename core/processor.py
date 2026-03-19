@@ -124,6 +124,32 @@ class TextProcessor:
         return engines
 
     @staticmethod
+    def _update_ner_stats(stats, processing_time: float, results: list) -> None:
+        """Update NER statistics for a single stats object."""
+        stats.total_chunks_processed += 1
+        stats.total_processing_time += processing_time
+        stats.total_entities_found += len(results)
+        for result in results:
+            entity_type = result.entity_type
+            stats.entities_by_type[entity_type] = (
+                stats.entities_by_type.get(entity_type, 0) + 1
+            )
+
+    def _handle_engine_error(
+        self, engine_name: str, file_path: str, error: Exception, level: str = "warning"
+    ) -> None:
+        """Record an engine processing error in stats and logs."""
+        if engine_name == "gliner":
+            with self._process_lock:
+                self.config.ner_stats.errors += 1
+                if self.statistics:
+                    self.statistics.ner_stats.errors += 1
+        msg = f"Engine '{engine_name}' error for {file_path}: {type(error).__name__}: {error}"
+        log_fn = getattr(self.config.logger, level, self.config.logger.warning)
+        log_fn(msg, exc_info=self.config.verbose)
+        self._add_error(f"{engine_name} error: {type(error).__name__}", file_path)
+
+    @staticmethod
     def _split_into_chunks(text: str, chunk_size: int, overlap: int) -> list[str]:
         """Split *text* into overlapping segments of at most *chunk_size* characters.
 
@@ -216,70 +242,20 @@ class TextProcessor:
                     "pydantic-ai",
                 ]:
                     with self._process_lock:
-                        self.config.ner_stats.total_chunks_processed += 1
-                        self.config.ner_stats.total_processing_time += processing_time
-                        self.config.ner_stats.total_entities_found += len(results)
-
+                        self._update_ner_stats(
+                            self.config.ner_stats, processing_time, results
+                        )
                         if self.statistics:
-                            self.statistics.ner_stats.total_chunks_processed += 1
-                            self.statistics.ner_stats.total_processing_time += (
-                                processing_time
+                            self._update_ner_stats(
+                                self.statistics.ner_stats, processing_time, results
                             )
-                            self.statistics.ner_stats.total_entities_found += len(
-                                results
-                            )
-
-                        # Count entities by type
-                        for result in results:
-                            entity_type = result.entity_type
-                            self.config.ner_stats.entities_by_type[entity_type] = (
-                                self.config.ner_stats.entities_by_type.get(
-                                    entity_type, 0
-                                )
-                                + 1
-                            )
-
-                            if self.statistics:
-                                self.statistics.ner_stats.entities_by_type[
-                                    entity_type
-                                ] = (
-                                    self.statistics.ner_stats.entities_by_type.get(
-                                        entity_type, 0
-                                    )
-                                    + 1
-                                )
 
             except RuntimeError as e:
-                # GPU/Model-specific errors
-                if engine.name == "gliner":
-                    self.config.ner_stats.errors += 1
-                    if self.statistics:
-                        self.statistics.ner_stats.errors += 1
-                self.config.logger.warning(
-                    f"Engine '{engine.name}' processing error for {file_path}: {e}"
-                )
-                self._add_error(f"{engine.name} processing error", file_path)
-            except MemoryError:
-                # Memory issues
-                if engine.name == "gliner":
-                    self.config.ner_stats.errors += 1
-                    if self.statistics:
-                        self.statistics.ner_stats.errors += 1
-                self.config.logger.error(
-                    f"Out of memory during {engine.name} processing: {file_path}"
-                )
-                self._add_error(f"{engine.name} memory error", file_path)
+                self._handle_engine_error(engine.name, file_path, e, "warning")
+            except MemoryError as e:
+                self._handle_engine_error(engine.name, file_path, e, "error")
             except Exception as e:
-                # Unexpected errors
-                if engine.name == "gliner":
-                    self.config.ner_stats.errors += 1
-                    if self.statistics:
-                        self.statistics.ner_stats.errors += 1
-                self.config.logger.error(
-                    f"Unexpected {engine.name} error for {file_path}: {type(e).__name__}: {e}",
-                    exc_info=self.config.verbose,
-                )
-                self._add_error(f"{engine.name} error: {type(e).__name__}", file_path)
+                self._handle_engine_error(engine.name, file_path, e, "error")
 
         # Add all results to match container and update per-engine statistics
         if all_results:
@@ -353,8 +329,11 @@ class TextProcessor:
                     try:
                         import hashlib as _hashlib
 
+                        _h = _hashlib.sha256()
                         with open(full_path, "rb") as _fh:
-                            _file_hash = _hashlib.sha256(_fh.read()).hexdigest()
+                            for _block in iter(lambda: _fh.read(65536), b""):
+                                _h.update(_block)
+                        _file_hash = _h.hexdigest()
                     except OSError:
                         pass
                     engine.set_current_file(full_path, _file_hash)

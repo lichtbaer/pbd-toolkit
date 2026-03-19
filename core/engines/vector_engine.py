@@ -125,16 +125,17 @@ class VectorEngine:
                 idx = self._chunk_counter
                 self._chunk_counter += 1
             try:
-                file_path = (
-                    getattr(self._thread_local, "file_path", None) or "<scan>"
-                )
+                file_path = getattr(self._thread_local, "file_path", None) or "<scan>"
                 file_hash = getattr(self._thread_local, "file_hash", "") or ""
                 # add_chunk is non-blocking and thread-safe
                 self._indexer.add_chunk(
                     text, file_path=file_path, chunk_idx=idx, file_hash=file_hash
                 )
-            except Exception:
-                pass  # indexing failures must not abort detection
+            except Exception as exc:
+                if self.config.verbose:
+                    self.config.logger.debug(
+                        "[vector] Chunk indexing failed: %s", exc, exc_info=True
+                    )
 
         results = []
         for match in matches:
