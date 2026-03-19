@@ -1,8 +1,15 @@
 import csv
+import logging
 import re
 import threading
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Optional
+
+_DEDUP_MAX_ENTRIES = 500_000
+_MAX_WHITELIST_REGEX_LEN = 500
+
+_logger = logging.getLogger("pbd-toolkit")
 
 from core.resources import load_config_types
 from core.severity import classify as _classify_severity
@@ -73,8 +80,9 @@ class PiiMatchContainer:
     min_confidence: float = 0.0
     # Compiled regex pattern for efficient whitelist matching
     _whitelist_pattern: re.Pattern | None = field(default=None, init=False, repr=False)
-    # Set of (text_lower, file, type) keys for O(1) deduplication lookup
-    _seen_keys: set = field(default_factory=set, init=False, repr=False)
+    # Ordered dict of (text_lower, file, type) keys for O(1) deduplication lookup
+    # with bounded capacity (FIFO eviction when exceeding _DEDUP_MAX_ENTRIES)
+    _seen_keys: OrderedDict = field(default_factory=OrderedDict, init=False, repr=False)
     # CSV writer for output (injected dependency, only used for CSV format)
     _csv_writer: Optional[csv.writer] = field(default=None, init=False, repr=False)
     # Output format (csv, json, xlsx)
@@ -148,12 +156,25 @@ class PiiMatchContainer:
         """Convert a single whitelist entry to a regex fragment.
 
         Supported formats:
-          - ``regex:PATTERN``  – raw regex (used as-is)
+          - ``regex:PATTERN``  – raw regex (used as-is, validated)
           - ``*foo*``          – wildcard (``*`` maps to ``.*``)
           - ``plain text``     – exact substring match (escaped)
         """
         if entry.startswith("regex:"):
-            return entry[6:]
+            raw = entry[6:]
+            if len(raw) > _MAX_WHITELIST_REGEX_LEN:
+                _logger.warning(
+                    "Whitelist regex too long (%d chars), skipping: %.40s...",
+                    len(raw),
+                    raw,
+                )
+                return ""  # empty fragment is harmless in alternation
+            try:
+                re.compile(raw)
+            except re.error as exc:
+                _logger.warning("Invalid whitelist regex '%s': %s", raw, exc)
+                return ""
+            return raw
         if "*" in entry:
             # Wildcard mode: split on *, escape non-wildcard parts
             parts = entry.split("*")
@@ -187,6 +208,10 @@ class PiiMatchContainer:
         context_after: str | None = None,
         char_offset: int | None = None,
     ) -> None:
+        pm: PiiMatch | None = None
+        analytics_store = None
+        analytics_session_id = None
+
         with self._lock:
             whitelisted: bool = False
 
@@ -213,9 +238,11 @@ class PiiMatchContainer:
                 dedup_key = (text.lower(), file, type)
                 if dedup_key in self._seen_keys:
                     return
-                self._seen_keys.add(dedup_key)
+                self._seen_keys[dedup_key] = None
+                if len(self._seen_keys) > _DEDUP_MAX_ENTRIES:
+                    self._seen_keys.popitem(last=False)  # evict oldest
 
-            pm: PiiMatch = PiiMatch(
+            pm = PiiMatch(
                 text=text,
                 file=file,
                 type=type,
@@ -257,14 +284,22 @@ class PiiMatchContainer:
                     if callable(write_match):
                         write_match(pm)
 
-            # Persist finding to analytics database (if configured).
-            if self._analytics_store is not None and self._analytics_session_id:
-                try:
-                    record = getattr(self._analytics_store, "record_finding_from_match", None)
-                    if callable(record):
-                        record(self._analytics_session_id, pm)
-                except Exception:
-                    pass  # Never let analytics recording break the scan
+            # Capture analytics references while holding lock
+            analytics_store = self._analytics_store
+            analytics_session_id = self._analytics_session_id
+
+        # Persist finding to analytics database outside the lock (if configured).
+        if pm is not None and analytics_store is not None and analytics_session_id:
+            try:
+                record = getattr(analytics_store, "record_finding_from_match", None)
+                if callable(record):
+                    record(analytics_session_id, pm)
+            except Exception:
+                import logging
+
+                logging.getLogger("pbd-toolkit").debug(
+                    "Analytics recording failed", exc_info=True
+                )
 
     """ Helper function for adding regex-based matches to the matches container. """
 
@@ -275,52 +310,23 @@ class PiiMatchContainer:
 
             for idx, item in enumerate(matches.groups()):
                 if item is not None:
-                    type = config_regex_sorted[idx]["label"]
-                    config_entry = config_regex_sorted[idx]
+                    config_entry = config_regex_sorted.get(idx)
+                    if config_entry is None:
+                        return  # unknown regex group index, skip
+                    type = config_entry["label"]
                     break
 
             # Validate if validation is required
             if config_entry and "validation" in config_entry:
-                validation_type = config_entry["validation"]
+                from validators import get_validator
 
-                if validation_type == "luhn":
-                    try:
-                        from validators.credit_card_validator import CreditCardValidator
-
-                        is_valid, card_type = CreditCardValidator.validate(
-                            matches.group()
-                        )
-                        if not is_valid:
-                            return
-                    except ImportError:
-                        pass
-
-                elif validation_type == "iban":
-                    try:
-                        from validators.iban_validator import IbanValidator
-
-                        if not IbanValidator.validate(matches.group()):
-                            return
-                    except ImportError:
-                        pass
-
-                elif validation_type == "tax_id":
-                    try:
-                        from validators.tax_id_validator import TaxIdValidator
-
-                        if not TaxIdValidator.validate(matches.group()):
-                            return
-                    except ImportError:
-                        pass
-
-                elif validation_type == "bic":
-                    try:
-                        from validators.bic_validator import BicValidator
-
-                        if not BicValidator.validate(matches.group()):
-                            return
-                    except ImportError:
-                        pass
+                validator = get_validator(config_entry["validation"])
+                if validator is not None:
+                    result = validator.validate(matches.group())
+                    # CreditCardValidator returns Tuple[bool, str|None]; others return bool
+                    is_valid = result[0] if isinstance(result, tuple) else result
+                    if not is_valid:
+                        return
 
             self.__add_match(text=matches.group(), file=path, type=type, engine="regex")
 
@@ -331,7 +337,10 @@ class PiiMatchContainer:
             for match in matches:
                 type: str | None = None
 
-                type = config_ainer_sorted[match["label"]]["label"]
+                config_entry = config_ainer_sorted.get(match["label"])
+                if config_entry is None:
+                    continue  # unknown NER label, skip
+                type = config_entry["label"]
 
                 self.__add_match(
                     text=match["text"],
@@ -345,7 +354,11 @@ class PiiMatchContainer:
     """ Helper function for adding detection results from engines. """
 
     def add_detection_results(
-        self, results: list, file_path: str, source_text: str | None = None, context_chars: int = 0
+        self,
+        results: list,
+        file_path: str,
+        source_text: str | None = None,
+        context_chars: int = 0,
     ) -> None:
         """Add detection results from engine registry.
 
