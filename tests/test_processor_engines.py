@@ -1,8 +1,8 @@
 """Tests for TextProcessor with engine registry."""
 
 from unittest.mock import Mock, patch
-from config import Config, NerStats
-from matches import PiiMatchContainer
+from core.config import Config, NerStats
+from core.matches import PiiMatchContainer
 from core.processor import TextProcessor
 
 

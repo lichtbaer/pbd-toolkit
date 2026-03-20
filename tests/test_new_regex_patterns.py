@@ -2,7 +2,7 @@
 
 import re
 import json
-from matches import PiiMatchContainer
+from core.matches import PiiMatchContainer
 from core.resources import load_config_types
 
 

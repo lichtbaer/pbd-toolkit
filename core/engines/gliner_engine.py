@@ -3,10 +3,10 @@
 import threading
 from typing import Optional
 from core.engines.base import DetectionResult
-from config import Config
+from core.config import Config
 
 # Exposed for test patching and runtime label mapping
-from matches import config_ainer_sorted
+from core.matches import config_ainer_sorted
 
 
 class GLiNEREngine:

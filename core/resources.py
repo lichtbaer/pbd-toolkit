@@ -12,22 +12,18 @@ from pathlib import Path
 from typing import Any
 
 
-def _repo_root_config_path() -> Path:
-    # /workspace/core/resources.py -> /workspace/core -> /workspace
-    return Path(__file__).resolve().parent.parent / "config_types.json"
-
-
 @lru_cache(maxsize=1)
 def load_config_types() -> dict[str, Any]:
-    """Load `config_types.json` from the best available location.
+    """Load `config_types.json` from ``core/config_types.json``.
 
     Resolution order:
-    1) Repo root `config_types.json` (developer workflow, editable installs)
-    2) Packaged resource `core/config_types.json` (wheel installs)
+    1) ``core/config_types.json`` next to this module (editable / source installs)
+    2) Packaged resource via ``importlib.resources`` (wheel installs)
     """
-    repo_path = _repo_root_config_path()
-    if repo_path.exists():
-        return json.loads(repo_path.read_text(encoding="utf-8"))
+    # Direct path sibling: works for editable installs and direct source runs
+    sibling = Path(__file__).resolve().parent / "config_types.json"
+    if sibling.exists():
+        return json.loads(sibling.read_text(encoding="utf-8"))
 
     try:
         # Python 3.9+: `importlib.resources.files`
@@ -37,5 +33,5 @@ def load_config_types() -> dict[str, Any]:
         return json.loads(data.decode("utf-8"))
     except Exception as e:  # pragma: no cover
         raise FileNotFoundError(
-            "Could not locate 'config_types.json' (repo root or packaged resource)."
+            "Could not locate 'config_types.json' (core/ or packaged resource)."
         ) from e

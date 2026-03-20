@@ -8,14 +8,14 @@ from typing import Callable, Optional
 
 import docx.opc.exceptions
 
-from config import Config
+from core.config import Config
 from core.scanner import FileInfo
 from core.statistics import Statistics
 from core.engines import EngineRegistry
 from core.engines.base import DetectionEngine
 from file_processors import FileProcessorRegistry
 from file_processors.image_processor import ImageProcessor
-from matches import PiiMatchContainer
+from core.matches import PiiMatchContainer
 
 
 _ASCII_CONTROL_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")

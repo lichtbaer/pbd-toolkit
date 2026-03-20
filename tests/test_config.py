@@ -1,8 +1,8 @@
 """Tests for configuration management."""
 
 import os
-from config import Config, load_extended_config
-import constants
+from core.config import Config, load_extended_config
+from core import constants
 
 
 class TestConfig:

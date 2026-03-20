@@ -12,7 +12,7 @@ from typing import Callable, Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     from gliner import GLiNER
 
-import constants
+from core import constants
 
 from core.resources import load_config_types
 

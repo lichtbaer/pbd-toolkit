@@ -6,7 +6,7 @@ import html
 import json
 from typing import Optional, Any, TextIO
 
-from matches import PiiMatch
+from core.matches import PiiMatch
 from core.exceptions import OutputError
 
 

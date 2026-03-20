@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from matches import PiiMatch
+from core.matches import PiiMatch
 from core.exceptions import OutputError
 from core.writers import (
     CsvWriter,

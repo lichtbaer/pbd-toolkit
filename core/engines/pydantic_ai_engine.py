@@ -12,7 +12,7 @@ import threading
 from typing import Optional, List, Any
 from pydantic import BaseModel, Field
 from core.engines.base import DetectionResult
-from config import Config
+from core.config import Config
 
 # Transient error indicators that warrant a retry
 _RETRYABLE_EXCEPTION_SUBSTRINGS = (

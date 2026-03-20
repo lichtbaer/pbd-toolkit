@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from api.models import EngineInfo, HealthResponse
-import constants
+from core import constants
 
 router = APIRouter(prefix="/api/v1", tags=["system"])
 

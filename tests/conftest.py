@@ -6,7 +6,7 @@ import os
 import tempfile
 
 import pytest
-from config import Config, NerStats
+from core.config import Config, NerStats
 
 
 @pytest.fixture

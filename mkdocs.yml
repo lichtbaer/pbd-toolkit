@@ -73,6 +73,7 @@ nav:
     - Roadmap: about/roadmap.md
     - Contributing: about/contributing.md
     - License: about/license.md
+    - Security & Privacy Analysis: about/security-analysis.md
 
 plugins:
   - search

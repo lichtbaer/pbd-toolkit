@@ -5,8 +5,8 @@ from unittest.mock import Mock, patch
 
 
 from core.processor import TextProcessor
-from config import NerStats
-from matches import PiiMatchContainer
+from core.config import NerStats
+from core.matches import PiiMatchContainer
 
 
 class TestTextProcessor:

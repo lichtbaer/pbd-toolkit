@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from matches import PiiMatch
+from core.matches import PiiMatch
 
 
 def redact_text(text: str, matches: list[PiiMatch]) -> str:

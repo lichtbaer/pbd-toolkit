@@ -6,8 +6,8 @@ import os
 from pathlib import Path
 from typing import Optional, Any, Callable
 
-import constants
-from config import Config
+from core import constants
+from core.config import Config
 from core.config_loader import ConfigLoader
 from core.writers import create_output_writer, OutputWriter
 
