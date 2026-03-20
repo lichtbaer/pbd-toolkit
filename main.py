@@ -8,7 +8,7 @@ Usage:
     ./main.py scan /data --regex
     python main.py scan /data --regex
     python -m main scan /data --regex
-    pii-toolkit scan /data --regex  # After installation
+    pbd-toolkit scan /data --regex  # After installation
 """
 
 # Import Typer CLI

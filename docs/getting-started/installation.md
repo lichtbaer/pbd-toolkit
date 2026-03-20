@@ -32,13 +32,16 @@ pip install -r requirements.txt
 
 ## Recommended Installation (feature extras)
 
-This repository defines optional extras in `setup.py` so you can install only what you need.
+This repository defines optional extras in `pyproject.toml` so you can install only what you need.
 
 ### Common presets
 
 ```bash
 # Everything needed for development + most features (recommended for contributors)
-pip install -e ".[dev,office,images,magic,llm,gliner,spacy]"
+pip install ".[dev,office,images,magic,llm,gliner,spacy]"
+
+# Same with uv (pip-compatible interface)
+uv pip install ".[dev,office,images,magic,llm,gliner,spacy]"
 
 # Minimal runtime (regex + basic text/html/pdf support)
 pip install -r requirements.txt
@@ -46,13 +49,13 @@ pip install -r requirements.txt
 
 ### Feature → extra mapping
 
-- **GLiNER NER (`--ner`)**: `pip install -e ".[gliner]"`
-- **spaCy NER (`--spacy-ner`)**: `pip install -e ".[spacy]"` (plus a model download, see below)
-- **Unified LLM engine (`--pydantic-ai`)**: `pip install -e ".[llm]"`
-- **Vector search engine (`--vector-search`)**: `pip install -e ".[vector]"`
-- **Office/email/etc. processors (DOCX/XLSX/MSG/...)**: `pip install -e ".[office]"`
-- **Image validation/processing**: `pip install -e ".[images]"`
-- **Magic-number type detection (`--use-magic-detection`)**: `pip install -e ".[magic]"`
+- **GLiNER NER (`--ner`)**: `pip install ".[gliner]"`
+- **spaCy NER (`--spacy-ner`)**: `pip install ".[spacy]"` (plus a model download, see below)
+- **Unified LLM engine (`--pydantic-ai`)**: `pip install ".[llm]"`
+- **Vector search engine (`--vector-search`)**: `pip install ".[vector]"`
+- **Office/email/etc. processors (DOCX/XLSX/MSG/...)**: `pip install ".[office]"`
+- **Image validation/processing**: `pip install ".[images]"`
+- **Magic-number type detection (`--use-magic-detection`)**: `pip install ".[magic]"`
 
 ## Optional Features Setup
 
@@ -69,7 +72,7 @@ The default model (`all-MiniLM-L6-v2`, ~80 MB) is downloaded automatically from 
 For better German/multilingual support, use a multilingual model:
 
 ```bash
-pii-toolkit scan /data --vector-search \
+pbd-toolkit scan /data --vector-search \
     --vector-model paraphrase-multilingual-MiniLM-L12-v2
 ```
 
@@ -176,11 +179,25 @@ For detailed security and privacy information, see [Security and Privacy Analysi
 Test the installation:
 
 ```bash
-python main.py --help
-python main.py scan --help
+pbd-toolkit --help
+pbd-toolkit scan --help
 ```
 
 You should see the help message with the `scan` command and its options.
+
+## Optional: Install as a uv tool
+
+If you want a globally runnable CLI from the local checkout:
+
+```bash
+uv tool install .
+```
+
+Then run:
+
+```bash
+pbd-toolkit --help
+```
 
 ## spaCy model download (if using `--spacy-ner`)
 

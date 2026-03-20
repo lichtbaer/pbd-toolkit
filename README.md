@@ -13,16 +13,19 @@ The pbD Toolkit is a command-line tool for scanning directories and identifying 
 python3 -m pip install -r requirements.txt
 
 # Recommended for contributors: install feature extras
-python3 -m pip install -e ".[dev,office,images,magic,llm]"
+python3 -m pip install ".[dev,office,images,magic,llm]"
+
+# Alternative with uv
+uv pip install ".[dev,office,images,magic,llm]"
 
 # Optional (if you want these engines available locally):
-# python3 -m pip install -e ".[gliner,spacy]"
+# python3 -m pip install ".[gliner,spacy]"
 
 # Basic usage
 python3 main.py scan /path/to/scan --regex --ner
 
 # Or, after installation
-pii-toolkit scan /path/to/scan --regex --ner
+pbd-toolkit scan /path/to/scan --regex --ner
 ```
 
 ## Documentation
@@ -71,37 +74,37 @@ Container variants (minimal, features, NER, full) and optional vLLM setup are do
 
 ```bash
 # Basic text-based detection
-python3 main.py scan /var/data-leak/ --regex --ner --format json --outname "scan-2024"
+pbd-toolkit scan /var/data-leak/ --regex --ner --format json --outname "scan-2024"
 
 # With magic number file type detection
-python3 main.py scan /var/data-leak/ --regex --use-magic-detection
+pbd-toolkit scan /var/data-leak/ --regex --use-magic-detection
 
 # With multimodal image detection (OpenAI)
-python3 main.py scan /var/images/ --multimodal --multimodal-api-key YOUR_KEY
+pbd-toolkit scan /var/images/ --multimodal --multimodal-api-key YOUR_KEY
 
 # LLM-based detection (recommended unified engine)
-python3 main.py scan /var/data-leak/ --pydantic-ai --pydantic-ai-provider openai \
+pbd-toolkit scan /var/data-leak/ --pydantic-ai --pydantic-ai-provider openai \
   --pydantic-ai-api-key YOUR_KEY --pydantic-ai-model gpt-4o-mini
 
 # With local multimodal models (vLLM)
-python3 main.py scan /var/images/ --multimodal \
+pbd-toolkit scan /var/images/ --multimodal \
     --multimodal-api-base http://localhost:8000/v1 \
     --multimodal-model microsoft/llava-1.6-vicuna-7b
 
 # Vector search – fully local semantic detection (requires: pip install sentence-transformers)
-python3 main.py scan /var/data-leak/ --vector-search
+pbd-toolkit scan /var/data-leak/ --vector-search
 
 # Vector search as triage pre-filter before LLM (reduces API calls by ~70-90%)
-python3 main.py scan /var/data-leak/ --vector-search --vector-triage \
+pbd-toolkit scan /var/data-leak/ --vector-search --vector-triage \
     --pydantic-ai --pydantic-ai-provider ollama --pydantic-ai-model llama3.2
 
 # Save FAISS index for later querying, use custom domain-specific exemplars
-python3 main.py scan /var/data-leak/ --vector-search \
+pbd-toolkit scan /var/data-leak/ --vector-search \
     --vector-save-index ./output/my_index \
     --vector-custom-exemplars ./my_exemplars.yaml
 
 # Query a saved FAISS index (after scan with --vector-save-index)
-python3 main.py query ./output/my_index "patient medical record" --top-k 10
+pbd-toolkit query ./output/my_index "patient medical record" --top-k 10
 ```
 
 See [User Guide](docs/user-guide/cli.md) for complete usage documentation.

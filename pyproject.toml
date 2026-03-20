@@ -1,3 +1,107 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pbd-toolkit"
+version = "1.0.0"
+description = "Scan directories for personally identifiable information"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "PII Toolkit Contributors" }]
+license = { text = "MIT" }
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+  "beautifulsoup4",
+  "pdfminer.six==20251230",
+  "tqdm~=4.66.0",
+  "defusedxml>=0.7.1",
+  "typer>=0.9.0",
+  "rich>=13.0.0",
+  "requests>=2.31.0",
+  "python-docx~=1.2.0",
+  "striprtf~=0.0.26",
+  "odfpy~=1.4.1",
+  "openpyxl~=3.1.0",
+  "xlrd~=2.0.1",
+  "extract-msg~=0.41.0",
+  "python-pptx~=0.6.23",
+  "PyYAML~=6.0.1",
+  "Pillow>=10.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/lichtbaer/pbd-toolkit"
+
+[project.scripts]
+pbd-toolkit = "core.cli:cli"
+
+[project.optional-dependencies]
+dev = [
+  "pytest~=8.0.0",
+  "pytest-cov~=4.1.0",
+  "pytest-mock~=3.15.1",
+]
+office = [
+  "python-docx~=1.2.0",
+  "striprtf~=0.0.26",
+  "odfpy~=1.4.1",
+  "openpyxl~=3.1.0",
+  "xlrd~=2.0.1",
+  "extract-msg~=0.41.0",
+  "python-pptx~=0.6.23",
+  "PyYAML~=6.0.1",
+]
+images = ["Pillow>=10.0.0"]
+gliner = ["gliner~=0.2.22"]
+spacy = ["spacy>=3.7.0"]
+llm = ["pydantic-ai>=0.0.10", "pydantic>=2.0.0", "requests>=2.31.0"]
+magic = ["python-magic>=0.4.27", "filetype>=1.2.0"]
+vector = ["sentence-transformers>=2.2.0"]
+api = ["fastapi>=0.104.0", "uvicorn[standard]>=0.24.0", "pydantic>=2.0.0"]
+all = [
+  "pytest~=8.0.0",
+  "pytest-cov~=4.1.0",
+  "pytest-mock~=3.15.1",
+  "python-docx~=1.2.0",
+  "striprtf~=0.0.26",
+  "odfpy~=1.4.1",
+  "openpyxl~=3.1.0",
+  "xlrd~=2.0.1",
+  "extract-msg~=0.41.0",
+  "python-pptx~=0.6.23",
+  "PyYAML~=6.0.1",
+  "Pillow>=10.0.0",
+  "gliner~=0.2.22",
+  "spacy>=3.7.0",
+  "pydantic-ai>=0.0.10",
+  "pydantic>=2.0.0",
+  "requests>=2.31.0",
+  "python-magic>=0.4.27",
+  "filetype>=1.2.0",
+  "sentence-transformers>=2.2.0",
+  "fastapi>=0.104.0",
+  "uvicorn[standard]>=0.24.0",
+]
+
+[tool.setuptools]
+include-package-data = true
+py-modules = ["main", "cli_setup", "config", "constants", "globals", "matches", "check_licenses"]
+
+[tool.setuptools.packages.find]
+exclude = ["tests", "tests.*"]
+
+[tool.setuptools.package-data]
+core = ["config_types.json"]
+
 [tool.ruff]
 line-length = 88
 target-version = "py310"

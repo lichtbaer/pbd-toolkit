@@ -22,7 +22,7 @@ from core.config_loader import ConfigLoader
 
 # Create Typer app
 app = typer.Typer(
-    name="pii-toolkit",
+    name="pbd-toolkit",
     help="Scan directories for personally identifiable information",
     add_completion=False,
     no_args_is_help=True,
@@ -39,14 +39,14 @@ def _get_cli_version() -> str:
     try:
         from importlib.metadata import version  # type: ignore
 
-        return version("pii-toolkit")
+        return version("pbd-toolkit")
     except Exception:
         return getattr(constants, "VERSION", "unknown")
 
 
 def _version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"pii-toolkit {_get_cli_version()}")
+        typer.echo(f"pbd-toolkit {_get_cli_version()}")
         raise typer.Exit()
 
 
@@ -1375,11 +1375,11 @@ def query(
 
     [bold]Examples:[/bold]
 
-        pii-toolkit query ./my_index "Name und Adresse des Kunden"
+        pbd-toolkit query ./my_index "Name und Adresse des Kunden"
 
-        pii-toolkit query ./my_index --query "credit card number" --top-k 10
+        pbd-toolkit query ./my_index --query "credit card number" --top-k 10
 
-        pii-toolkit query ./my_index -q "Krankenversicherungsnummer" --format json
+        pbd-toolkit query ./my_index -q "Krankenversicherungsnummer" --format json
     """
     resolved_query = query_opt or query_text
     if not resolved_query:
@@ -1411,7 +1411,7 @@ def query(
         typer.echo(
             "Error: sentence-transformers is not installed.\n"
             "Install with:  pip install sentence-transformers\n"
-            "           or: pip install 'pii-toolkit[vector]'",
+            "           or: pip install 'pbd-toolkit[vector]'",
             err=True,
         )
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
@@ -1486,9 +1486,9 @@ def diff(
 
     [bold]Examples:[/bold]
 
-        pii-toolkit diff old_findings.json new_findings.json
+        pbd-toolkit diff old_findings.json new_findings.json
 
-        pii-toolkit diff baseline.jsonl current.jsonl --format json
+        pbd-toolkit diff baseline.jsonl current.jsonl --format json
     """
     import json
 
@@ -1602,7 +1602,7 @@ def serve(
     except ImportError:
         typer.echo(
             "The API module requires additional dependencies.\n"
-            "Install them with:  pip install 'pii-toolkit[api]'",
+            "Install them with:  pip install 'pbd-toolkit[api]'",
             err=True,
         )
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)

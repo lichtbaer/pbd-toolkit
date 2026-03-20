@@ -18,13 +18,13 @@ class TestCliVersion:
         """Test --version prints version and exits."""
         result = runner.invoke(app, ["--version"])
         assert result.exit_code == 0
-        assert "pii-toolkit" in result.output
+        assert "pbd-toolkit" in result.output
 
     def test_version_short_flag(self):
         """Test -V prints version."""
         result = runner.invoke(app, ["-V"])
         assert result.exit_code == 0
-        assert "pii-toolkit" in result.output
+        assert "pbd-toolkit" in result.output
 
 
 class TestCliScan:
