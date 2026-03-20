@@ -1,7 +1,7 @@
 """Tests for PII matching functionality."""
 
 import re
-from matches import PiiMatch, PiiMatchContainer
+from core.matches import PiiMatch, PiiMatchContainer
 
 
 class TestPiiMatch:

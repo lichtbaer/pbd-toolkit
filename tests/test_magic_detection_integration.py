@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 from core.scanner import FileScanner, FileInfo
-from config import Config
+from core.config import Config
 
 
 class TestMagicDetectionIntegration:

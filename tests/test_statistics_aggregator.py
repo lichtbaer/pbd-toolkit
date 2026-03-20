@@ -1,6 +1,6 @@
 """Tests for statistics aggregator."""
 
-from matches import PiiMatch
+from core.matches import PiiMatch
 from core.statistics_aggregator import StatisticsAggregator
 
 

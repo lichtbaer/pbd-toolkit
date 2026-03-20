@@ -35,3 +35,6 @@ Testdaten/_meta/
 
 # Performance test reports
 tests/perf/reports/
+
+# Generated reports
+license_report.json

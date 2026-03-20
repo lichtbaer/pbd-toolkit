@@ -7,7 +7,7 @@ from typing import Callable, Optional
 
 from tqdm import tqdm
 
-from config import Config
+from core.config import Config
 from core.file_type_detector import FileTypeDetector
 from file_processors import FileProcessorRegistry
 

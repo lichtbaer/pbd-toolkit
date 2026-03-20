@@ -3,10 +3,10 @@
 import logging
 from typing import Optional
 from core.engines.base import DetectionResult
-from config import Config
+from core.config import Config
 
 # Exposed for test patching and runtime type mapping
-from matches import config_regex_sorted
+from core.matches import config_regex_sorted
 
 _logger = logging.getLogger(__name__)
 

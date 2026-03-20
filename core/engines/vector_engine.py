@@ -35,7 +35,7 @@ from __future__ import annotations
 import threading
 from typing import Optional
 
-from config import Config
+from core.config import Config
 from core.engines.base import DetectionResult
 from core.indexer.document_indexer import DocumentIndexer
 

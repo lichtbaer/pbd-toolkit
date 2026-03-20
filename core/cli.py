@@ -7,10 +7,10 @@ from typing import Optional
 import typer
 
 # Import existing setup and processing logic
-import cli_setup as setup
-import constants
-from config import Config
-from matches import PiiMatchContainer
+from core import cli_setup as setup
+from core import constants
+from core.config import Config
+from core.matches import PiiMatchContainer
 from core.doctor import run_doctor
 from core.exceptions import OutputError
 from core.scanner import FileScanner, FileInfo

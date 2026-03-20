@@ -4,7 +4,7 @@ from typing import Iterator
 from file_processors.base_processor import BaseFileProcessor
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LTTextContainer
-import constants
+from core import constants
 
 
 class PdfProcessor(BaseFileProcessor):

@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import Mock, patch
-from config import Config
+from core.config import Config
 from core.engines import EngineRegistry
 from core.engines.regex_engine import RegexEngine
 from core.engines.gliner_engine import GLiNEREngine

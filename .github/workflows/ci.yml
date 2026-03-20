@@ -46,9 +46,9 @@ jobs:
       - name: Ruff
         run: |
           # Keep linting lightweight and actionable: fail on fatal errors only.
-          python -m ruff check core file_processors validators config.py matches.py main.py cli_setup.py
+          python -m ruff check core file_processors validators
           # Formatting is enforced for core source files.
-          python -m ruff format --check core file_processors validators config.py matches.py main.py cli_setup.py
+          python -m ruff format --check core file_processors validators
 
   security:
     runs-on: ubuntu-latest
@@ -72,7 +72,7 @@ jobs:
       - name: Bandit
         run: |
           # Fail on medium+ severity and confidence findings.
-          bandit -q -r core file_processors validators config.py matches.py main.py cli_setup.py -x tests --severity-level medium --confidence-level medium
+          bandit -q -r core file_processors validators -x tests --severity-level medium --confidence-level medium
 
       - name: pip-audit
         run: |

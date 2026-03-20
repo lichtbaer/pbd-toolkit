@@ -8,7 +8,7 @@ import os
 from collections import defaultdict
 from typing import Dict, Set, Optional
 
-from matches import PiiMatch
+from core.matches import PiiMatch
 from core.privacy_dimensions import (
     get_dimension,
     get_sensitivity_level,

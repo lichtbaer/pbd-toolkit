@@ -1,6 +1,6 @@
 """Integration tests for the PII toolkit."""
 
-from matches import PiiMatchContainer
+from core.matches import PiiMatchContainer
 
 
 class TestIntegration:

@@ -6,9 +6,9 @@ import logging
 from dataclasses import dataclass
 from typing import Callable, Optional
 
-from config import Config
+from core.config import Config
 from core.statistics import Statistics
-from matches import PiiMatchContainer
+from core.matches import PiiMatchContainer
 from core.writers import OutputWriter
 
 

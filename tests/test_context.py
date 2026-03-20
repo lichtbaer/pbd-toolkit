@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 from core.context import ApplicationContext
 from core.statistics import Statistics
-from matches import PiiMatchContainer
+from core.matches import PiiMatchContainer
 
 
 class TestApplicationContext:
