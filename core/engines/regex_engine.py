@@ -1,5 +1,6 @@
 """Regex-based detection engine."""
 
+import logging
 from typing import Optional
 from core.engines.base import DetectionResult
 from config import Config
@@ -7,24 +8,38 @@ from config import Config
 # Exposed for test patching and runtime type mapping
 from matches import config_regex_sorted
 
+_logger = logging.getLogger(__name__)
+
 try:
     from validators.credit_card_validator import CreditCardValidator
-except Exception:  # pragma: no cover - optional dependency / import-time issues
+except ImportError:
+    CreditCardValidator = None  # type: ignore[assignment]
+except Exception as _exc:  # pragma: no cover
+    _logger.warning("Failed to load CreditCardValidator: %s", _exc)
     CreditCardValidator = None  # type: ignore[assignment]
 
 try:
     from validators.iban_validator import IbanValidator
-except Exception:  # pragma: no cover
+except ImportError:
+    IbanValidator = None  # type: ignore[assignment]
+except Exception as _exc:  # pragma: no cover
+    _logger.warning("Failed to load IbanValidator: %s", _exc)
     IbanValidator = None  # type: ignore[assignment]
 
 try:
     from validators.tax_id_validator import TaxIdValidator
-except Exception:  # pragma: no cover
+except ImportError:
+    TaxIdValidator = None  # type: ignore[assignment]
+except Exception as _exc:  # pragma: no cover
+    _logger.warning("Failed to load TaxIdValidator: %s", _exc)
     TaxIdValidator = None  # type: ignore[assignment]
 
 try:
     from validators.bic_validator import BicValidator
-except Exception:  # pragma: no cover
+except ImportError:
+    BicValidator = None  # type: ignore[assignment]
+except Exception as _exc:  # pragma: no cover
+    _logger.warning("Failed to load BicValidator: %s", _exc)
     BicValidator = None  # type: ignore[assignment]
 
 

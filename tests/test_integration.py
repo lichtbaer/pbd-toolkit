@@ -14,10 +14,11 @@ class TestIntegration:
         # Mock csvwriter
         written_rows = []
 
-        def mock_writerow(row):
-            written_rows.append(row)
+        class MockCsvWriter:
+            def writerow(self, row):
+                written_rows.append(row)
 
-        mock_csv_writer = type("obj", (object,), {"writerow": mock_writerow})()
+        mock_csv_writer = MockCsvWriter()
         container.set_csv_writer(mock_csv_writer)
         container.set_output_format("csv")
 

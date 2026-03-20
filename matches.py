@@ -260,18 +260,7 @@ class PiiMatchContainer:
             if self._output_format == "csv" and self._csv_writer:
                 # Keep CSV row shape stable: Match, File, Type, Score, Engine, Severity
                 row = [pm.text, pm.file, pm.type, pm.ner_score, pm.engine, pm.severity]
-                try:
-                    self._csv_writer.writerow(row)
-                except TypeError:
-                    # Some tests provide a "writer" where writerow is a function
-                    # assigned to an instance, which becomes a bound method and
-                    # receives an extra positional argument. Fall back to calling
-                    # the underlying function without binding.
-                    writerow = getattr(self._csv_writer, "writerow", None)
-                    if writerow is not None and hasattr(writerow, "__func__"):
-                        writerow.__func__(row)  # type: ignore[attr-defined]
-                    else:
-                        raise
+                self._csv_writer.writerow(row)
 
             # Stream to output writer for non-CSV formats that support streaming.
             # CSV is handled above to keep backward-compatible behavior stable.

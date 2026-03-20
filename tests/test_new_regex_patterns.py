@@ -28,10 +28,11 @@ class TestPhoneNumberDetection:
 
         mock_writer = []
 
-        def mock_writerow(row):
-            mock_writer.append(row)
+        class MockCsvWriter:
+            def writerow(self, row):
+                mock_writer.append(row)
 
-        container.set_csv_writer(type("obj", (object,), {"writerow": mock_writerow})())
+        container.set_csv_writer(MockCsvWriter())
         container.set_output_format("csv")
 
         for match in matches:
@@ -58,10 +59,11 @@ class TestPhoneNumberDetection:
 
         mock_writer = []
 
-        def mock_writerow(row):
-            mock_writer.append(row)
+        class MockCsvWriter:
+            def writerow(self, row):
+                mock_writer.append(row)
 
-        container.set_csv_writer(type("obj", (object,), {"writerow": mock_writerow})())
+        container.set_csv_writer(MockCsvWriter())
         container.set_output_format("csv")
 
         for match in matches:
@@ -92,10 +94,11 @@ class TestTaxIdDetection:
 
         mock_writer = []
 
-        def mock_writerow(row):
-            mock_writer.append(row)
+        class MockCsvWriter:
+            def writerow(self, row):
+                mock_writer.append(row)
 
-        container.set_csv_writer(type("obj", (object,), {"writerow": mock_writerow})())
+        container.set_csv_writer(MockCsvWriter())
         container.set_output_format("csv")
 
         for match in matches:
@@ -124,10 +127,11 @@ class TestTaxIdDetection:
 
         mock_writer = []
 
-        def mock_writerow(row):
-            mock_writer.append(row)
+        class MockCsvWriter:
+            def writerow(self, row):
+                mock_writer.append(row)
 
-        container.set_csv_writer(type("obj", (object,), {"writerow": mock_writerow})())
+        container.set_csv_writer(MockCsvWriter())
         container.set_output_format("csv")
 
         for match in matches:
@@ -158,10 +162,11 @@ class TestBicDetection:
 
         mock_writer = []
 
-        def mock_writerow(row):
-            mock_writer.append(row)
+        class MockCsvWriter:
+            def writerow(self, row):
+                mock_writer.append(row)
 
-        container.set_csv_writer(type("obj", (object,), {"writerow": mock_writerow})())
+        container.set_csv_writer(MockCsvWriter())
         container.set_output_format("csv")
 
         for match in matches:
@@ -194,10 +199,11 @@ class TestPostalCodeDetection:
 
         mock_writer = []
 
-        def mock_writerow(row):
-            mock_writer.append(row)
+        class MockCsvWriter:
+            def writerow(self, row):
+                mock_writer.append(row)
 
-        container.set_csv_writer(type("obj", (object,), {"writerow": mock_writerow})())
+        container.set_csv_writer(MockCsvWriter())
         container.set_output_format("csv")
 
         for match in matches:
@@ -232,10 +238,11 @@ class TestExtendedSignalWords:
 
         mock_writer = []
 
-        def mock_writerow(row):
-            mock_writer.append(row)
+        class MockCsvWriter:
+            def writerow(self, row):
+                mock_writer.append(row)
 
-        container.set_csv_writer(type("obj", (object,), {"writerow": mock_writerow})())
+        container.set_csv_writer(MockCsvWriter())
         container.set_output_format("csv")
 
         for match in matches:
@@ -266,10 +273,11 @@ class TestExtendedSignalWords:
 
         mock_writer = []
 
-        def mock_writerow(row):
-            mock_writer.append(row)
+        class MockCsvWriter:
+            def writerow(self, row):
+                mock_writer.append(row)
 
-        container.set_csv_writer(type("obj", (object,), {"writerow": mock_writerow})())
+        container.set_csv_writer(MockCsvWriter())
         container.set_output_format("csv")
 
         for match in matches:
@@ -300,10 +308,11 @@ class TestExtendedSignalWords:
 
         mock_writer = []
 
-        def mock_writerow(row):
-            mock_writer.append(row)
+        class MockCsvWriter:
+            def writerow(self, row):
+                mock_writer.append(row)
 
-        container.set_csv_writer(type("obj", (object,), {"writerow": mock_writerow})())
+        container.set_csv_writer(MockCsvWriter())
         container.set_output_format("csv")
 
         for match in matches:
@@ -340,10 +349,11 @@ class TestCreditCardDetection:
 
         mock_writer = []
 
-        def mock_writerow(row):
-            mock_writer.append(row)
+        class MockCsvWriter:
+            def writerow(self, row):
+                mock_writer.append(row)
 
-        container.set_csv_writer(type("obj", (object,), {"writerow": mock_writerow})())
+        container.set_csv_writer(MockCsvWriter())
         container.set_output_format("csv")
 
         for match in matches:
@@ -370,10 +380,11 @@ class TestCreditCardDetection:
 
         mock_writer = []
 
-        def mock_writerow(row):
-            mock_writer.append(row)
+        class MockCsvWriter:
+            def writerow(self, row):
+                mock_writer.append(row)
 
-        container.set_csv_writer(type("obj", (object,), {"writerow": mock_writerow})())
+        container.set_csv_writer(MockCsvWriter())
         container.set_output_format("csv")
 
         for match in matches:

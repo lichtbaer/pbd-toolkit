@@ -13,7 +13,7 @@ from core.scanner import FileInfo
 from core.statistics import Statistics
 from core.engines import EngineRegistry
 from core.engines.base import DetectionEngine
-from file_processors import FileProcessorRegistry, PdfProcessor
+from file_processors import FileProcessorRegistry
 from file_processors.image_processor import ImageProcessor
 from matches import PiiMatchContainer
 
@@ -177,12 +177,13 @@ class TextProcessor:
             start += step
         return chunks
 
-    def process_text(self, text: str, file_path: str) -> None:
+    def process_text(self, text: str, file_path: str, *, _deadline: float | None = None) -> None:
         """Process text content with all enabled detection engines.
 
         Args:
             text: Text content to analyze
             file_path: Path to the file containing the text
+            _deadline: Optional monotonic deadline (internal, set by process_file)
         """
         if not text.strip():
             return
@@ -220,6 +221,13 @@ class TextProcessor:
 
         # Run all enabled engines
         for engine in self.engines:
+            # Check per-file deadline before starting the next engine
+            if _deadline is not None and time.monotonic() > _deadline:
+                self.config.logger.warning(
+                    f"Per-file timeout reached for {file_path}, skipping remaining engines"
+                )
+                break
+
             start_time = time.time()
             try:
                 results = []
@@ -347,6 +355,9 @@ class TextProcessor:
                 self.config.logger.debug(f"Skipping unsupported file type: {full_path}")
             return False
 
+        file_start_time = time.monotonic()
+        file_timeout = getattr(self.config, "max_processing_time_seconds", 300)
+
         try:
             # Handle image files with PydanticAI engine (supports multimodal)
             if isinstance(processor, ImageProcessor):
@@ -392,15 +403,25 @@ class TextProcessor:
                         )
                 return True
 
-            # PDF processor yields text chunks, others return full text
-            if isinstance(processor, PdfProcessor):
-                for text_chunk in processor.extract_text(full_path):
-                    if text_chunk.strip():  # Only process non-empty chunks
-                        self.process_text(text_chunk, full_path)
+            # Calculate deadline for this file
+            deadline = file_start_time + file_timeout if file_timeout > 0 else None
+
+            # Extract text: some processors yield chunks (PDF, SQLite, MBOX, ZIP),
+            # others return a single string.
+            result = processor.extract_text(full_path)
+            if isinstance(result, str):
+                if result.strip():
+                    self.process_text(result, full_path, _deadline=deadline)
             else:
-                text = processor.extract_text(full_path)
-                if text.strip():  # Only process if there's actual text
-                    self.process_text(text, full_path)
+                # Iterator-based processor (PDF, SQLite, MBOX, ZIP)
+                for text_chunk in result:
+                    if deadline and time.monotonic() > deadline:
+                        self.config.logger.warning(
+                            f"Per-file timeout ({file_timeout}s) reached during text extraction: {full_path}"
+                        )
+                        break
+                    if text_chunk.strip():
+                        self.process_text(text_chunk, full_path, _deadline=deadline)
 
             if self.config.verbose:
                 self.config.logger.debug(f"Successfully processed: {full_path}")

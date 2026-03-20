@@ -339,8 +339,70 @@ def run_doctor(
     _check_import("bs4", "HTML processing", "pip install beautifulsoup4")
     _check_import("defusedxml", "Secure XML parsing", "pip install defusedxml")
     _check_import("PIL", "Image processing (multimodal)", "pip install Pillow")
+    _check_import(
+        "sentence_transformers",
+        "Vector search (--vector-search)",
+        "pip install sentence-transformers",
+    )
+    _check_import("magic", "Magic file detection (--use-magic-detection)", "pip install python-magic")
+    _check_import("fastapi", "REST API (pii-toolkit serve)", "pip install fastapi")
+    _check_import("yaml", "YAML config files", "pip install pyyaml")
 
     details["dependencies"] = dep_results
+
+    # --- GPU / CUDA availability ---
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            gpu_name = torch.cuda.get_device_name(0)
+            cuda_ver = torch.version.cuda or "unknown"
+            issues.append(
+                DoctorIssue(
+                    "info",
+                    f"GPU available: {gpu_name} (CUDA {cuda_ver}) ✓",
+                )
+            )
+            details["gpu"] = {"available": True, "name": gpu_name, "cuda": cuda_ver}
+        else:
+            issues.append(
+                DoctorIssue(
+                    "info",
+                    "No GPU detected. NER models will run on CPU (slower).",
+                )
+            )
+            details["gpu"] = {"available": False}
+    except ImportError:
+        issues.append(
+            DoctorIssue("info", "PyTorch not installed — GPU detection skipped.")
+        )
+        details["gpu"] = {"available": False, "reason": "torch not installed"}
+
+    # --- Output directory disk space ---
+    try:
+        import shutil
+
+        output_path = Path("./output/")
+        check_path = output_path if output_path.exists() else Path(".")
+        disk_usage = shutil.disk_usage(check_path)
+        free_gb = disk_usage.free / (1024**3)
+        if free_gb < 1.0:
+            issues.append(
+                DoctorIssue(
+                    "warning",
+                    f"Low disk space in output directory: {free_gb:.1f} GB free",
+                )
+            )
+        else:
+            issues.append(
+                DoctorIssue(
+                    "info",
+                    f"Disk space in output directory: {free_gb:.1f} GB free ✓",
+                )
+            )
+        details["disk_free_gb"] = round(free_gb, 1)
+    except Exception:
+        pass
 
     # Multimodal (OpenAI-compatible) local UX hint (best-effort, no network calls).
     issues.append(

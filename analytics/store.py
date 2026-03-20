@@ -79,7 +79,7 @@ class AnalyticsStore:
                 )
                 conn.commit()
         except Exception as exc:
-            self._logger.debug("AnalyticsStore: create_session failed: %s", exc)
+            self._logger.warning("AnalyticsStore: create_session failed: %s", exc)
 
         return session_id
 
@@ -119,7 +119,7 @@ class AnalyticsStore:
                 )
                 conn.commit()
         except Exception as exc:
-            self._logger.debug("AnalyticsStore: complete_session failed: %s", exc)
+            self._logger.warning("AnalyticsStore: complete_session failed: %s", exc)
 
     def fail_session(self, session_id: str, error_msg: str | None = None) -> None:
         """Mark a session as failed."""
@@ -138,7 +138,7 @@ class AnalyticsStore:
                 )
                 conn.commit()
         except Exception as exc:
-            self._logger.debug("AnalyticsStore: fail_session failed: %s", exc)
+            self._logger.warning("AnalyticsStore: fail_session failed: %s", exc)
 
     # ------------------------------------------------------------------
     # Finding recording
@@ -179,7 +179,7 @@ class AnalyticsStore:
                 )
                 conn.commit()
         except Exception as exc:
-            self._logger.debug("AnalyticsStore: record_finding failed: %s", exc)
+            self._logger.warning("AnalyticsStore: record_finding failed: %s", exc)
 
     def record_finding_from_match(self, session_id: str, match: Any) -> None:
         """Convenience wrapper that accepts a ``PiiMatch`` object.
@@ -224,7 +224,7 @@ class AnalyticsStore:
                 )
                 conn.commit()
         except Exception as exc:
-            self._logger.debug("AnalyticsStore: record_engine_stats failed: %s", exc)
+            self._logger.warning("AnalyticsStore: record_engine_stats failed: %s", exc)
 
     def record_file_type_stats(
         self,
@@ -248,7 +248,7 @@ class AnalyticsStore:
                 )
                 conn.commit()
         except Exception as exc:
-            self._logger.debug("AnalyticsStore: record_file_type_stats failed: %s", exc)
+            self._logger.warning("AnalyticsStore: record_file_type_stats failed: %s", exc)
 
     # ------------------------------------------------------------------
     # Lifecycle

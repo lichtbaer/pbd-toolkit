@@ -64,10 +64,11 @@ class TestPiiMatchContainer:
         # Set CSV writer for testing
         mock_writer = []
 
-        def mock_writerow(row):
-            mock_writer.append(row)
+        class MockCsvWriter:
+            def writerow(self, row):
+                mock_writer.append(row)
 
-        container.set_csv_writer(type("obj", (object,), {"writerow": mock_writerow})())
+        container.set_csv_writer(MockCsvWriter())
         container.set_output_format("csv")
 
         # Create a mock regex match
