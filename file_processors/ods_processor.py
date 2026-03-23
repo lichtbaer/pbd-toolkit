@@ -1,8 +1,9 @@
 """ODS file processor using odfpy library."""
 
-from file_processors.base_processor import BaseFileProcessor
 from odf.opendocument import load
-from odf.table import Table, TableRow, TableCell
+from odf.table import Table, TableCell, TableRow
+
+from file_processors.base_processor import BaseFileProcessor
 
 
 class OdsProcessor(BaseFileProcessor):

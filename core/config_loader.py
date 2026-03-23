@@ -77,7 +77,7 @@ class ConfigLoader:
         suffix = config_path.suffix.lower()
 
         try:
-            with open(config_path, "r", encoding="utf-8") as f:
+            with open(config_path, encoding="utf-8") as f:
                 if suffix in [".yaml", ".yml"]:
                     if yaml is None:
                         raise ValueError(

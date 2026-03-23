@@ -33,7 +33,6 @@ As triage pre-filter (saves LLM API calls)::
 from __future__ import annotations
 
 import threading
-from typing import Optional
 
 from core.config import Config
 from core.engines.base import DetectionResult
@@ -62,9 +61,9 @@ class VectorEngine:
         model_name: str = str(
             getattr(config, "vector_model", "sentence-transformers/all-MiniLM-L6-v2")
         )
-        save_index: Optional[str] = getattr(config, "vector_save_index", None) or None
-        load_index: Optional[str] = getattr(config, "vector_load_index", None) or None
-        custom_exemplars: Optional[str] = (
+        save_index: str | None = getattr(config, "vector_save_index", None) or None
+        load_index: str | None = getattr(config, "vector_load_index", None) or None
+        custom_exemplars: str | None = (
             getattr(config, "vector_custom_exemplars", None) or None
         )
 
@@ -81,7 +80,7 @@ class VectorEngine:
         self._counter_lock = threading.Lock()
         # Thread-local storage for current file context (path + hash)
         self._thread_local = threading.local()
-        self._available: Optional[bool] = None
+        self._available: bool | None = None
 
     # ------------------------------------------------------------------
     # DetectionEngine protocol

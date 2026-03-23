@@ -50,9 +50,7 @@ class AnalyticsQueries:
             params.append(status)
 
         with self._db.lock:
-            cur = conn.execute(
-                f"SELECT COUNT(*) FROM scan_sessions {where}", params
-            )
+            cur = conn.execute(f"SELECT COUNT(*) FROM scan_sessions {where}", params)
             total = cur.fetchone()[0]
 
             cur = conn.execute(
@@ -104,9 +102,15 @@ class AnalyticsQueries:
         try:
             with self._db.lock:
                 conn.execute("DELETE FROM findings WHERE session_id = ?", (session_id,))
-                conn.execute("DELETE FROM engine_stats WHERE session_id = ?", (session_id,))
-                conn.execute("DELETE FROM file_type_stats WHERE session_id = ?", (session_id,))
-                cur = conn.execute("DELETE FROM scan_sessions WHERE id = ?", (session_id,))
+                conn.execute(
+                    "DELETE FROM engine_stats WHERE session_id = ?", (session_id,)
+                )
+                conn.execute(
+                    "DELETE FROM file_type_stats WHERE session_id = ?", (session_id,)
+                )
+                cur = conn.execute(
+                    "DELETE FROM scan_sessions WHERE id = ?", (session_id,)
+                )
                 conn.commit()
                 return cur.rowcount > 0
         except Exception as exc:

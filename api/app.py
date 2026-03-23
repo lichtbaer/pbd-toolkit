@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
-from typing import Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,9 +23,9 @@ _DEFAULT_CORS_ORIGINS = ["http://localhost:3000", "http://localhost:8080"]
 
 def create_app(
     analytics_db_path: str = ".pbd_analytics.db",
-    cors_origins: Optional[list[str]] = None,
-    api_key: Optional[str] = None,
-    allowed_scan_roots: Optional[list[str]] = None,
+    cors_origins: list[str] | None = None,
+    api_key: str | None = None,
+    allowed_scan_roots: list[str] | None = None,
     rate_limit: int = 60,
     scan_rate_limit: int = 5,
 ) -> FastAPI:
@@ -100,8 +99,8 @@ def create_app(
     app.state.scanner_service = scanner_service
 
     # Register routers ----------------------------------------------------
-    from api.routes.scans import router as scans_router
     from api.routes.analytics import router as analytics_router
+    from api.routes.scans import router as scans_router
     from api.routes.system import router as system_router
 
     app.include_router(scans_router)

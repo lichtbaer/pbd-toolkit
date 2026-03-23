@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Type
 
 from file_processors.base_processor import BaseFileProcessor
 
@@ -44,7 +43,7 @@ class FileProcessorRegistry:
             cls._can_process_meta[processor] = cls._compute_can_process_meta(processor)
 
     @classmethod
-    def register_class(cls, processor_class: Type[BaseFileProcessor]) -> None:
+    def register_class(cls, processor_class: type[BaseFileProcessor]) -> None:
         """Register a processor class (creates instance automatically).
 
         Args:
@@ -86,7 +85,7 @@ class FileProcessorRegistry:
     @classmethod
     def get_processor(
         cls, extension: str, file_path: str = "", mime_type: str = ""
-    ) -> Optional[BaseFileProcessor]:
+    ) -> BaseFileProcessor | None:
         """Get the appropriate processor for a file extension.
 
         Args:

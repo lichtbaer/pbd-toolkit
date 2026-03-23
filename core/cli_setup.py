@@ -3,13 +3,14 @@ import datetime
 import gettext
 import logging
 import os
+from collections.abc import Callable
 from pathlib import Path
-from typing import Optional, Any, Callable
+from typing import Any
 
 from core import constants
 from core.config import Config
 from core.config_loader import ConfigLoader
-from core.writers import create_output_writer, OutputWriter
+from core.writers import OutputWriter, create_output_writer
 
 """ Setup language handling by referring to the environment variable LANGUAGE and loading the corresponding
     locales file. """
@@ -340,9 +341,9 @@ def __setup_args(translate_func: Callable[[str], str]) -> argparse.Namespace:
 
 
 def __setup_logger(
-    args: Optional[argparse.Namespace],
+    args: argparse.Namespace | None,
     outslug: str = "",
-    output_dir: Optional[str] = None,
+    output_dir: str | None = None,
 ) -> logging.Logger:
     """Setup logging.
 
@@ -432,7 +433,7 @@ def setup() -> tuple[
     argparse.Namespace,
     logging.Logger,
     Callable[[str], str],
-    Optional[OutputWriter],
+    OutputWriter | None,
     str,
 ]:
     """Setup application: parse arguments, setup logging, create output writer.
@@ -446,6 +447,7 @@ def setup() -> tuple[
         Tuple of (args, logger, translate_func, output_writer, output_file_path)
     """
     import warnings
+
     warnings.warn(
         "cli_setup.setup() is deprecated. Use the Typer-based CLI (core.cli) instead.",
         DeprecationWarning,
@@ -519,7 +521,7 @@ def create_config(
     Returns:
         Config instance with all dependencies injected
     """
-    from config import Config
+    from core.config import Config
 
     return Config.from_args(
         args=args,

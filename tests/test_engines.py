@@ -1,11 +1,13 @@
 """Tests for detection engines."""
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+
 from core.config import Config
 from core.engines import EngineRegistry
-from core.engines.regex_engine import RegexEngine
 from core.engines.gliner_engine import GLiNEREngine
+from core.engines.regex_engine import RegexEngine
 
 
 class TestEngineRegistry:

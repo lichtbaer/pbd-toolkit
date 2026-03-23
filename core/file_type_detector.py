@@ -2,7 +2,6 @@
 
 import logging
 import os
-from typing import Optional
 
 _logger = logging.getLogger(__name__)
 
@@ -53,7 +52,7 @@ class FileTypeDetector:
             except ImportError:
                 pass
 
-    def detect_type(self, file_path: str) -> Optional[str]:
+    def detect_type(self, file_path: str) -> str | None:
         """Detect file type using magic numbers.
 
         Args:
@@ -73,7 +72,9 @@ class FileTypeDetector:
             try:
                 return self._magic.from_file(file_path)
             except Exception as exc:
-                _logger.debug("python-magic detection failed for %s: %s", file_path, exc)
+                _logger.debug(
+                    "python-magic detection failed for %s: %s", file_path, exc
+                )
 
         # Fallback to filetype
         if self._filetype:
@@ -86,7 +87,7 @@ class FileTypeDetector:
 
         return None
 
-    def get_extension_from_mime(self, mime_type: str) -> Optional[str]:
+    def get_extension_from_mime(self, mime_type: str) -> str | None:
         """Get likely file extension from MIME type.
 
         Args:

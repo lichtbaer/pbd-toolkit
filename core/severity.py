@@ -14,7 +14,7 @@ Combination-risk escalation (applied per file):
 
 from __future__ import annotations
 
-from typing import Collection
+from collections.abc import Collection
 
 # ---------------------------------------------------------------------------
 # Per-type severity map

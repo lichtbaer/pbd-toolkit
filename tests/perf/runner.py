@@ -5,11 +5,10 @@ import shutil
 import subprocess
 import sys
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
-
+from typing import Any
 
 SCENARIO_DEFAULTS = {
     "summary_format": "json",
@@ -24,7 +23,7 @@ class ScenarioResult:
     run_index: int
     return_code: int
     duration_seconds: float
-    summary: Optional[dict[str, Any]]
+    summary: dict[str, Any] | None
     stdout_tail: str
     stderr_tail: str
     command: list[str]
@@ -59,7 +58,9 @@ def ensure_summary_arg(args: list[str], summary_format: str) -> list[str]:
     return args + ["--summary-format", summary_format]
 
 
-def ensure_output_args(args: list[str], output_format: str, output_dir: str) -> list[str]:
+def ensure_output_args(
+    args: list[str], output_format: str, output_dir: str
+) -> list[str]:
     if "--format" not in args:
         args = args + ["--format", output_format]
     if "--output-dir" not in args:
@@ -67,7 +68,7 @@ def ensure_output_args(args: list[str], output_format: str, output_dir: str) -> 
     return args
 
 
-def extract_json_summary(stdout: str) -> Optional[dict[str, Any]]:
+def extract_json_summary(stdout: str) -> dict[str, Any] | None:
     for idx in range(len(stdout) - 1, -1, -1):
         if stdout[idx] == "{":
             candidate = stdout[idx:]

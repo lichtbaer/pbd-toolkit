@@ -1,6 +1,7 @@
 """MSG file processor using extract-msg library."""
 
 import re
+
 from file_processors.base_processor import BaseFileProcessor
 
 try:

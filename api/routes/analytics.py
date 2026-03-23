@@ -17,6 +17,7 @@ def _validate_optional_session_id(session_id: str | None) -> None:
     if session_id is not None and not _SESSION_ID_RE.match(session_id):
         raise HTTPException(status_code=400, detail="Invalid session_id format")
 
+
 router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
 
 

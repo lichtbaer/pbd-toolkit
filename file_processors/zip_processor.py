@@ -2,7 +2,8 @@
 
 import os
 import zipfile
-from typing import Iterator
+from collections.abc import Iterator
+
 from file_processors.base_processor import BaseFileProcessor
 
 # Maximum total uncompressed bytes to read from a single ZIP archive.

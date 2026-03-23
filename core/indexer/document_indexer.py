@@ -12,7 +12,7 @@ import logging
 import os
 import threading
 from dataclasses import dataclass, field
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -73,9 +73,9 @@ class DocumentIndexer:
         self,
         model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
         threshold: float = 0.75,
-        save_index_path: Optional[str] = None,
-        load_index_path: Optional[str] = None,
-        custom_exemplars_path: Optional[str] = None,
+        save_index_path: str | None = None,
+        load_index_path: str | None = None,
+        custom_exemplars_path: str | None = None,
         verbose: bool = False,
     ) -> None:
         self.model_name = model_name
@@ -86,22 +86,20 @@ class DocumentIndexer:
         self.verbose = verbose
 
         self._embed_lock = threading.Lock()
-        self._model: Optional[object] = (
-            None  # sentence-transformers SentenceTransformer
-        )
+        self._model: object | None = None  # sentence-transformers SentenceTransformer
 
         # Pre-computed exemplar matrix: shape (n_exemplars, embedding_dim)
-        self._exemplar_embeddings: Optional[np.ndarray] = None
+        self._exemplar_embeddings: np.ndarray | None = None
         self._exemplar_categories: list[str] = []
         self._exemplar_texts: list[str] = []
 
         # Full-document index (optional, FAISS-backed)
         self._chunks: list[IndexedChunk] = []
-        self._faiss_index: Optional[object] = None  # faiss.Index
+        self._faiss_index: object | None = None  # faiss.Index
         self._index_lock = threading.Lock()
 
         self._initialized = False
-        self._available: Optional[bool] = None
+        self._available: bool | None = None
 
     # ------------------------------------------------------------------
     # Availability
@@ -287,7 +285,7 @@ class DocumentIndexer:
     def query_pii_categories(
         self,
         embedding: np.ndarray,
-        threshold: Optional[float] = None,
+        threshold: float | None = None,
     ) -> list[CategoryMatch]:
         """Find PII categories whose exemplars are similar to *embedding*.
 
@@ -321,9 +319,7 @@ class DocumentIndexer:
         matches.sort(key=lambda m: m.score, reverse=True)
         return matches
 
-    def detect(
-        self, text: str, threshold: Optional[float] = None
-    ) -> list[CategoryMatch]:
+    def detect(self, text: str, threshold: float | None = None) -> list[CategoryMatch]:
         """Convenience method: embed *text* and return PII category matches."""
         embedding = self.embed_text(text)
         return self.query_pii_categories(embedding, threshold)
@@ -428,7 +424,7 @@ class DocumentIndexer:
     # FAISS persistence
     # ------------------------------------------------------------------
 
-    def save_index(self, path: Optional[str] = None) -> None:
+    def save_index(self, path: str | None = None) -> None:
         """Save the document index to *path* (FAISS + metadata JSON).
 
         Silently skipped if no chunks have been indexed or FAISS is unavailable.

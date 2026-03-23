@@ -1,6 +1,7 @@
 """Registry for detection engines."""
 
-from typing import Dict, Type, Optional, Any
+from typing import Any
+
 from core.engines.base import DetectionEngine
 
 
@@ -11,10 +12,10 @@ class EngineRegistry:
     and instantiation of detection engines.
     """
 
-    _engines: Dict[str, Type[DetectionEngine]] = {}
+    _engines: dict[str, type[DetectionEngine]] = {}
 
     @classmethod
-    def register(cls, name: str, engine_class: Type[DetectionEngine]) -> None:
+    def register(cls, name: str, engine_class: type[DetectionEngine]) -> None:
         """Register an engine class.
 
         Args:
@@ -24,7 +25,7 @@ class EngineRegistry:
         cls._engines[name] = engine_class
 
     @classmethod
-    def get_engine(cls, name: str, config: Any) -> Optional[DetectionEngine]:
+    def get_engine(cls, name: str, config: Any) -> DetectionEngine | None:
         """Get an engine instance.
 
         Args:

@@ -1,7 +1,7 @@
 """Base class for file processors."""
 
 from abc import ABC, abstractmethod
-from typing import Iterator, Union
+from collections.abc import Iterator
 
 
 class BaseFileProcessor(ABC):
@@ -15,7 +15,7 @@ class BaseFileProcessor(ABC):
     """
 
     @abstractmethod
-    def extract_text(self, file_path: str) -> Union[str, Iterator[str]]:
+    def extract_text(self, file_path: str) -> str | Iterator[str]:
         """Extract text content from a file.
 
         Args:

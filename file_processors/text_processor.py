@@ -1,6 +1,7 @@
 """Plain text file processor."""
 
 import mimetypes
+
 from file_processors.base_processor import BaseFileProcessor
 
 

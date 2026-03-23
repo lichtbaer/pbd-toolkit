@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 from file_processors.image_processor import ImageProcessor
 
 

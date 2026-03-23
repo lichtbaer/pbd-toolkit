@@ -2,7 +2,7 @@
 
 import base64
 import os
-from typing import Optional
+
 from file_processors.base_processor import BaseFileProcessor
 
 
@@ -32,7 +32,7 @@ class ImageProcessor(BaseFileProcessor):
         # The engine will read the file directly
         return ""
 
-    def get_image_base64(self, file_path: str) -> Optional[str]:
+    def get_image_base64(self, file_path: str) -> str | None:
         """Get base64-encoded image data.
 
         Args:
@@ -48,7 +48,7 @@ class ImageProcessor(BaseFileProcessor):
         except Exception:
             return None
 
-    def get_image_mime_type(self, file_path: str) -> Optional[str]:
+    def get_image_mime_type(self, file_path: str) -> str | None:
         """Get MIME type for image.
 
         Args:

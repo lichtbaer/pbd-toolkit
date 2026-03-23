@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
-
 
 # ------------------------------------------------------------------
 # Scan request / response
 # ------------------------------------------------------------------
+
 
 class ScanRequest(BaseModel):
     """Request body for ``POST /api/v1/scans``."""
@@ -19,12 +19,14 @@ class ScanRequest(BaseModel):
         default=["regex"],
         description="Detection engines to use (regex, gliner, spacy, pydantic-ai, vector)",
     )
-    profile: Optional[str] = Field(
+    profile: str | None = Field(
         None, description="Scan profile (quick, standard, deep, gdpr-audit, ci)"
     )
     deduplicate: bool = Field(False, description="Remove duplicate findings")
     incremental: bool = Field(False, description="Skip unchanged files")
-    text_chunk_size: int = Field(0, description="Text chunk size for NER (0 = disabled)")
+    text_chunk_size: int = Field(
+        0, description="Text chunk size for NER (0 = disabled)"
+    )
     min_confidence: float = Field(0.0, description="Minimum confidence threshold")
     context_chars: int = Field(0, description="Context chars around findings")
 
@@ -46,14 +48,15 @@ class ScanStatusResponse(BaseModel):
     files_processed: int = 0
     total_matches: int = 0
     total_errors: int = 0
-    duration_sec: Optional[float] = None
-    started_at: Optional[str] = None
-    finished_at: Optional[str] = None
+    duration_sec: float | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
 
 
 # ------------------------------------------------------------------
 # Pagination
 # ------------------------------------------------------------------
+
 
 class PaginatedResponse(BaseModel):
     """Base model for paginated responses."""
@@ -79,6 +82,7 @@ class FindingsResponse(PaginatedResponse):
 # Analytics
 # ------------------------------------------------------------------
 
+
 class TrendEntry(BaseModel):
     """Single entry in a trend response."""
 
@@ -92,13 +96,13 @@ class TypeDistribution(BaseModel):
 
     pii_type: str
     count: int
-    avg_confidence: Optional[float] = None
+    avg_confidence: float | None = None
 
 
 class SeverityEntry(BaseModel):
     """Severity breakdown entry."""
 
-    severity: Optional[str]
+    severity: str | None
     count: int
 
 
@@ -108,7 +112,7 @@ class EnginePerformance(BaseModel):
     engine: str
     total_matches: int = 0
     total_files: int = 0
-    avg_processing_time: Optional[float] = None
+    avg_processing_time: float | None = None
     total_errors: int = 0
 
 
@@ -127,6 +131,7 @@ class DashboardSummary(BaseModel):
 # ------------------------------------------------------------------
 # System
 # ------------------------------------------------------------------
+
 
 class HealthResponse(BaseModel):
     """Health check response."""

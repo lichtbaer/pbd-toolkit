@@ -2,6 +2,7 @@
 
 import json
 from typing import Any
+
 from file_processors.base_processor import BaseFileProcessor
 
 
@@ -34,7 +35,7 @@ class JsonProcessor(BaseFileProcessor):
         """
         text_parts: list[str] = []
 
-        with open(file_path, "r", encoding="utf-8", errors="replace") as jsonfile:
+        with open(file_path, encoding="utf-8", errors="replace") as jsonfile:
             try:
                 data: Any = json.load(jsonfile)
                 self._extract_strings(data, text_parts)

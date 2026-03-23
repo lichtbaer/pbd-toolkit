@@ -1,6 +1,7 @@
 """Tests for TextProcessor with engine registry."""
 
 from unittest.mock import Mock, patch
+
 from core.config import Config, NerStats
 from core.matches import PiiMatchContainer
 from core.processor import TextProcessor
@@ -19,6 +20,9 @@ class TestTextProcessorWithEngines:
         mock_config.ner_labels = []
         mock_config.verbose = False
         mock_config.logger = Mock()
+        mock_config.text_chunk_size = 0
+        mock_config.text_chunk_overlap = 200
+        mock_config.context_chars = 0
 
         pmc = PiiMatchContainer()
         processor = TextProcessor(mock_config, pmc)
@@ -39,6 +43,9 @@ class TestTextProcessorWithEngines:
         mock_config.ner_stats = NerStats()
         mock_config.verbose = False
         mock_config.logger = Mock()
+        mock_config.text_chunk_size = 0
+        mock_config.text_chunk_overlap = 200
+        mock_config.context_chars = 0
 
         # Mock regex match
         mock_match = Mock()
@@ -74,6 +81,9 @@ class TestTextProcessorWithEngines:
         mock_config.ner_stats = NerStats()
         mock_config.verbose = False
         mock_config.logger = Mock()
+        mock_config.text_chunk_size = 0
+        mock_config.text_chunk_overlap = 200
+        mock_config.context_chars = 0
 
         # Mock GLiNER error
         mock_config.ner_model.predict_entities.side_effect = RuntimeError("GPU error")

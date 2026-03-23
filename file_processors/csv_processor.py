@@ -1,7 +1,7 @@
 """CSV file processor using Python's built-in csv module."""
 
 import csv
-from typing import Optional
+
 from file_processors.base_processor import BaseFileProcessor
 
 
@@ -32,14 +32,14 @@ class CsvProcessor(BaseFileProcessor):
             Exception: For other CSV processing errors
         """
         text_parts: list[str] = []
-        last_error: Optional[UnicodeDecodeError] = None
+        last_error: UnicodeDecodeError | None = None
 
         # Try different encodings
         encodings = ["utf-8", "utf-8-sig", "latin-1", "cp1252", "iso-8859-1"]
 
         for encoding in encodings:
             try:
-                with open(file_path, "r", encoding=encoding, newline="") as csvfile:
+                with open(file_path, encoding=encoding, newline="") as csvfile:
                     # Try to detect delimiter by reading first line
                     sample = csvfile.read(1024)
                     csvfile.seek(0)

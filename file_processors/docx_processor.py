@@ -2,6 +2,7 @@
 
 import docx
 import docx.opc.exceptions
+
 from file_processors.base_processor import BaseFileProcessor
 
 

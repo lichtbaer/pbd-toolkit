@@ -118,7 +118,9 @@ def test_aggregator_summary():
 
     assert summary["total_matches"] == 4
     assert summary["unique_files_with_matches"] == 4
-    assert summary["dimensions_detected"] == 4  # contact_information, identity, financial, health
+    assert (
+        summary["dimensions_detected"] == 4
+    )  # contact_information, identity, financial, health
     assert summary["modules_used"] == 2  # regex, gliner
 
     # Check risk assessment

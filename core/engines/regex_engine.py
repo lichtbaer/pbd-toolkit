@@ -1,9 +1,9 @@
 """Regex-based detection engine."""
 
 import logging
-from typing import Optional
-from core.engines.base import DetectionResult
+
 from core.config import Config
+from core.engines.base import DetectionResult
 
 # Exposed for test patching and runtime type mapping
 from core.matches import config_regex_sorted
@@ -91,7 +91,9 @@ class RegexEngine:
                 continue
 
             # Assign synthetic confidence: 1.0 for validated patterns, 0.8 for unvalidated
-            _confidence = 1.0 if (config_entry and "validation" in config_entry) else 0.8
+            _confidence = (
+                1.0 if (config_entry and "validation" in config_entry) else 0.8
+            )
             results.append(
                 DetectionResult(
                     text=match.group(),
@@ -104,7 +106,7 @@ class RegexEngine:
 
         return results
 
-    def _get_entity_type(self, match) -> tuple[Optional[str], Optional[dict]]:
+    def _get_entity_type(self, match) -> tuple[str | None, dict | None]:
         """Determine entity type from regex match position.
 
         Args:

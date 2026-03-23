@@ -49,6 +49,7 @@ dev = [
   "pytest~=8.0.0",
   "pytest-cov~=4.1.0",
   "pytest-mock~=3.15.1",
+  "ruff>=0.8.0",
 ]
 office = [
   "python-docx~=1.2.0",
@@ -144,5 +145,7 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-select = ["F"]
+# E4/E7/E9: pycodestyle errors; F: pyflakes; W: pycodestyle warnings; I: isort; UP: pyupgrade.
+# Full "E" is omitted here to avoid E501 (line length) until long lines are addressed incrementally.
+select = ["E4", "E7", "E9", "F", "W", "I", "UP"]
 

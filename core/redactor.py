@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+
 from core.matches import PiiMatch
 
 
@@ -41,7 +42,7 @@ def redact_text(text: str, matches: list[PiiMatch]) -> str:
 
     # Remove overlapping replacements (keep the one that starts first / is longer)
     cleaned = []
-    min_start = float('inf')
+    min_start = float("inf")
     for start, end, placeholder in replacements:
         if end <= min_start:
             cleaned.append((start, end, placeholder))
@@ -81,9 +82,23 @@ def redact_files(
 
     # Text-based extensions that can be redacted in-place
     TEXT_EXTENSIONS = {
-        ".txt", ".csv", ".json", ".xml", ".html", ".htm",
-        ".md", ".markdown", ".yaml", ".yml", ".eml", ".properties",
-        ".ini", ".cfg", ".conf", ".env", ".rtf",
+        ".txt",
+        ".csv",
+        ".json",
+        ".xml",
+        ".html",
+        ".htm",
+        ".md",
+        ".markdown",
+        ".yaml",
+        ".yml",
+        ".eml",
+        ".properties",
+        ".ini",
+        ".cfg",
+        ".conf",
+        ".env",
+        ".rtf",
     }
 
     for file_path, file_matches in matches_by_file.items():
@@ -98,12 +113,14 @@ def redact_files(
             # Ensure unique output file names
             counter = 1
             while os.path.exists(out_path):
-                out_path = os.path.join(output_dir, f"{basename}.redacted.{counter}.txt")
+                out_path = os.path.join(
+                    output_dir, f"{basename}.redacted.{counter}.txt"
+                )
                 counter += 1
 
             if ext in TEXT_EXTENSIONS:
                 # Read original text and apply redaction
-                with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                with open(file_path, encoding="utf-8", errors="replace") as f:
                     content = f.read()
 
                 redacted = redact_text(content, file_matches)
@@ -118,7 +135,9 @@ def redact_files(
                 lines.append(f"# PII findings redacted: {len(file_matches)}\n")
 
                 for m in file_matches:
-                    lines.append(f"[REDACTED:{m.type}] (was: {len(m.text)} chars, engine: {m.engine})")
+                    lines.append(
+                        f"[REDACTED:{m.type}] (was: {len(m.text)} chars, engine: {m.engine})"
+                    )
 
                 with open(out_path, "w", encoding="utf-8") as f:
                     f.write("\n".join(lines) + "\n")

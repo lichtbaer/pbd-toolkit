@@ -2,7 +2,6 @@
 
 import datetime
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -44,8 +43,8 @@ class Statistics:
     ner_stats: NerStats = field(default_factory=NerStats)
 
     # Timing
-    start_time: Optional[datetime.datetime] = None
-    end_time: Optional[datetime.datetime] = None
+    start_time: datetime.datetime | None = None
+    end_time: datetime.datetime | None = None
 
     def start(self) -> None:
         """Start timing."""

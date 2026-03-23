@@ -71,9 +71,7 @@ def get_profile(name: str) -> dict:
     key = name.lower()
     if key not in PROFILES:
         available = ", ".join(sorted(PROFILES))
-        raise ValueError(
-            f"Unknown profile '{name}'. Available profiles: {available}"
-        )
+        raise ValueError(f"Unknown profile '{name}'. Available profiles: {available}")
     # Return a copy without the internal _description key
     return {k: v for k, v in PROFILES[key].items() if not k.startswith("_")}
 

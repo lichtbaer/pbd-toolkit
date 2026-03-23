@@ -1,7 +1,8 @@
 """MBOX mailbox processor for extracting emails from Unix mailboxes."""
 
 import email
-from typing import Iterator
+from collections.abc import Iterator
+
 from file_processors.base_processor import BaseFileProcessor
 
 

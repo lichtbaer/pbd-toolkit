@@ -5,11 +5,8 @@ GDPR Article 9 and data protection principles. This enables aggregation
 of statistics without storing individual PII instances.
 """
 
-from typing import Dict
-
-
 # Mapping of detection types to privacy dimensions
-DIMENSION_MAPPING: Dict[str, str] = {
+DIMENSION_MAPPING: dict[str, str] = {
     # Identity dimension
     "REGEX_RVNR": "identity",
     "REGEX_PASSPORT": "identity",
@@ -62,7 +59,7 @@ DIMENSION_MAPPING: Dict[str, str] = {
 }
 
 # Sensitivity levels for each dimension
-SENSITIVITY_LEVELS: Dict[str, str] = {
+SENSITIVITY_LEVELS: dict[str, str] = {
     "identity": "high",
     "contact_information": "medium",
     "financial": "high",

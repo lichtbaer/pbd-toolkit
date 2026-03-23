@@ -1,6 +1,12 @@
 """Tests for setup and configuration."""
 
-import os
+import json
+from pathlib import Path
+
+
+def _config_types_path() -> Path:
+    """Path to packaged config_types.json (repo layout)."""
+    return Path(__file__).resolve().parent.parent / "core" / "config_types.json"
 
 
 class TestSetup:
@@ -8,7 +14,7 @@ class TestSetup:
 
     def test_constants_exist(self):
         """Test that constants are properly defined."""
-        import constants
+        from core import constants
 
         assert hasattr(constants, "MIN_PDF_TEXT_LENGTH")
         assert hasattr(constants, "NER_THRESHOLD")
@@ -27,16 +33,11 @@ class TestSetup:
 
     def test_config_file_exists(self):
         """Test that config file exists."""
-        import constants
-
-        assert os.path.exists(constants.CONFIG_FILE)
+        assert _config_types_path().is_file()
 
     def test_config_file_valid_json(self):
         """Test that config file is valid JSON."""
-        import json
-        import constants
-
-        with open(constants.CONFIG_FILE, "r") as f:
+        with _config_types_path().open(encoding="utf-8") as f:
             config = json.load(f)
 
         assert "regex" in config

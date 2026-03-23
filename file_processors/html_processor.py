@@ -1,6 +1,7 @@
 """HTML file processor using BeautifulSoup4."""
 
 from bs4 import BeautifulSoup
+
 from file_processors.base_processor import BaseFileProcessor
 
 

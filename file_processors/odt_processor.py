@@ -1,9 +1,10 @@
 """ODT file processor using odfpy library."""
 
-from file_processors.base_processor import BaseFileProcessor
 from odf.opendocument import load
-from odf.text import P, H
-from odf.table import Table, TableRow, TableCell
+from odf.table import Table, TableCell, TableRow
+from odf.text import H, P
+
+from file_processors.base_processor import BaseFileProcessor
 
 
 class OdtProcessor(BaseFileProcessor):

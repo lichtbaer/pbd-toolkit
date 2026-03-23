@@ -1,19 +1,21 @@
 """Configuration management for PII Toolkit."""
 
+from __future__ import annotations
+
 import argparse
 import csv
 import json
 import logging
 import os
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from gliner import GLiNER
 
 from core import constants
-
 from core.resources import load_config_types
 
 
@@ -59,9 +61,9 @@ class Config:
     magic_detection_fallback: bool = True
 
     # Dependencies
-    logger: Optional[logging.Logger] = field(default=None)
-    csv_writer: Optional[csv.writer] = field(default=None)
-    csv_file_handle: Optional[object] = field(default=None)
+    logger: logging.Logger | None = field(default=None)
+    csv_writer: csv.writer | None = field(default=None)
+    csv_file_handle: object | None = field(default=None)
 
     # Processing configuration
     regex_pattern: re.Pattern | None = field(default=None)
@@ -113,7 +115,9 @@ class Config:
     vector_threshold: float = 0.75
     vector_save_index: str | None = None  # Path prefix to save FAISS index after scan
     vector_load_index: str | None = None  # Path prefix to load pre-built FAISS index
-    vector_custom_exemplars: str | None = None  # Path to YAML/JSON with custom PII exemplar categories
+    vector_custom_exemplars: str | None = (
+        None  # Path to YAML/JSON with custom PII exemplar categories
+    )
 
     # Text chunking: split large texts into overlapping segments for NER.
     # 0 disables chunking (default). Recommended value: 2000 characters.
@@ -204,8 +208,8 @@ class Config:
         cls,
         args: argparse.Namespace,
         logger: logging.Logger,
-        csv_writer: Optional[csv.writer],
-        csv_file_handle: Optional[object],
+        csv_writer: csv.writer | None,
+        csv_file_handle: object | None,
         translate_func: Callable[[str], str],
     ) -> "Config":
         """Create Config from command line arguments.
@@ -318,7 +322,9 @@ class Config:
             self.logger.debug("config_types.json not found, skipping runtime settings")
             return
         except Exception as exc:
-            self.logger.warning("Failed to load config_types.json for runtime settings: %s", exc)
+            self.logger.warning(
+                "Failed to load config_types.json for runtime settings: %s", exc
+            )
             return
 
         settings = cfg.get("settings", {}) if isinstance(cfg, dict) else {}

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from fastapi import APIRouter, HTTPException, Path, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from api.models import (
     FindingsResponse,

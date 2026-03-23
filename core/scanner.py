@@ -2,8 +2,8 @@
 
 import os
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Optional
 
 from tqdm import tqdm
 
@@ -35,8 +35,8 @@ class FileInfo:
 
     path: str
     extension: str
-    size_mb: Optional[float] = None
-    mime_type: Optional[str] = None
+    size_mb: float | None = None
+    mime_type: str | None = None
 
 
 class FileScanner:
@@ -70,8 +70,8 @@ class FileScanner:
     def scan(
         self,
         path: str,
-        file_callback: Optional[Callable[[FileInfo], object]] = None,
-        stop_count: Optional[int] = None,
+        file_callback: Callable[[FileInfo], object] | None = None,
+        stop_count: int | None = None,
     ) -> ScanResult:
         """Scan directory recursively and process files.
 

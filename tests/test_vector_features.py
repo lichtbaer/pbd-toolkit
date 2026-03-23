@@ -8,13 +8,11 @@ from __future__ import annotations
 
 import json
 import os
-import tempfile
 
 import numpy as np
 import pytest
 
 from core.indexer.document_indexer import DocumentIndexer, IndexedChunk
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -74,7 +72,6 @@ class TestQuerySimilarChunksWithFaiss:
     def test_uses_brute_force_when_no_faiss_index(self):
         """Without a FAISS index, brute-force numpy search is used."""
         indexer = _make_indexer()
-        dim = 4
         # Two chunks: one similar to query, one orthogonal
         q = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
         similar_emb = np.array([0.9, 0.1, 0.0, 0.0], dtype=np.float32)
@@ -115,9 +112,6 @@ class TestQuerySimilarChunksWithFaiss:
         # Sentinel to detect which path is taken
         called_faiss = []
         called_brute = []
-
-        original_faiss = indexer._faiss_search
-        original_brute = indexer._brute_force_search
 
         def fake_faiss_search(q, top_k, threshold):
             called_faiss.append(True)
@@ -216,7 +210,9 @@ class TestFileHashTracking:
         embedding = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
         indexer.embed_text = lambda t: embedding
 
-        indexer.add_chunk("some text", file_path="a.txt", chunk_idx=0, file_hash="aabbcc")
+        indexer.add_chunk(
+            "some text", file_path="a.txt", chunk_idx=0, file_hash="aabbcc"
+        )
         assert len(indexer._chunks) == 1
         assert indexer._chunks[0].file_hash == "aabbcc"
 
@@ -235,7 +231,9 @@ class TestFileHashTracking:
             [
                 _make_chunk("t1", file_path="f1.txt", file_hash="hash1"),
                 _make_chunk("t2", file_path="f2.txt", file_hash=""),
-                _make_chunk("t3", file_path="f1.txt", file_hash="hash1"),  # duplicate file
+                _make_chunk(
+                    "t3", file_path="f1.txt", file_hash="hash1"
+                ),  # duplicate file
             ],
         )
         hashes = indexer.get_indexed_file_hashes()
@@ -256,7 +254,14 @@ class TestFileHashTracking:
         embedding = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
         _inject_chunks(
             indexer,
-            [_make_chunk("sensitive text", file_path="doc.txt", file_hash="deadbeef", embedding=embedding)],
+            [
+                _make_chunk(
+                    "sensitive text",
+                    file_path="doc.txt",
+                    file_hash="deadbeef",
+                    embedding=embedding,
+                )
+            ],
         )
 
         # save_index requires faiss; skip if not installed
@@ -275,8 +280,17 @@ class TestFileHashTracking:
     def test_load_faiss_index_reads_file_hash(self, tmp_path):
         """_load_faiss_index should populate IndexedChunk.file_hash from meta."""
         meta = [
-            {"file_path": "a.txt", "chunk_idx": 0, "text": "hello", "file_hash": "cafebabe"},
-            {"file_path": "b.txt", "chunk_idx": 0, "text": "world"},  # no hash key (old format)
+            {
+                "file_path": "a.txt",
+                "chunk_idx": 0,
+                "text": "hello",
+                "file_hash": "cafebabe",
+            },
+            {
+                "file_path": "b.txt",
+                "chunk_idx": 0,
+                "text": "world",
+            },  # no hash key (old format)
         ]
         meta_path = tmp_path / "idx.meta"
         meta_path.write_text(json.dumps(meta))
@@ -284,6 +298,7 @@ class TestFileHashTracking:
         # Create a minimal fake faiss index file to satisfy the loader
         try:
             import faiss
+
             dim = 4
             idx = faiss.IndexFlatIP(dim)
             idx.add(np.zeros((2, dim), dtype=np.float32))
@@ -343,13 +358,17 @@ class TestVectorEngineSetCurrentFile:
 
         def worker(name, path):
             engine.set_current_file(path)
-            import time; time.sleep(0.01)
+            import time
+
+            time.sleep(0.01)
             results[name] = getattr(engine._thread_local, "file_path", None)
 
         t1 = threading.Thread(target=worker, args=("t1", "/path/a.txt"))
         t2 = threading.Thread(target=worker, args=("t2", "/path/b.txt"))
-        t1.start(); t2.start()
-        t1.join(); t2.join()
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
 
         assert results["t1"] == "/path/a.txt"
         assert results["t2"] == "/path/b.txt"

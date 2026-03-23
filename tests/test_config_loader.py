@@ -1,7 +1,6 @@
 """Tests for ConfigLoader."""
 
 import argparse
-import json
 from pathlib import Path
 
 import pytest

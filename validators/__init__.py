@@ -1,7 +1,6 @@
 """Validation utilities for PII detection."""
 
 import importlib
-from typing import Optional
 
 from validators.credit_card_validator import CreditCardValidator
 
@@ -15,10 +14,10 @@ _VALIDATOR_REGISTRY: dict[str, str] = {
     "bic": "validators.bic_validator.BicValidator",
 }
 
-_loaded_validators: dict[str, Optional[type]] = {}
+_loaded_validators: dict[str, type | None] = {}
 
 
-def get_validator(validation_type: str) -> Optional[type]:
+def get_validator(validation_type: str) -> type | None:
     """Get a validator class by type name. Returns None if not available.
 
     Validators are lazily imported and cached on first access. If the

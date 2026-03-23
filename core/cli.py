@@ -2,7 +2,6 @@
 
 import os
 from pathlib import Path
-from typing import Optional
 
 import typer
 
@@ -10,15 +9,15 @@ import typer
 from core import cli_setup as setup
 from core import constants
 from core.config import Config
-from core.matches import PiiMatchContainer
+from core.config_loader import ConfigLoader
+from core.context import ApplicationContext
 from core.doctor import run_doctor
 from core.exceptions import OutputError
-from core.scanner import FileScanner, FileInfo
+from core.matches import PiiMatchContainer
 from core.processor import TextProcessor
+from core.scanner import FileInfo, FileScanner
 from core.statistics import Statistics
 from core.statistics_aggregator import StatisticsAggregator
-from core.context import ApplicationContext
-from core.config_loader import ConfigLoader
 
 # Create Typer app
 app = typer.Typer(
@@ -94,10 +93,10 @@ def _create_argparse_namespace_from_typer_args(**kwargs) -> object:
 @app.command()
 def scan(
     # Optional path (positional or flag). If neither is provided, it can come from --config.
-    path: Optional[str] = typer.Argument(
+    path: str | None = typer.Argument(
         None, help="Root directory under which to recursively search for PII"
     ),
-    path_opt: Optional[str] = typer.Option(
+    path_opt: str | None = typer.Option(
         None,
         "--path",
         help="Root directory under which to recursively search for PII (alternative to positional PATH)",
@@ -139,7 +138,7 @@ def scan(
         "--openai-api-base",
         help="OpenAI-compatible API base URL",
     ),
-    openai_api_key: Optional[str] = typer.Option(
+    openai_api_key: str | None = typer.Option(
         None, "--openai-api-key", help="OpenAI API key (or set OPENAI_API_KEY env var)"
     ),
     openai_model: str = typer.Option(
@@ -151,12 +150,12 @@ def scan(
     multimodal: bool = typer.Option(
         False, "--multimodal", help="Use multimodal models for image PII detection"
     ),
-    multimodal_api_base: Optional[str] = typer.Option(
+    multimodal_api_base: str | None = typer.Option(
         None,
         "--multimodal-api-base",
         help="Multimodal API base URL (defaults to --openai-api-base)",
     ),
-    multimodal_api_key: Optional[str] = typer.Option(
+    multimodal_api_key: str | None = typer.Option(
         None,
         "--multimodal-api-key",
         help="Multimodal API key (defaults to --openai-api-key or OPENAI_API_KEY)",
@@ -183,17 +182,17 @@ def scan(
         help="LLM provider for PydanticAI (default: openai)",
         case_sensitive=False,
     ),
-    pydantic_ai_model: Optional[str] = typer.Option(
+    pydantic_ai_model: str | None = typer.Option(
         None,
         "--pydantic-ai-model",
         help="Model name for PydanticAI (auto-determined from provider if not specified)",
     ),
-    pydantic_ai_api_key: Optional[str] = typer.Option(
+    pydantic_ai_api_key: str | None = typer.Option(
         None,
         "--pydantic-ai-api-key",
         help="API key for PydanticAI (or use provider-specific env vars)",
     ),
-    pydantic_ai_base_url: Optional[str] = typer.Option(
+    pydantic_ai_base_url: str | None = typer.Option(
         None,
         "--pydantic-ai-base-url",
         help="Base URL for PydanticAI (for custom endpoints)",
@@ -219,17 +218,17 @@ def scan(
         "--vector-threshold",
         help="Cosine similarity threshold for vector PII detection (default: 0.75)",
     ),
-    vector_save_index: Optional[str] = typer.Option(
+    vector_save_index: str | None = typer.Option(
         None,
         "--vector-save-index",
         help="Path prefix to save the FAISS document index after scanning (enables cross-document analysis)",
     ),
-    vector_load_index: Optional[str] = typer.Option(
+    vector_load_index: str | None = typer.Option(
         None,
         "--vector-load-index",
         help="Path prefix of a previously saved FAISS index to load before scanning",
     ),
-    vector_custom_exemplars: Optional[str] = typer.Option(
+    vector_custom_exemplars: str | None = typer.Option(
         None,
         "--vector-custom-exemplars",
         help="Path to a YAML or JSON file with additional PII exemplar categories for vector search. "
@@ -247,17 +246,17 @@ def scan(
         help="Use magic detection as fallback when extension doesn't match (default: True)",
     ),
     # Optional arguments
-    outname: Optional[str] = typer.Option(
+    outname: str | None = typer.Option(
         None,
         "--outname",
         help="Optional parameter; string which to include in the file name of all output files",
     ),
-    whitelist: Optional[str] = typer.Option(
+    whitelist: str | None = typer.Option(
         None,
         "--whitelist",
         help="Optional parameter; relative path to a text file containing one string per line. These strings will be matched against potential findings to exclude them from the output.",
     ),
-    stop_count: Optional[int] = typer.Option(
+    stop_count: int | None = typer.Option(
         None, "--stop-count", help="Optional parameter; stop analysis after N files"
     ),
     output_dir: str = typer.Option(
@@ -283,7 +282,7 @@ def scan(
         help="Execution mode: safe (low resource), balanced (default), fast (max throughput)",
         case_sensitive=False,
     ),
-    jobs: Optional[int] = typer.Option(
+    jobs: int | None = typer.Option(
         None,
         "--jobs",
         help="Number of parallel file workers (overrides --mode).",
@@ -318,7 +317,7 @@ def scan(
         "--statistics-strict",
         help="Strict privacy statistics mode: do not keep file paths in memory (some file-unique metrics become null).",
     ),
-    statistics_output: Optional[str] = typer.Option(
+    statistics_output: str | None = typer.Option(
         None,
         "--statistics-output",
         help="Path for statistics JSON output file (default: auto-generated in output directory)",
@@ -341,7 +340,7 @@ def scan(
         "--redact",
         help="Create redacted copies of files with PII replaced by [REDACTED:TYPE] placeholders",
     ),
-    redact_dir: Optional[str] = typer.Option(
+    redact_dir: str | None = typer.Option(
         None,
         "--redact-dir",
         help="Directory for redacted output files (default: output_dir/redacted/)",
@@ -352,7 +351,7 @@ def scan(
         "--incremental",
         help="Skip files whose content has not changed since the last scan (SHA-256 + mtime cache).",
     ),
-    cache_path: Optional[str] = typer.Option(
+    cache_path: str | None = typer.Option(
         None,
         "--cache-path",
         help="Path to the incremental scan cache database (default: .pbd_scan_cache.db in the output directory).",
@@ -365,7 +364,7 @@ def scan(
         False, "-q", "--quiet", help="Suppress all output except errors"
     ),
     # Config file
-    config: Optional[Path] = typer.Option(
+    config: Path | None = typer.Option(
         None,
         "--config",
         help="Path to configuration file (YAML or JSON). CLI arguments override config file values.",
@@ -382,7 +381,7 @@ def scan(
         help="Path to the analytics database file (default: .pbd_analytics.db)",
     ),
     # Scan profile
-    profile: Optional[str] = typer.Option(
+    profile: str | None = typer.Option(
         None,
         "--profile",
         help="Load a built-in scan profile (quick, standard, deep, gdpr-audit, ci). CLI arguments override profile values.",
@@ -541,7 +540,14 @@ def scan(
     output_format = args.format if hasattr(args, "format") else "csv"
 
     # Determine file extension and create output file path
-    extension_map = {"csv": ".csv", "json": ".json", "jsonl": ".jsonl", "xlsx": ".xlsx", "html": ".html", "sarif": ".sarif"}
+    extension_map = {
+        "csv": ".csv",
+        "json": ".json",
+        "jsonl": ".jsonl",
+        "xlsx": ".xlsx",
+        "html": ".html",
+        "sarif": ".sarif",
+    }
     extension = extension_map.get(output_format, ".csv")
     output_file_path = output_dir + outslug + "_findings" + extension
 
@@ -705,13 +711,15 @@ def scan(
             context.analytics_store = analytics_store
             context.analytics_session_id = analytics_session_id
             pmc.set_analytics_store(analytics_store, analytics_session_id)
-            logger.info(translate_func("Analytics database enabled: %s") % _analytics_db_path)
+            logger.info(
+                translate_func("Analytics database enabled: %s") % _analytics_db_path
+            )
         except Exception as exc:
             logger.warning("Failed to initialize analytics database: %s", exc)
 
     # Load whitelist if provided
     if context.config.whitelist_path and os.path.isfile(context.config.whitelist_path):
-        with open(context.config.whitelist_path, "r", encoding="utf-8") as file:
+        with open(context.config.whitelist_path, encoding="utf-8") as file:
             context.match_container.whitelist = file.read().splitlines()
         # Pre-compile whitelist pattern for better performance
         context.match_container._compile_whitelist_pattern()
@@ -917,7 +925,10 @@ def scan(
                 duration_sec=context.statistics.duration_seconds,
             )
             # Record per-engine stats
-            for engine_name, match_count in context.statistics.matches_by_engine.items():
+            for (
+                engine_name,
+                match_count,
+            ) in context.statistics.matches_by_engine.items():
                 analytics_store.record_engine_stats(
                     session_id=analytics_session_id,
                     engine=engine_name,
@@ -947,7 +958,7 @@ def scan(
         key=lambda item: item[1],
         reverse=True,
     ):
-        context.logger.info("{:>10}: {:>10} Dateien".format(k, v))
+        context.logger.info(f"{k:>10}: {v:>10} Dateien")
     context.logger.info(
         context._(
             "TOTAL: {} files.\nQUALIFIED: {} files (supported file extension)\n\n"
@@ -963,9 +974,9 @@ def scan(
     context.logger.info(context._("Errors"))
     context.logger.info("------\n")
     for k, v in errors.items():
-        context.logger.info("\t{}".format(k))
+        context.logger.info(f"\t{k}")
         for f in v:
-            context.logger.info("\t\t{}".format(f))
+            context.logger.info(f"\t\t{f}")
 
     context.logger.info("\n")
     context.logger.info(
@@ -1070,7 +1081,13 @@ def scan(
             }
             for fpath, risk in sorted(
                 file_risk_scores.items(),
-                key=lambda x: {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1, "NONE": 0}.get(x[1], 0),
+                key=lambda x: {
+                    "CRITICAL": 4,
+                    "HIGH": 3,
+                    "MEDIUM": 2,
+                    "LOW": 1,
+                    "NONE": 0,
+                }.get(x[1], 0),
                 reverse=True,
             )
         },
@@ -1099,7 +1116,9 @@ def scan(
     if getattr(args, "redact", False) and matches_by_file:
         from core.redactor import redact_files
 
-        _redact_dir = getattr(args, "redact_dir", None) or os.path.join(output_dir, "redacted")
+        _redact_dir = getattr(args, "redact_dir", None) or os.path.join(
+            output_dir, "redacted"
+        )
         redacted_paths = redact_files(
             matches_by_file=matches_by_file,
             output_dir=_redact_dir,
@@ -1283,28 +1302,50 @@ def scan(
                 # Count files per risk level
                 risk_distribution: dict[str, int] = {}
                 for _risk_level in file_risk_scores.values():
-                    risk_distribution[_risk_level] = risk_distribution.get(_risk_level, 0) + 1
+                    risk_distribution[_risk_level] = (
+                        risk_distribution.get(_risk_level, 0) + 1
+                    )
 
                 typer.echo(context._("File Risk Assessment:"))
                 for _rl in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
                     if _rl in risk_distribution:
-                        typer.echo(f"  {_rl}: {risk_distribution[_rl]} {context._('files')}")
+                        typer.echo(
+                            f"  {_rl}: {risk_distribution[_rl]} {context._('files')}"
+                        )
 
                 # Show top 5 highest-risk files
-                _risk_weight = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1, "NONE": 0}
+                _risk_weight = {
+                    "CRITICAL": 4,
+                    "HIGH": 3,
+                    "MEDIUM": 2,
+                    "LOW": 1,
+                    "NONE": 0,
+                }
                 top_risk_files = sorted(
                     file_risk_scores.items(),
                     key=lambda x: _risk_weight.get(x[1], 0),
                     reverse=True,
                 )[:5]
-                _high_risk = [(f, r) for f, r in top_risk_files if r in ("CRITICAL", "HIGH")]
+                _high_risk = [
+                    (f, r) for f, r in top_risk_files if r in ("CRITICAL", "HIGH")
+                ]
                 if _high_risk:
                     typer.echo()
                     typer.echo(context._("Highest risk files:"))
                     for _fpath, _risk in _high_risk:
                         _match_count = len(matches_by_file.get(_fpath, []))
-                        _types = ", ".join(sorted({m.type for m in matches_by_file.get(_fpath, []) if m.type}))
-                        typer.echo(f"  [{_risk}] {_fpath} ({_match_count} findings: {_types})")
+                        _types = ", ".join(
+                            sorted(
+                                {
+                                    m.type
+                                    for m in matches_by_file.get(_fpath, [])
+                                    if m.type
+                                }
+                            )
+                        )
+                        typer.echo(
+                            f"  [{_risk}] {_fpath} ({_match_count} findings: {_types})"
+                        )
                 typer.echo()
 
             # Actionable recommendations based on findings
@@ -1336,11 +1377,11 @@ def query(
         ...,
         help="Path prefix of the saved FAISS index (same value used for --vector-save-index during scanning)",
     ),
-    query_text: Optional[str] = typer.Argument(
+    query_text: str | None = typer.Argument(
         None,
         help="Text to search for semantically similar document chunks",
     ),
-    query_opt: Optional[str] = typer.Option(
+    query_opt: str | None = typer.Option(
         None,
         "--query",
         "-q",
@@ -1471,8 +1512,12 @@ def query(
 
 @app.command()
 def diff(
-    old_file: str = typer.Argument(..., help="Path to the baseline (old) findings file (JSON or JSONL)"),
-    new_file: str = typer.Argument(..., help="Path to the current (new) findings file (JSON or JSONL)"),
+    old_file: str = typer.Argument(
+        ..., help="Path to the baseline (old) findings file (JSON or JSONL)"
+    ),
+    new_file: str = typer.Argument(
+        ..., help="Path to the current (new) findings file (JSON or JSONL)"
+    ),
     output_format: str = typer.Option(
         "human",
         "--format",
@@ -1492,7 +1537,7 @@ def diff(
     """
     import json
 
-    from core.diff import load_findings, compute_diff
+    from core.diff import compute_diff, load_findings
 
     try:
         old_findings = load_findings(old_file)
@@ -1510,6 +1555,7 @@ def diff(
 
     if output_format.lower() == "json":
         import json as _json
+
         typer.echo(_json.dumps(result, indent=2, ensure_ascii=False))
     else:
         s = result["summary"]
@@ -1538,11 +1584,17 @@ def diff(
                     typer.echo(f"    {sev}: -{count}")
 
         # Show top new CRITICAL/HIGH findings
-        critical_new = [f for f in result["added_findings"] if f.get("severity") in ("CRITICAL", "HIGH")]
+        critical_new = [
+            f
+            for f in result["added_findings"]
+            if f.get("severity") in ("CRITICAL", "HIGH")
+        ]
         if critical_new:
             typer.echo("\n  New CRITICAL/HIGH findings:")
             for f in critical_new[:10]:
-                typer.echo(f"    [{f.get('severity')}] {f.get('file')} - {f.get('type')}: {f.get('text', '')[:60]}")
+                typer.echo(
+                    f"    [{f.get('severity')}] {f.get('file')} - {f.get('type')}: {f.get('text', '')[:60]}"
+                )
 
         typer.echo("=" * 50 + "\n")
 
@@ -1594,12 +1646,18 @@ def serve(
     analytics_db: str = typer.Option(
         ".pbd_analytics.db", "--analytics-db", help="Path to analytics database"
     ),
-    reload: bool = typer.Option(False, "--reload", help="Auto-reload on code changes (dev only)"),
-    api_key: Optional[str] = typer.Option(None, "--api-key", help="API key for Bearer auth (or PBD_API_KEY env)"),
-    allowed_scan_roots: Optional[str] = typer.Option(
-        None, "--allowed-scan-roots", help="Comma-separated allowed scan directories (default: cwd)"
+    reload: bool = typer.Option(
+        False, "--reload", help="Auto-reload on code changes (dev only)"
     ),
-    cors_origins: Optional[str] = typer.Option(
+    api_key: str | None = typer.Option(
+        None, "--api-key", help="API key for Bearer auth (or PBD_API_KEY env)"
+    ),
+    allowed_scan_roots: str | None = typer.Option(
+        None,
+        "--allowed-scan-roots",
+        help="Comma-separated allowed scan directories (default: cwd)",
+    ),
+    cors_origins: str | None = typer.Option(
         None, "--cors-origins", help="Comma-separated allowed CORS origins"
     ),
 ) -> None:

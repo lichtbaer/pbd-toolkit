@@ -27,7 +27,9 @@ class ScannerService:
         allowed_scan_roots: list[str] | None = None,
     ) -> None:
         self._store = analytics_store
-        self._executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="scan")
+        self._executor = ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix="scan"
+        )
         self._active: dict[str, dict[str, Any]] = {}
         self._lock = threading.Lock()
         # Resolve allowed scan roots to canonical absolute paths.
@@ -188,9 +190,10 @@ class ScannerService:
 
             scan_logger = logging.getLogger(f"scan.{session_id[:8]}")
 
-            from config import Config
+            from core.config import Config
+            from core.matches import PiiMatchContainer
+
             from core.statistics import Statistics
-            from matches import PiiMatchContainer
 
             # Create config (this also loads regex patterns, NER models, etc.)
             config_obj = Config.from_args(
@@ -276,7 +279,9 @@ class ScannerService:
             except Exception as inner_exc:
                 logger.error(
                     "Failed to mark session %s as failed: %s",
-                    session_id[:8], inner_exc, exc_info=True,
+                    session_id[:8],
+                    inner_exc,
+                    exc_info=True,
                 )
         finally:
             with self._lock:

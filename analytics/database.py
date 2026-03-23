@@ -136,9 +136,7 @@ class AnalyticsDatabase:
             self._conn.executescript(_SCHEMA_V1)
             self._conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION};")
             self._conn.commit()
-            self._logger.debug(
-                "AnalyticsDatabase: applied schema v%d", _SCHEMA_VERSION
-            )
+            self._logger.debug("AnalyticsDatabase: applied schema v%d", _SCHEMA_VERSION)
 
     def close(self) -> None:
         """Close the database connection."""

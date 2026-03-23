@@ -1,14 +1,16 @@
 """Application context for dependency injection."""
 
+from __future__ import annotations
+
 import argparse
 import csv
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Optional
 
 from core.config import Config
-from core.statistics import Statistics
 from core.matches import PiiMatchContainer
+from core.statistics import Statistics
 from core.writers import OutputWriter
 
 
@@ -27,22 +29,22 @@ class ApplicationContext:
 
     # Processing components
     match_container: PiiMatchContainer
-    output_writer: Optional[OutputWriter] = None
+    output_writer: OutputWriter | None = None
 
     # Translation function
     translate_func: Callable[[str], str] = lambda x: x
 
     # Analytics store (optional, duck-typed to avoid import cycles)
-    analytics_store: Optional[object] = None
-    analytics_session_id: Optional[str] = None
+    analytics_store: object | None = None
+    analytics_session_id: str | None = None
 
     # Backward compatibility: CSV writer and file handle
-    csv_writer: Optional[csv.writer] = None
-    csv_file_handle: Optional[object] = None
+    csv_writer: csv.writer | None = None
+    csv_file_handle: object | None = None
 
     # Output configuration
     output_format: str = "csv"
-    output_file_path: Optional[str] = None
+    output_file_path: str | None = None
 
     def __post_init__(self) -> None:
         """Derive backward-compatible CSV handles when possible.
@@ -71,8 +73,8 @@ class ApplicationContext:
         logger: logging.Logger,
         statistics: Statistics,
         match_container: PiiMatchContainer,
-        output_writer: Optional[OutputWriter] = None,
-        translate_func: Optional[Callable[[str], str]] = None,
+        output_writer: OutputWriter | None = None,
+        translate_func: Callable[[str], str] | None = None,
     ) -> "ApplicationContext":
         """Create ApplicationContext from CLI arguments and dependencies.
 

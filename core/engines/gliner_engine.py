@@ -1,9 +1,9 @@
 """GLiNER-based NER detection engine."""
 
 import threading
-from typing import Optional
-from core.engines.base import DetectionResult
+
 from core.config import Config
+from core.engines.base import DetectionResult
 
 # Exposed for test patching and runtime label mapping
 from core.matches import config_ainer_sorted
@@ -86,7 +86,7 @@ class GLiNEREngine:
                 logger.warning(f"GLiNER detection error: {e}")
             return []
 
-    def _map_label(self, gliner_label: str) -> Optional[str]:
+    def _map_label(self, gliner_label: str) -> str | None:
         """Map GLiNER label to internal entity type.
 
         Args:

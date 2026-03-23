@@ -7,10 +7,9 @@ This script checks all dependencies and their license compatibility with EUPL v1
 
 import json
 import sys
-from typing import Dict, List, Tuple, Optional
-import urllib.request
 import urllib.error
 import urllib.parse
+import urllib.request
 
 # EUPL v1.2 compatible licenses (from the EUPL license appendix)
 EUPL_COMPATIBLE_LICENSES = [
@@ -66,7 +65,7 @@ POTENTIALLY_PROBLEMATIC = [
 ]
 
 
-def get_package_info(package_name: str) -> Optional[Dict]:
+def get_package_info(package_name: str) -> dict | None:
     """Get package information from PyPI."""
     try:
         url = f"https://pypi.org/pypi/{package_name}/json"
@@ -143,7 +142,7 @@ def get_package_info(package_name: str) -> Optional[Dict]:
         return None
 
 
-def normalize_license(license_str: str) -> List[str]:
+def normalize_license(license_str: str) -> list[str]:
     """Normalize license string to standard SPDX identifiers."""
     if not license_str:
         return []
@@ -207,7 +206,7 @@ def normalize_license(license_str: str) -> List[str]:
     return normalized
 
 
-def check_license_compatibility(license_str: str) -> Tuple[bool, str, List[str]]:
+def check_license_compatibility(license_str: str) -> tuple[bool, str, list[str]]:
     """Check if license is compatible with EUPL v1.2."""
     if not license_str:
         return False, "UNKNOWN", []
@@ -244,11 +243,11 @@ def check_license_compatibility(license_str: str) -> Tuple[bool, str, List[str]]
     return compatible, status, issues
 
 
-def read_requirements() -> List[str]:
+def read_requirements() -> list[str]:
     """Read dependencies from requirements.txt."""
     dependencies = []
     try:
-        with open("requirements.txt", "r") as f:
+        with open("requirements.txt") as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith("#"):
