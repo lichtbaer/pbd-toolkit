@@ -1595,6 +1595,13 @@ def serve(
         ".pbd_analytics.db", "--analytics-db", help="Path to analytics database"
     ),
     reload: bool = typer.Option(False, "--reload", help="Auto-reload on code changes (dev only)"),
+    api_key: Optional[str] = typer.Option(None, "--api-key", help="API key for Bearer auth (or PBD_API_KEY env)"),
+    allowed_scan_roots: Optional[str] = typer.Option(
+        None, "--allowed-scan-roots", help="Comma-separated allowed scan directories (default: cwd)"
+    ),
+    cors_origins: Optional[str] = typer.Option(
+        None, "--cors-origins", help="Comma-separated allowed CORS origins"
+    ),
 ) -> None:
     """Start the REST API server for scanning and analytics."""
     try:
@@ -1607,8 +1614,16 @@ def serve(
         )
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
 
-    serve_main(["--host", host, "--port", str(port), "--analytics-db", analytics_db]
-               + (["--reload"] if reload else []))
+    argv = ["--host", host, "--port", str(port), "--analytics-db", analytics_db]
+    if reload:
+        argv.append("--reload")
+    if api_key:
+        argv.extend(["--api-key", api_key])
+    if allowed_scan_roots:
+        argv.extend(["--allowed-scan-roots", allowed_scan_roots])
+    if cors_origins:
+        argv.extend(["--cors-origins", cors_origins])
+    serve_main(argv)
 
 
 def cli() -> None:

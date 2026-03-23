@@ -72,7 +72,7 @@ jobs:
       - name: Bandit
         run: |
           # Fail on medium+ severity and confidence findings.
-          bandit -q -r core file_processors validators -x tests --severity-level medium --confidence-level medium
+          bandit -q -r core file_processors validators api analytics -x tests --severity-level medium --confidence-level medium
 
       - name: pip-audit
         run: |

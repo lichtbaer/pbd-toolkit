@@ -20,15 +20,48 @@ logger = logging.getLogger(__name__)
 class ScannerService:
     """Manages background scan jobs using the existing scan pipeline."""
 
-    def __init__(self, analytics_store: AnalyticsStore, max_workers: int = 2) -> None:
+    def __init__(
+        self,
+        analytics_store: AnalyticsStore,
+        max_workers: int = 2,
+        allowed_scan_roots: list[str] | None = None,
+    ) -> None:
         self._store = analytics_store
         self._executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="scan")
         self._active: dict[str, dict[str, Any]] = {}
         self._lock = threading.Lock()
+        # Resolve allowed scan roots to canonical absolute paths.
+        if allowed_scan_roots:
+            self._allowed_roots = [os.path.realpath(r) for r in allowed_scan_roots]
+        else:
+            self._allowed_roots = [os.path.realpath(os.getcwd())]
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+
+    def _validate_scan_path(self, path: str) -> str:
+        """Validate that the scan path is within allowed roots.
+
+        Args:
+            path: The requested scan path.
+
+        Returns:
+            The resolved canonical path.
+
+        Raises:
+            ValueError: If the path is outside allowed roots or not a directory.
+        """
+        resolved = os.path.realpath(path)
+        if not os.path.isdir(resolved):
+            raise ValueError(f"Path is not a directory: {path}")
+        for root in self._allowed_roots:
+            if resolved == root or resolved.startswith(root + os.sep):
+                return resolved
+        raise ValueError(
+            f"Path '{path}' is outside the allowed scan roots. "
+            f"Allowed roots: {self._allowed_roots}"
+        )
 
     def start_scan(
         self,
@@ -42,6 +75,9 @@ class ScannerService:
         context_chars: int = 0,
     ) -> str:
         """Submit a scan job and return the session ID immediately."""
+        # Validate path before starting the scan.
+        self._validate_scan_path(path)
+
         config_summary = {
             "engines": engines or ["regex"],
             "profile": profile,
@@ -237,8 +273,11 @@ class ScannerService:
             logger.error("Scan %s failed: %s", session_id[:8], exc, exc_info=True)
             try:
                 self._store.fail_session(session_id, str(exc))
-            except Exception:
-                pass
+            except Exception as inner_exc:
+                logger.error(
+                    "Failed to mark session %s as failed: %s",
+                    session_id[:8], inner_exc, exc_info=True,
+                )
         finally:
             with self._lock:
                 self._active.pop(session_id, None)

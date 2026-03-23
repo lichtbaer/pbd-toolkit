@@ -41,7 +41,7 @@ try:
     from pydantic_ai import Agent  # type: ignore
 
     _PYDANTIC_AI_AVAILABLE = True
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     Agent = None  # type: ignore
     _PYDANTIC_AI_AVAILABLE = False
 
@@ -310,30 +310,43 @@ class PydanticAIEngine:
             else:
                 model_str = f"openai:{self.model}"
 
-            # Set API key if needed (PydanticAI uses environment variables)
-            if self.api_key:
-                if self.provider == "openai":
-                    os.environ["OPENAI_API_KEY"] = self.api_key
-                elif self.provider == "anthropic":
-                    os.environ["ANTHROPIC_API_KEY"] = self.api_key
-
-            # Set base URL for custom endpoints (e.g., Ollama, local servers)
-            if self.base_url:
-                if self.provider == "ollama":
-                    # LiteLLM uses OLLAMA_API_BASE for custom Ollama endpoints
-                    os.environ["OLLAMA_API_BASE"] = self.base_url
-                elif self.provider == "openai":
-                    # For OpenAI-compatible APIs, set both env vars used by SDKs
-                    os.environ["OPENAI_API_BASE"] = self.base_url
-                    os.environ["OPENAI_BASE_URL"] = self.base_url
-
+            # Build provider instances directly instead of leaking secrets
+            # into the global environment via os.environ.
             model_input: Any = model_str
-            if self.provider == "openai" and self.base_url:
+            if self.provider == "openai":
                 from pydantic_ai.models.openai import OpenAIChatModel  # type: ignore
                 from pydantic_ai.providers.openai import OpenAIProvider  # type: ignore
 
-                provider = OpenAIProvider(base_url=self.base_url, api_key=self.api_key)
+                provider_kwargs: dict[str, Any] = {}
+                if self.api_key:
+                    provider_kwargs["api_key"] = self.api_key
+                if self.base_url:
+                    provider_kwargs["base_url"] = self.base_url
+                provider = OpenAIProvider(**provider_kwargs)
                 model_input = OpenAIChatModel(self.model, provider=provider)
+            elif self.provider == "anthropic" and self.api_key:
+                try:
+                    from pydantic_ai.models.anthropic import AnthropicModel  # type: ignore
+                    from pydantic_ai.providers.anthropic import AnthropicProvider  # type: ignore
+
+                    provider = AnthropicProvider(api_key=self.api_key)
+                    model_input = AnthropicModel(self.model, provider=provider)
+                except ImportError:
+                    # Fall back to model string if anthropic provider is not available
+                    pass
+            elif self.provider == "ollama" and self.base_url:
+                try:
+                    from pydantic_ai.providers.openai import OpenAIProvider  # type: ignore
+                    from pydantic_ai.models.openai import OpenAIChatModel  # type: ignore
+
+                    # Ollama exposes an OpenAI-compatible API
+                    provider = OpenAIProvider(
+                        base_url=self.base_url + "/v1",
+                        api_key="ollama",  # Ollama accepts any key
+                    )
+                    model_input = OpenAIChatModel(self.model, provider=provider)
+                except ImportError:
+                    pass
 
             model_settings = {"timeout": self.timeout} if self.timeout else None
 

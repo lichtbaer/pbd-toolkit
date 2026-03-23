@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query, Request
+import re
+
+from fastapi import APIRouter, HTTPException, Path, Query, Request
 
 from api.models import (
     FindingsResponse,
@@ -14,22 +16,34 @@ from api.models import (
 
 router = APIRouter(prefix="/api/v1/scans", tags=["scans"])
 
+_SESSION_ID_RE = re.compile(r"^[0-9a-f]{32}$")
+
+
+def _validate_session_id(session_id: str) -> str:
+    """Validate that session_id is a hex UUID4 (32 hex chars)."""
+    if not _SESSION_ID_RE.match(session_id):
+        raise HTTPException(status_code=400, detail="Invalid session_id format")
+    return session_id
+
 
 @router.post("", response_model=ScanResponse, status_code=202)
 def create_scan(body: ScanRequest, request: Request) -> ScanResponse:
     """Start a new PII scan in the background."""
     service = request.app.state.scanner_service
 
-    session_id = service.start_scan(
-        path=body.path,
-        engines=body.engines,
-        profile=body.profile,
-        deduplicate=body.deduplicate,
-        incremental=body.incremental,
-        text_chunk_size=body.text_chunk_size,
-        min_confidence=body.min_confidence,
-        context_chars=body.context_chars,
-    )
+    try:
+        session_id = service.start_scan(
+            path=body.path,
+            engines=body.engines,
+            profile=body.profile,
+            deduplicate=body.deduplicate,
+            incremental=body.incremental,
+            text_chunk_size=body.text_chunk_size,
+            min_confidence=body.min_confidence,
+            context_chars=body.context_chars,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     return ScanResponse(session_id=session_id, status="running", message="Scan started")
 
@@ -50,6 +64,7 @@ def list_scans(
 @router.get("/{session_id}", response_model=ScanStatusResponse)
 def get_scan(session_id: str, request: Request) -> ScanStatusResponse:
     """Get details and status of a single scan."""
+    _validate_session_id(session_id)
     queries = request.app.state.analytics_queries
     detail = queries.get_session_detail(session_id)
     if detail is None:
@@ -79,6 +94,7 @@ def get_scan_findings(
     dimension: str | None = Query(None),
 ) -> FindingsResponse:
     """Get findings for a specific scan session."""
+    _validate_session_id(session_id)
     queries = request.app.state.analytics_queries
     result = queries.get_findings(
         session_id=session_id,
@@ -95,6 +111,7 @@ def get_scan_findings(
 @router.delete("/{session_id}", status_code=204)
 def delete_scan(session_id: str, request: Request) -> None:
     """Delete a scan session and all associated data."""
+    _validate_session_id(session_id)
     queries = request.app.state.analytics_queries
     deleted = queries.delete_session(session_id)
     if not deleted:
