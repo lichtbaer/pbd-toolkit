@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
-from typing import Any
+import re
+from typing import Any, Literal
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from api.models import DashboardSummary
+
+_SESSION_ID_RE = re.compile(r"^[0-9a-f]{32}$")
+
+
+def _validate_optional_session_id(session_id: str | None) -> None:
+    """Validate session_id format if provided."""
+    if session_id is not None and not _SESSION_ID_RE.match(session_id):
+        raise HTTPException(status_code=400, detail="Invalid session_id format")
 
 router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
 
@@ -23,7 +32,7 @@ def dashboard_summary(request: Request) -> DashboardSummary:
 def trends(
     request: Request,
     days: int = Query(30, ge=1, le=365),
-    group_by: str = Query("day"),
+    group_by: Literal["day", "week", "month"] = Query("day"),
 ) -> list[dict[str, Any]]:
     """Findings trend over time."""
     queries = request.app.state.analytics_queries
@@ -36,6 +45,7 @@ def pii_type_distribution(
     session_id: str | None = Query(None),
 ) -> list[dict[str, Any]]:
     """PII type distribution (optionally scoped to a session)."""
+    _validate_optional_session_id(session_id)
     queries = request.app.state.analytics_queries
     return queries.get_pii_type_distribution(session_id=session_id)
 
@@ -46,6 +56,7 @@ def severity_breakdown(
     session_id: str | None = Query(None),
 ) -> list[dict[str, Any]]:
     """Findings count by severity level."""
+    _validate_optional_session_id(session_id)
     queries = request.app.state.analytics_queries
     return queries.get_severity_breakdown(session_id=session_id)
 
@@ -56,6 +67,7 @@ def engine_performance(
     session_id: str | None = Query(None),
 ) -> list[dict[str, Any]]:
     """Per-engine performance metrics."""
+    _validate_optional_session_id(session_id)
     queries = request.app.state.analytics_queries
     return queries.get_engine_performance(session_id=session_id)
 
@@ -66,6 +78,7 @@ def file_type_analysis(
     session_id: str | None = Query(None),
 ) -> list[dict[str, Any]]:
     """Analysis by file type."""
+    _validate_optional_session_id(session_id)
     queries = request.app.state.analytics_queries
     return queries.get_file_type_analysis(session_id=session_id)
 
@@ -76,6 +89,7 @@ def dimension_summary(
     session_id: str | None = Query(None),
 ) -> list[dict[str, Any]]:
     """Findings aggregated by privacy dimension."""
+    _validate_optional_session_id(session_id)
     queries = request.app.state.analytics_queries
     return queries.get_dimension_summary(session_id=session_id)
 
@@ -87,5 +101,6 @@ def top_affected_files(
     limit: int = Query(20, ge=1, le=100),
 ) -> list[dict[str, Any]]:
     """Files with the most findings."""
+    _validate_optional_session_id(session_id)
     queries = request.app.state.analytics_queries
     return queries.get_top_affected_files(session_id=session_id, limit=limit)

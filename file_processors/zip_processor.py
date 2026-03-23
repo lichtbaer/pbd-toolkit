@@ -13,6 +13,10 @@ _MAX_UNCOMPRESSED_BYTES = 512 * 1024 * 1024  # 512 MB
 # Maximum uncompressed size for a single file inside the archive.
 _MAX_SINGLE_FILE_BYTES = 100 * 1024 * 1024  # 100 MB
 
+# Maximum compression ratio (uncompressed / compressed) before treating the
+# entry as a potential ZIP bomb.  Legitimate text files rarely exceed 20:1.
+_MAX_COMPRESSION_RATIO = 100
+
 
 class ZipProcessor(BaseFileProcessor):
     """Processor for ZIP archive files.
@@ -59,6 +63,13 @@ class ZipProcessor(BaseFileProcessor):
                         continue
 
                     if info.file_size > _MAX_SINGLE_FILE_BYTES:
+                        continue
+
+                    # Detect ZIP bombs via suspicious compression ratio.
+                    if (
+                        info.compress_size > 0
+                        and info.file_size / info.compress_size > _MAX_COMPRESSION_RATIO
+                    ):
                         continue
 
                     total_uncompressed += info.file_size
