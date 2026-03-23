@@ -1,8 +1,8 @@
 """RTF file processor using striprtf library."""
 
-from typing import Optional
-from file_processors.base_processor import BaseFileProcessor
 from striprtf.striprtf import rtf_to_text
+
+from file_processors.base_processor import BaseFileProcessor
 
 
 class RtfProcessor(BaseFileProcessor):
@@ -30,13 +30,11 @@ class RtfProcessor(BaseFileProcessor):
         # RTF files are typically encoded in various formats
         # Try common encodings
         encodings = ["utf-8", "latin-1", "cp1252", "iso-8859-1"]
-        last_error: Optional[UnicodeDecodeError] = None
+        last_error: UnicodeDecodeError | None = None
 
         for encoding in encodings:
             try:
-                with open(
-                    file_path, "r", encoding=encoding, errors="replace"
-                ) as rtf_file:
+                with open(file_path, encoding=encoding, errors="replace") as rtf_file:
                     rtf_content = rtf_file.read()
                     # Convert RTF to plain text
                     text = rtf_to_text(rtf_content)

@@ -6,7 +6,7 @@ import hmac
 import logging
 import threading
 import time
-from typing import Callable
+from collections.abc import Callable
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -36,10 +36,12 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         if not auth_header.startswith("Bearer "):
             return JSONResponse(
                 status_code=401,
-                content={"detail": "Missing or malformed API key. Use 'Authorization: Bearer <key>'."},
+                content={
+                    "detail": "Missing or malformed API key. Use 'Authorization: Bearer <key>'."
+                },
             )
 
-        token = auth_header[len("Bearer "):]
+        token = auth_header[len("Bearer ") :]
         if not hmac.compare_digest(token, self.api_key):
             return JSONResponse(status_code=403, content={"detail": "Invalid API key"})
 

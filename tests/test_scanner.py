@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from core.scanner import FileScanner, FileInfo, ScanResult
+from core.scanner import FileInfo, FileScanner, ScanResult
 
 
 class TestFileScanner:

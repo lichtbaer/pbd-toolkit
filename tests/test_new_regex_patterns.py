@@ -1,7 +1,7 @@
 """Tests for new regex patterns added for data protection dimensions."""
 
 import re
-import json
+
 from core.matches import PiiMatchContainer
 from core.resources import load_config_types
 
@@ -227,9 +227,9 @@ class TestExtendedSignalWords:
             (c for c in config["regex"] if c["label"] == "REGEX_SIGNAL_WORDS_EXTENDED"),
             None,
         )
-        assert (
-            signal_config is not None
-        ), "REGEX_SIGNAL_WORDS_EXTENDED not found in config"
+        assert signal_config is not None, (
+            "REGEX_SIGNAL_WORDS_EXTENDED not found in config"
+        )
 
         signal_pattern = re.compile(signal_config["expression"], re.IGNORECASE)
 

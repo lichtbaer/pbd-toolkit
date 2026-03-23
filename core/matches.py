@@ -1,18 +1,19 @@
+from __future__ import annotations
+
 import csv
 import logging
 import re
 import threading
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Optional
+
+from core.resources import load_config_types
+from core.severity import classify as _classify_severity
 
 _DEDUP_MAX_ENTRIES = 500_000
 _MAX_WHITELIST_REGEX_LEN = 500
 
 _logger = logging.getLogger("pbd-toolkit")
-
-from core.resources import load_config_types
-from core.severity import classify as _classify_severity
 
 # configure support match types
 config = load_config_types()
@@ -84,20 +85,20 @@ class PiiMatchContainer:
     # with bounded capacity (FIFO eviction when exceeding _DEDUP_MAX_ENTRIES)
     _seen_keys: OrderedDict = field(default_factory=OrderedDict, init=False, repr=False)
     # CSV writer for output (injected dependency, only used for CSV format)
-    _csv_writer: Optional[csv.writer] = field(default=None, init=False, repr=False)
+    _csv_writer: csv.writer | None = field(default=None, init=False, repr=False)
     # Output format (csv, json, xlsx)
     _output_format: str = field(default="csv", init=False, repr=False)
     # Optional output writer for streaming formats (duck-typed: must implement write_match()).
-    _output_writer: Optional[object] = field(default=None, init=False, repr=False)
+    _output_writer: object | None = field(default=None, init=False, repr=False)
     # Optional analytics store (duck-typed: must implement record_finding_from_match())
-    _analytics_store: Optional[object] = field(default=None, init=False, repr=False)
-    _analytics_session_id: Optional[str] = field(default=None, init=False, repr=False)
+    _analytics_store: object | None = field(default=None, init=False, repr=False)
+    _analytics_session_id: str | None = field(default=None, init=False, repr=False)
     # Internal lock for thread-safe match aggregation / streaming writes
     _lock: threading.Lock = field(
         default_factory=threading.Lock, init=False, repr=False
     )
 
-    def set_csv_writer(self, csv_writer: Optional[csv.writer]) -> None:
+    def set_csv_writer(self, csv_writer: csv.writer | None) -> None:
         """Set the CSV writer for output.
 
         Args:
@@ -116,7 +117,7 @@ class PiiMatchContainer:
             self._output_format = output_format
 
     def set_analytics_store(
-        self, store: Optional[object], session_id: Optional[str] = None
+        self, store: object | None, session_id: str | None = None
     ) -> None:
         """Set an analytics store for persisting findings.
 
@@ -127,7 +128,7 @@ class PiiMatchContainer:
             self._analytics_store = store
             self._analytics_session_id = session_id
 
-    def set_output_writer(self, output_writer: Optional[object]) -> None:
+    def set_output_writer(self, output_writer: object | None) -> None:
         """Set an output writer for streaming formats.
 
         This is intentionally duck-typed to avoid import cycles:

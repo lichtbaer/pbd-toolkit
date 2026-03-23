@@ -2,7 +2,7 @@
 
 import datetime
 
-from core.statistics import Statistics, NerStats
+from core.statistics import NerStats, Statistics
 
 
 class TestStatistics:

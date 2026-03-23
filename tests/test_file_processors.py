@@ -3,7 +3,6 @@
 import os
 import sqlite3
 import zipfile
-from pathlib import Path
 
 import pytest
 
@@ -27,8 +26,8 @@ from file_processors import (
     SqliteProcessor,
     TextProcessor,
     VcfProcessor,
-    XmlProcessor,
     XlsxProcessor,
+    XmlProcessor,
     YamlProcessor,
     ZipProcessor,
 )
@@ -471,7 +470,7 @@ class TestOdsProcessor:
         """Test text extraction from ODS file (requires odfpy)."""
         pytest.importorskip("odf.opendocument")
         from odf.opendocument import OpenDocumentSpreadsheet
-        from odf.table import Table, TableRow, TableCell
+        from odf.table import Table, TableCell, TableRow
         from odf.text import P
 
         ods_path = os.path.join(temp_dir, "test.ods")
@@ -526,7 +525,10 @@ class TestXlsxProcessor:
         non_existent = os.path.join(temp_dir, "nonexistent.xlsx")
         with pytest.raises(Exception) as exc_info:
             processor.extract_text(non_existent)
-        assert "No such file" in str(exc_info.value) or "nonexistent" in str(exc_info.value).lower()
+        assert (
+            "No such file" in str(exc_info.value)
+            or "nonexistent" in str(exc_info.value).lower()
+        )
 
 
 class TestPptxProcessor:
@@ -580,9 +582,9 @@ class TestPptxProcessor:
         pptx_path = os.path.join(temp_dir, "test.pptx")
         prs = Presentation()
         slide = prs.slides.add_slide(prs.slide_layouts[6])  # Blank
-        slide.shapes.add_textbox(Inches(1), Inches(1), Inches(5), Inches(1)).text_frame.text = (
-            "John Doe john@example.com"
-        )
+        slide.shapes.add_textbox(
+            Inches(1), Inches(1), Inches(5), Inches(1)
+        ).text_frame.text = "John Doe john@example.com"
         prs.save(pptx_path)
 
         processor = PptxProcessor()
@@ -771,12 +773,8 @@ class TestSqliteProcessor:
         """Test text extraction from SQLite database."""
         db_path = os.path.join(temp_dir, "test.db")
         conn = sqlite3.connect(db_path)
-        conn.execute(
-            "CREATE TABLE contacts (name TEXT, email TEXT)"
-        )
-        conn.execute(
-            "INSERT INTO contacts VALUES ('John Doe', 'john@example.com')"
-        )
+        conn.execute("CREATE TABLE contacts (name TEXT, email TEXT)")
+        conn.execute("INSERT INTO contacts VALUES ('John Doe', 'john@example.com')")
         conn.commit()
         conn.close()
 
@@ -857,7 +855,9 @@ class TestXmlProcessor:
         """Test that malformed XML uses regex fallback to extract text."""
         file_path = os.path.join(temp_dir, "malformed.xml")
         with open(file_path, "w", encoding="utf-8") as f:
-            f.write("<root><name>John Doe</name><email>john@example.com</email></root")  # missing >
+            f.write(
+                "<root><name>John Doe</name><email>john@example.com</email></root"
+            )  # missing >
         processor = XmlProcessor()
         text = processor.extract_text(file_path)
         assert "John Doe" in text or "john@example.com" in text
@@ -877,12 +877,7 @@ class TestVcfProcessor:
         """Test text extraction from vCard file."""
         file_path = os.path.join(temp_dir, "test.vcf")
         with open(file_path, "w", encoding="utf-8") as f:
-            f.write(
-                "BEGIN:VCARD\n"
-                "FN:John Doe\n"
-                "EMAIL:john@example.com\n"
-                "END:VCARD\n"
-            )
+            f.write("BEGIN:VCARD\nFN:John Doe\nEMAIL:john@example.com\nEND:VCARD\n")
         processor = VcfProcessor()
         text = processor.extract_text(file_path)
         assert "John Doe" in text

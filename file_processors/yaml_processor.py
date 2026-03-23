@@ -1,6 +1,7 @@
 """YAML file processor using PyYAML library."""
 
 from typing import Any
+
 from file_processors.base_processor import BaseFileProcessor
 
 try:
@@ -55,7 +56,7 @@ class YamlProcessor(BaseFileProcessor):
         text_parts: list[str] = []
 
         try:
-            with open(file_path, "r", encoding="utf-8", errors="replace") as yamlfile:
+            with open(file_path, encoding="utf-8", errors="replace") as yamlfile:
                 try:
                     data: Any = yaml.safe_load(yamlfile)  # type: ignore[union-attr]
                     if data is not None:

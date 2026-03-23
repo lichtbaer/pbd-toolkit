@@ -1,7 +1,8 @@
 """SQLite database processor for extracting text from database files."""
 
 import sqlite3
-from typing import Iterator
+from collections.abc import Iterator
+
 from file_processors.base_processor import BaseFileProcessor
 
 
@@ -34,7 +35,7 @@ class SqliteProcessor(BaseFileProcessor):
                 # Get all table names
                 cursor.execute(
                     """
-                    SELECT name FROM sqlite_master 
+                    SELECT name FROM sqlite_master
                     WHERE type='table' AND name NOT LIKE 'sqlite_%'
                 """
                 )

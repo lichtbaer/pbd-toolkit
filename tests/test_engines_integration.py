@@ -1,6 +1,7 @@
 """Integration tests for multiple engines working together."""
 
 from unittest.mock import Mock, patch
+
 from core.config import Config, NerStats
 from core.matches import PiiMatchContainer
 from core.processor import TextProcessor
@@ -21,6 +22,9 @@ class TestMultipleEnginesIntegration:
         mock_config.ner_stats = NerStats()
         mock_config.verbose = False
         mock_config.logger = Mock()
+        mock_config.text_chunk_size = 0
+        mock_config.text_chunk_overlap = 200
+        mock_config.context_chars = 0
 
         # Mock regex match
         mock_match = Mock()
@@ -62,6 +66,9 @@ class TestMultipleEnginesIntegration:
         mock_config.ner_stats = NerStats()
         mock_config.verbose = False
         mock_config.logger = Mock()
+        mock_config.text_chunk_size = 0
+        mock_config.text_chunk_overlap = 200
+        mock_config.context_chars = 0
 
         # Mock regex match
         mock_match = Mock()
@@ -104,6 +111,9 @@ class TestMultipleEnginesIntegration:
         mock_config.ner_stats = NerStats()
         mock_config.verbose = False
         mock_config.logger = Mock()
+        mock_config.text_chunk_size = 0
+        mock_config.text_chunk_overlap = 200
+        mock_config.context_chars = 0
 
         # Mock regex match (works)
         mock_match = Mock()

@@ -13,7 +13,7 @@ def load_findings(file_path: str) -> list[dict]:
 
     if path.suffix == ".jsonl":
         findings = []
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -26,7 +26,7 @@ def load_findings(file_path: str) -> list[dict]:
         return findings
     else:
         # JSON format
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
         if isinstance(data, dict) and "findings" in data:
             return data["findings"]

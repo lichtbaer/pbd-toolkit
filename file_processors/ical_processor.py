@@ -111,7 +111,7 @@ class IcalProcessor(BaseFileProcessor):
         # Check file content if file_path is provided
         if file_path:
             try:
-                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                with open(file_path, encoding="utf-8", errors="ignore") as f:
                     first_line = f.readline().strip()
                     if first_line == "BEGIN:VCALENDAR":
                         return True

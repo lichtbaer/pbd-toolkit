@@ -5,14 +5,16 @@ Multimodal image detection uses an OpenAI-compatible HTTP API (works with OpenAI
 vLLM, LocalAI) and does NOT require PydanticAI.
 """
 
-import os
-import time
 import json
+import os
 import threading
-from typing import Optional, List, Any
+import time
+from typing import Any
+
 from pydantic import BaseModel, Field
-from core.engines.base import DetectionResult
+
 from core.config import Config
+from core.engines.base import DetectionResult
 
 # Transient error indicators that warrant a retry
 _RETRYABLE_EXCEPTION_SUBSTRINGS = (
@@ -51,18 +53,16 @@ class PIIDetectionEntity(BaseModel):
 
     text: str = Field(description="The detected text")
     type: str = Field(description="The entity type (e.g., PERSON, EMAIL, PHONE)")
-    confidence: Optional[float] = Field(
+    confidence: float | None = Field(
         None, description="Confidence score between 0.0 and 1.0"
     )
-    location: Optional[str] = Field(
-        None, description="Location description (for images)"
-    )
+    location: str | None = Field(None, description="Location description (for images)")
 
 
 class PIIDetectionResponse(BaseModel):
     """Response model for PII detection."""
 
-    entities: List[PIIDetectionEntity] = Field(
+    entities: list[PIIDetectionEntity] = Field(
         default_factory=list, description="List of detected PII entities"
     )
 
@@ -118,7 +118,7 @@ class PydanticAIEngine:
         self.multimodal_timeout = int(getattr(config, "multimodal_timeout", 60))
 
         # Initialize agent
-        self._agent: Optional[Agent] = None
+        self._agent: Agent | None = None
         self._available = None  # Cache availability check
 
         # Adaptive rate limiting (preserved from OllamaEngine)
@@ -182,7 +182,7 @@ class PydanticAIEngine:
             return getattr(self.config, "openai_model", "gpt-3.5-turbo")
         return getattr(self.config, "pydantic_ai_model", "gpt-3.5-turbo")
 
-    def _get_api_key(self) -> Optional[str]:
+    def _get_api_key(self) -> str | None:
         """Get API key for the provider.
 
         Returns:
@@ -211,7 +211,7 @@ class PydanticAIEngine:
             )
         return getattr(self.config, "pydantic_ai_api_key", None)
 
-    def _get_base_url(self) -> Optional[str]:
+    def _get_base_url(self) -> str | None:
         """Get base URL for the provider.
 
         Returns:
@@ -245,7 +245,7 @@ class PydanticAIEngine:
             return getattr(self.config, "ollama_timeout", 30)
         return getattr(self.config, "openai_timeout", 30)
 
-    def _get_multimodal_api_key(self) -> Optional[str]:
+    def _get_multimodal_api_key(self) -> str | None:
         """Resolve API key for multimodal OpenAI-compatible endpoints.
 
         Local endpoints like vLLM / LocalAI often do not require an API key.
@@ -326,8 +326,12 @@ class PydanticAIEngine:
                 model_input = OpenAIChatModel(self.model, provider=provider)
             elif self.provider == "anthropic" and self.api_key:
                 try:
-                    from pydantic_ai.models.anthropic import AnthropicModel  # type: ignore
-                    from pydantic_ai.providers.anthropic import AnthropicProvider  # type: ignore
+                    from pydantic_ai.models.anthropic import (
+                        AnthropicModel,  # type: ignore
+                    )
+                    from pydantic_ai.providers.anthropic import (
+                        AnthropicProvider,  # type: ignore
+                    )
 
                     provider = AnthropicProvider(api_key=self.api_key)
                     model_input = AnthropicModel(self.model, provider=provider)
@@ -336,8 +340,12 @@ class PydanticAIEngine:
                     pass
             elif self.provider == "ollama" and self.base_url:
                 try:
-                    from pydantic_ai.providers.openai import OpenAIProvider  # type: ignore
-                    from pydantic_ai.models.openai import OpenAIChatModel  # type: ignore
+                    from pydantic_ai.models.openai import (
+                        OpenAIChatModel,  # type: ignore
+                    )
+                    from pydantic_ai.providers.openai import (
+                        OpenAIProvider,  # type: ignore
+                    )
 
                     # Ollama exposes an OpenAI-compatible API
                     provider = OpenAIProvider(
@@ -402,7 +410,7 @@ class PydanticAIEngine:
         self,
         text: str,
         labels: list[str] | None = None,
-        image_path: Optional[str] = None,
+        image_path: str | None = None,
     ) -> list[DetectionResult]:
         """Detect PII using PydanticAI.
 
@@ -516,8 +524,8 @@ class PydanticAIEngine:
                 return []
 
     def _detect_image(
-        self, image_path: str, labels: Optional[List[str]]
-    ) -> List[DetectionResult]:
+        self, image_path: str, labels: list[str] | None
+    ) -> list[DetectionResult]:
         """Detect PII in image using an OpenAI-compatible multimodal endpoint.
 
         This path is "real" multimodal: it sends the image to the configured
@@ -633,7 +641,7 @@ class PydanticAIEngine:
         user_prompt: str,
         image_data_url: str,
         base_url: str,
-        api_key: Optional[str],
+        api_key: str | None,
         model: str,
         timeout: int,
         use_response_format: bool,
@@ -719,7 +727,7 @@ class PydanticAIEngine:
 
     def _parse_openai_response_as_pii_detection(
         self, response_data: dict[str, Any]
-    ) -> Optional[PIIDetectionResponse]:
+    ) -> PIIDetectionResponse | None:
         """Extract and validate PIIDetectionResponse from OpenAI-compatible response."""
         try:
             content = (
@@ -760,7 +768,7 @@ class PydanticAIEngine:
             return None
 
     @staticmethod
-    def _extract_first_json_object(text: str) -> Optional[str]:
+    def _extract_first_json_object(text: str) -> str | None:
         """Best-effort extraction of the first complete JSON object from a string.
 
         This is a fallback for providers/models that prepend/append natural language.
@@ -799,7 +807,7 @@ class PydanticAIEngine:
 
         return None
 
-    def _create_prompt(self, text: str, labels: Optional[List[str]]) -> str:
+    def _create_prompt(self, text: str, labels: list[str] | None) -> str:
         """Create prompt for text analysis.
 
         Args:
@@ -840,7 +848,7 @@ Text:
 
 Extract all PII entities and return them in the structured format."""
 
-    def _create_image_prompt(self, labels: Optional[List[str]]) -> str:
+    def _create_image_prompt(self, labels: list[str] | None) -> str:
         """Create prompt for image analysis.
 
         Args:
@@ -868,8 +876,8 @@ Look for:
 Extract all PII entities and return them in the structured format."""
 
     def _convert_results(
-        self, response: PIIDetectionResponse, image_path: Optional[str] = None
-    ) -> List[DetectionResult]:
+        self, response: PIIDetectionResponse, image_path: str | None = None
+    ) -> list[DetectionResult]:
         """Convert PydanticAI response to DetectionResult list.
 
         Args:

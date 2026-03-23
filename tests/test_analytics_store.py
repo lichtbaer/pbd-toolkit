@@ -1,7 +1,6 @@
 """Tests for the analytics store module."""
 
 import os
-import tempfile
 
 import pytest
 
@@ -65,7 +64,9 @@ class TestAnalyticsStore:
     """Tests for the high-level store."""
 
     def test_create_session(self, store):
-        sid = store.create_session(scan_path="/data", config_summary={"engines": ["regex"]})
+        sid = store.create_session(
+            scan_path="/data", config_summary={"engines": ["regex"]}
+        )
         assert isinstance(sid, str)
         assert len(sid) == 32  # hex UUID
 
@@ -81,7 +82,9 @@ class TestAnalyticsStore:
         )
         # Verify via raw query
         conn = store._db.connection
-        cur = conn.execute("SELECT status, total_matches FROM scan_sessions WHERE id = ?", (sid,))
+        cur = conn.execute(
+            "SELECT status, total_matches FROM scan_sessions WHERE id = ?", (sid,)
+        )
         row = cur.fetchone()
         assert row["status"] == "completed"
         assert row["total_matches"] == 42
@@ -123,7 +126,9 @@ class TestAnalyticsStore:
         sid = store.create_session(scan_path="/data")
         store.record_finding_from_match(sid, FakeMatch())
         conn = store._db.connection
-        cur = conn.execute("SELECT pii_type, dimension FROM findings WHERE session_id = ?", (sid,))
+        cur = conn.execute(
+            "SELECT pii_type, dimension FROM findings WHERE session_id = ?", (sid,)
+        )
         row = cur.fetchone()
         assert row["pii_type"] == "REGEX_IBAN"
         assert row["dimension"] == "financial"
@@ -150,7 +155,9 @@ class TestAnalyticsStore:
 
     def test_graceful_degradation_bad_path(self):
         """Store should not crash on invalid DB path."""
-        s = AnalyticsStore(db_path="/nonexistent/dir/that/really/does/not/exist/db.sqlite")
+        s = AnalyticsStore(
+            db_path="/nonexistent/dir/that/really/does/not/exist/db.sqlite"
+        )
         # create_session should return an ID even if DB is unavailable
         sid = s.create_session(scan_path="/data")
         assert isinstance(sid, str)

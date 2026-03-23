@@ -19,11 +19,21 @@ import sys
 def main(argv: list[str] | None = None) -> None:
     """Parse arguments and start the uvicorn server."""
     parser = argparse.ArgumentParser(description="PBD Toolkit API Server")
-    parser.add_argument("--host", default="127.0.0.1", help="Bind address (default: 127.0.0.1)")
+    parser.add_argument(
+        "--host", default="127.0.0.1", help="Bind address (default: 127.0.0.1)"
+    )
     parser.add_argument("--port", type=int, default=8000, help="Port (default: 8000)")
-    parser.add_argument("--analytics-db", default=".pbd_analytics.db", help="Analytics DB path")
-    parser.add_argument("--reload", action="store_true", help="Enable auto-reload (dev only)")
-    parser.add_argument("--api-key", default=None, help="API key for Bearer authentication (or set PBD_API_KEY)")
+    parser.add_argument(
+        "--analytics-db", default=".pbd_analytics.db", help="Analytics DB path"
+    )
+    parser.add_argument(
+        "--reload", action="store_true", help="Enable auto-reload (dev only)"
+    )
+    parser.add_argument(
+        "--api-key",
+        default=None,
+        help="API key for Bearer authentication (or set PBD_API_KEY)",
+    )
     parser.add_argument(
         "--allowed-scan-roots",
         default=None,
@@ -59,7 +69,9 @@ def main(argv: list[str] | None = None) -> None:
     from api.app import create_app
 
     cors_origins = args.cors_origins.split(",") if args.cors_origins else None
-    allowed_roots = args.allowed_scan_roots.split(",") if args.allowed_scan_roots else None
+    allowed_roots = (
+        args.allowed_scan_roots.split(",") if args.allowed_scan_roots else None
+    )
 
     app = create_app(
         analytics_db_path=args.analytics_db,

@@ -6,12 +6,12 @@ import json
 
 import pytest
 
-from core.matches import PiiMatch
 from core.exceptions import OutputError
+from core.matches import PiiMatch
 from core.writers import (
     CsvWriter,
-    JsonWriter,
     JsonlWriter,
+    JsonWriter,
     PrivacyStatisticsWriter,
     create_output_writer,
 )
@@ -188,4 +188,3 @@ def test_privacy_statistics_writer(tmp_path):
     assert "statistics_by_dimension" in data
     assert "summary" in data
     assert "metadata" in data
-

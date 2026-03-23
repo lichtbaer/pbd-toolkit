@@ -2,10 +2,9 @@
 
 from unittest.mock import Mock
 
-
 from core.context import ApplicationContext
-from core.statistics import Statistics
 from core.matches import PiiMatchContainer
+from core.statistics import Statistics
 
 
 class TestApplicationContext:
@@ -123,9 +122,10 @@ class TestApplicationContext:
 
     def test_context_with_output_writer(self, mock_config):
         """Test context with output writer."""
-        from core.writers import CsvWriter
-        import tempfile
         import os
+        import tempfile
+
+        from core.writers import CsvWriter
 
         logger = Mock()
         statistics = Statistics()

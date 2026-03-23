@@ -8,13 +8,16 @@ import pytest
 
 try:
     from fastapi.testclient import TestClient
+
     from api.app import create_app
 
     HAS_API_DEPS = True
 except ImportError:
     HAS_API_DEPS = False
 
-pytestmark = pytest.mark.skipif(not HAS_API_DEPS, reason="API dependencies not installed")
+pytestmark = pytest.mark.skipif(
+    not HAS_API_DEPS, reason="API dependencies not installed"
+)
 
 
 @pytest.fixture
@@ -39,7 +42,9 @@ def seeded_client(tmp_path):
     store.record_finding(sid, "/data/b.docx", "REGEX_IBAN", "regex", "HIGH", 0.95)
     store.record_engine_stats(sid, "regex", matches_found=2, files_processed=5)
     store.record_file_type_stats(sid, ".pdf", files_scanned=3, matches_found=1)
-    store.complete_session(sid, total_files=5, files_processed=5, total_matches=2, duration_sec=1.5)
+    store.complete_session(
+        sid, total_files=5, files_processed=5, total_matches=2, duration_sec=1.5
+    )
     store.close()
 
     app = create_app(analytics_db_path=db_path)
@@ -106,7 +111,9 @@ class TestScanEndpoints:
 
     def test_get_scan_findings_with_filter(self, seeded_client):
         sid = seeded_client["session_id"]
-        resp = seeded_client["client"].get(f"/api/v1/scans/{sid}/findings?severity=HIGH")
+        resp = seeded_client["client"].get(
+            f"/api/v1/scans/{sid}/findings?severity=HIGH"
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["total"] == 1
@@ -185,7 +192,10 @@ class TestPathTraversal:
         with TestClient(app) as c:
             resp = c.post("/api/v1/scans", json={"path": "/etc"})
             assert resp.status_code == 400
-            assert "outside" in resp.json()["detail"].lower() or "not a directory" in resp.json()["detail"].lower()
+            assert (
+                "outside" in resp.json()["detail"].lower()
+                or "not a directory" in resp.json()["detail"].lower()
+            )
 
     def test_dotdot_traversal_is_rejected(self, tmp_path):
         db_path = str(tmp_path / "pt2.db")
@@ -223,7 +233,9 @@ class TestAPIKeyAuth:
         assert resp.status_code == 401
 
     def test_wrong_key_returns_403(self, auth_client):
-        resp = auth_client.get("/api/v1/scans", headers={"Authorization": "Bearer wrong-key"})
+        resp = auth_client.get(
+            "/api/v1/scans", headers={"Authorization": "Bearer wrong-key"}
+        )
         assert resp.status_code == 403
 
     def test_correct_key_succeeds(self, auth_client):
@@ -271,7 +283,9 @@ class TestGroupByValidation:
 
     def test_valid_group_by_accepted(self, seeded_client):
         for val in ("day", "week", "month"):
-            resp = seeded_client["client"].get(f"/api/v1/analytics/trends?group_by={val}")
+            resp = seeded_client["client"].get(
+                f"/api/v1/analytics/trends?group_by={val}"
+            )
             assert resp.status_code == 200
 
 

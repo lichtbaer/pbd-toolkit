@@ -1,6 +1,7 @@
 """Tests for PII matching functionality."""
 
 import re
+
 from core.matches import PiiMatch, PiiMatchContainer
 
 
@@ -101,7 +102,15 @@ class TestPiiMatchContainerDeduplication:
     def _make_result(self, text, file, type_, engine="regex", score=None):
         """Helper to create a minimal DetectionResult-like object."""
         from types import SimpleNamespace
-        return SimpleNamespace(text=text, file=file, entity_type=type_, engine_name=engine, confidence=score, metadata={})
+
+        return SimpleNamespace(
+            text=text,
+            file=file,
+            entity_type=type_,
+            engine_name=engine,
+            confidence=score,
+            metadata={},
+        )
 
     def test_deduplication_disabled_by_default(self):
         """Deduplication is off by default; duplicate matches are kept."""
@@ -132,7 +141,9 @@ class TestPiiMatchContainerDeduplication:
         """Same text with different types are treated as distinct matches."""
         container = PiiMatchContainer(enable_deduplication=True)
         r1 = self._make_result("Max Muster", "/f.txt", "PERSON", engine="gliner")
-        r2 = self._make_result("Max Muster", "/f.txt", "ORGANIZATION", engine="spacy-ner")
+        r2 = self._make_result(
+            "Max Muster", "/f.txt", "ORGANIZATION", engine="spacy-ner"
+        )
         container.add_detection_results([r1, r2], "/f.txt")
         assert len(container.pii_matches) == 2
 
@@ -148,15 +159,20 @@ class TestPiiMatchContainerDeduplication:
     def test_deduplication_thread_safety(self):
         """Deduplication state is consistent under concurrent writes."""
         import threading
+
         container = PiiMatchContainer(enable_deduplication=True)
         errors = []
 
         def add_result():
             try:
                 from types import SimpleNamespace
+
                 r = SimpleNamespace(
-                    text="shared@email.com", entity_type="EMAIL",
-                    engine_name="regex", confidence=None, metadata={}
+                    text="shared@email.com",
+                    entity_type="EMAIL",
+                    engine_name="regex",
+                    confidence=None,
+                    metadata={},
                 )
                 container.add_detection_results([r], "/shared.txt")
             except Exception as e:

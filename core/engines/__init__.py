@@ -1,11 +1,11 @@
 """Detection engines for PII analysis."""
 
 from core.engines.base import DetectionEngine, DetectionResult
-from core.engines.registry import EngineRegistry
+from core.engines.gliner_engine import GLiNEREngine
 
 # Import engines to register them
 from core.engines.regex_engine import RegexEngine
-from core.engines.gliner_engine import GLiNEREngine
+from core.engines.registry import EngineRegistry
 
 # Register built-in engines
 EngineRegistry.register("regex", RegexEngine)

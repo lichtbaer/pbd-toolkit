@@ -36,6 +36,7 @@ def minimal_config() -> Mock:
     cfg.ollama_labels = []
     cfg.ner_labels = ["PERSON", "EMAIL"]
     cfg.llm_max_retries = 3
+    cfg.llm_retry_base_delay = 1.0
     return cfg
 
 

@@ -1,9 +1,9 @@
 """Tests for privacy dimension mapping."""
 
 from core.privacy_dimensions import (
+    get_all_dimensions,
     get_dimension,
     get_sensitivity_level,
-    get_all_dimensions,
     get_types_for_dimension,
 )
 

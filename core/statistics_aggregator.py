@@ -6,13 +6,12 @@ without storing individual PII instances or file paths.
 
 import os
 from collections import defaultdict
-from typing import Dict, Set, Optional
 
 from core.matches import PiiMatch
 from core.privacy_dimensions import (
+    get_all_dimensions,
     get_dimension,
     get_sensitivity_level,
-    get_all_dimensions,
 )
 
 
@@ -34,7 +33,7 @@ class StatisticsAggregator:
         """
         self.strict = strict
         # Statistics by dimension
-        self._by_dimension: Dict[str, Dict] = defaultdict(
+        self._by_dimension: dict[str, dict] = defaultdict(
             lambda: {
                 "total_count": 0,
                 "by_module": defaultdict(int),
@@ -45,7 +44,7 @@ class StatisticsAggregator:
         )
 
         # Statistics by module
-        self._by_module: Dict[str, Dict] = defaultdict(
+        self._by_module: dict[str, dict] = defaultdict(
             lambda: {
                 "total_matches": 0,
                 "types_detected": set(),
@@ -57,7 +56,7 @@ class StatisticsAggregator:
         )
 
         # Statistics by file type
-        self._by_file_type: Dict[str, Dict] = defaultdict(
+        self._by_file_type: dict[str, dict] = defaultdict(
             lambda: {
                 "files_scanned": 0,
                 "files_analyzed": 0,
@@ -67,12 +66,12 @@ class StatisticsAggregator:
         )
 
         # Track all unique files with matches (for summary) unless strict mode is enabled
-        self._all_files_with_matches: Optional[Set[str]] = (
+        self._all_files_with_matches: set[str] | None = (
             set() if not self.strict else None
         )
 
         # Track all unique types detected
-        self._all_types_detected: Set[str] = set()
+        self._all_types_detected: set[str] = set()
 
         # Initialize sensitivity levels for dimensions
         for dimension in get_all_dimensions():
@@ -153,7 +152,7 @@ class StatisticsAggregator:
             else:
                 self._by_module[engine]["files_processed"].add(file_path)
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> dict:
         """Get aggregated statistics as dictionary.
 
         Returns:
@@ -228,7 +227,7 @@ class StatisticsAggregator:
 
         return stats
 
-    def _get_summary(self) -> Dict:
+    def _get_summary(self) -> dict:
         """Get summary statistics.
 
         Returns:
@@ -281,7 +280,7 @@ class StatisticsAggregator:
             "risk_assessment": risk_counts,
         }
 
-    def _calculate_confidence_distribution(self, scores: list[float]) -> Dict[str, int]:
+    def _calculate_confidence_distribution(self, scores: list[float]) -> dict[str, int]:
         """Calculate confidence score distribution.
 
         Args:

@@ -1,10 +1,12 @@
 """PDF file processor using pdfminer.six."""
 
-from typing import Iterator
-from file_processors.base_processor import BaseFileProcessor
+from collections.abc import Iterator
+
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LTTextContainer
+
 from core import constants
+from file_processors.base_processor import BaseFileProcessor
 
 
 class PdfProcessor(BaseFileProcessor):

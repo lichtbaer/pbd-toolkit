@@ -63,7 +63,9 @@ class AnalyticsStore:
         """
         session_id = uuid.uuid4().hex
         now = datetime.now(timezone.utc).isoformat()
-        config_json = json.dumps(config_summary, default=str) if config_summary else None
+        config_json = (
+            json.dumps(config_summary, default=str) if config_summary else None
+        )
 
         conn = self._db.connection
         if conn is None:
@@ -175,7 +177,15 @@ class AnalyticsStore:
                     """INSERT INTO findings
                        (session_id, file_path, pii_type, engine, severity, confidence, dimension)
                        VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                    (session_id, file_path, pii_type, engine, severity, confidence, dimension),
+                    (
+                        session_id,
+                        file_path,
+                        pii_type,
+                        engine,
+                        severity,
+                        confidence,
+                        dimension,
+                    ),
                 )
                 conn.commit()
         except Exception as exc:
@@ -220,7 +230,14 @@ class AnalyticsStore:
                     """INSERT OR REPLACE INTO engine_stats
                        (session_id, engine, matches_found, files_processed, processing_time, errors)
                        VALUES (?, ?, ?, ?, ?, ?)""",
-                    (session_id, engine, matches_found, files_processed, processing_time, errors),
+                    (
+                        session_id,
+                        engine,
+                        matches_found,
+                        files_processed,
+                        processing_time,
+                        errors,
+                    ),
                 )
                 conn.commit()
         except Exception as exc:
@@ -248,7 +265,9 @@ class AnalyticsStore:
                 )
                 conn.commit()
         except Exception as exc:
-            self._logger.warning("AnalyticsStore: record_file_type_stats failed: %s", exc)
+            self._logger.warning(
+                "AnalyticsStore: record_file_type_stats failed: %s", exc
+            )
 
     # ------------------------------------------------------------------
     # Lifecycle

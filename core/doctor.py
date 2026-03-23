@@ -8,7 +8,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from core.resources import load_config_types
 
@@ -114,6 +114,7 @@ def run_benchmark(
     # --- GLiNER engine (optional) ---
     try:
         import gliner  # noqa: F401
+
         from core.resources import load_config_types as _lct2
 
         cfg2 = _lct2()
@@ -174,7 +175,7 @@ def run_benchmark(
 
 
 def run_doctor(
-    api_endpoints: Optional[dict[str, str]] = None,
+    api_endpoints: dict[str, str] | None = None,
     run_bench: bool = False,
 ) -> DoctorReport:
     """Run best-effort validation of config_types + optional feature deps.
@@ -344,7 +345,11 @@ def run_doctor(
         "Vector search (--vector-search)",
         "pip install sentence-transformers",
     )
-    _check_import("magic", "Magic file detection (--use-magic-detection)", "pip install python-magic")
+    _check_import(
+        "magic",
+        "Magic file detection (--use-magic-detection)",
+        "pip install python-magic",
+    )
     _check_import("fastapi", "REST API (pii-toolkit serve)", "pip install fastapi")
     _check_import("yaml", "YAML config files", "pip install pyyaml")
 

@@ -1,13 +1,15 @@
 """Output writers for PII findings."""
 
+from __future__ import annotations
+
 import abc
 import csv
 import html
 import json
-from typing import Optional, Any, TextIO
+from typing import Any, TextIO
 
-from core.matches import PiiMatch
 from core.exceptions import OutputError
+from core.matches import PiiMatch
 
 
 class OutputWriter(abc.ABC):
@@ -23,7 +25,7 @@ class OutputWriter(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def finalize(self, metadata: Optional[dict] = None) -> None:
+    def finalize(self, metadata: dict | None = None) -> None:
         """Finalize the output (e.g. close file, write footer/metadata)."""
         pass
 
@@ -38,7 +40,7 @@ class OutputWriter(abc.ABC):
         return None
 
     @property
-    def file_handle(self) -> Optional[Any]:
+    def file_handle(self) -> Any | None:
         return None
 
 
@@ -54,7 +56,7 @@ class CsvWriter(OutputWriter):
                 self._writer.writerow(
                     ["Match", "File", "Type", "Score", "Engine", "Severity"]
                 )
-        except IOError as e:
+        except OSError as e:
             raise OutputError(f"Failed to open output file: {e}")
 
     def write_match(self, match: PiiMatch) -> None:
@@ -68,7 +70,7 @@ class CsvWriter(OutputWriter):
         ]
         self._writer.writerow(row)
 
-    def finalize(self, metadata: Optional[dict] = None) -> None:
+    def finalize(self, metadata: dict | None = None) -> None:
         if self._file:
             self._file.close()
             self._file = None
@@ -112,12 +114,12 @@ class JsonWriter(OutputWriter):
             match_dict["char_offset"] = match.char_offset
         self.matches.append(match_dict)
 
-    def finalize(self, metadata: Optional[dict] = None) -> None:
+    def finalize(self, metadata: dict | None = None) -> None:
         output_data = {"metadata": metadata or {}, "findings": self.matches}
         try:
             with open(self.file_path, "w", encoding="utf-8") as f:
                 json.dump(output_data, f, indent=2, ensure_ascii=False)
-        except IOError as e:
+        except OSError as e:
             raise OutputError(f"Failed to write JSON output: {e}")
 
     @property
@@ -137,7 +139,7 @@ class JsonlWriter(OutputWriter):
         super().__init__(file_path, include_header)
         try:
             self._file = open(file_path, "w", encoding="utf-8")
-        except IOError as e:
+        except OSError as e:
             raise OutputError(f"Failed to open output file: {e}")
 
     def write_match(self, match: PiiMatch) -> None:
@@ -158,7 +160,7 @@ class JsonlWriter(OutputWriter):
             payload["char_offset"] = match.char_offset
         self._file.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
-    def finalize(self, metadata: Optional[dict] = None) -> None:
+    def finalize(self, metadata: dict | None = None) -> None:
         if metadata:
             self._file.write(
                 json.dumps({"_metadata": metadata}, ensure_ascii=False) + "\n"
@@ -207,7 +209,7 @@ class XlsxWriter(OutputWriter):
             ]
         )
 
-    def finalize(self, metadata: Optional[dict] = None) -> None:
+    def finalize(self, metadata: dict | None = None) -> None:
         # Add metadata sheet
         if metadata:
             ws_meta = self._wb.create_sheet("Metadata")
@@ -220,7 +222,7 @@ class XlsxWriter(OutputWriter):
 
         try:
             self._wb.save(self.file_path)
-        except IOError as e:
+        except OSError as e:
             raise OutputError(f"Failed to save Excel file: {e}")
 
     @property
@@ -252,7 +254,7 @@ class PrivacyStatisticsWriter(OutputWriter):
         """
         self._match_count += 1
 
-    def finalize(self, metadata: Optional[dict] = None) -> None:
+    def finalize(self, metadata: dict | None = None) -> None:
         """Write aggregated statistics to JSON file.
 
         Args:
@@ -280,7 +282,7 @@ class PrivacyStatisticsWriter(OutputWriter):
         try:
             with open(self.file_path, "w", encoding="utf-8") as f:
                 json.dump(output_data, f, indent=2, ensure_ascii=False)
-        except IOError as e:
+        except OSError as e:
             raise OutputError(f"Failed to write statistics JSON output: {e}")
 
     @property
@@ -296,16 +298,18 @@ class HtmlWriter(OutputWriter):
         self.matches: list[dict] = []
 
     def write_match(self, match: PiiMatch) -> None:
-        self.matches.append({
-            "text": match.text,
-            "file": match.file,
-            "type": match.type,
-            "score": match.ner_score,
-            "engine": match.engine,
-            "severity": match.severity,
-        })
+        self.matches.append(
+            {
+                "text": match.text,
+                "file": match.file,
+                "type": match.type,
+                "score": match.ner_score,
+                "engine": match.engine,
+                "severity": match.severity,
+            }
+        )
 
-    def finalize(self, metadata: Optional[dict] = None) -> None:
+    def finalize(self, metadata: dict | None = None) -> None:
         meta = metadata or {}
         start_time = html.escape(str(meta.get("start_time", "N/A")))
         duration = html.escape(str(meta.get("duration", "N/A")))
@@ -326,9 +330,9 @@ class HtmlWriter(OutputWriter):
                 "<tr>"
                 f"<td>{html.escape(str(m.get('file', '')))}</td>"
                 f"<td>{html.escape(str(m.get('type', '')))}</td>"
-                f"<td class=\"match-text\">{html.escape(str(m.get('text', '')))}</td>"
+                f'<td class="match-text">{html.escape(str(m.get("text", "")))}</td>'
                 f"<td>{html.escape(str(m.get('engine', '')))}</td>"
-                f"<td><span class=\"badge sev-{sev}\" onclick=\"filterSev('{sev}')\">{sev}</span></td>"
+                f'<td><span class="badge sev-{sev}" onclick="filterSev(\'{sev}\')">{sev}</span></td>'
                 f"<td>{html.escape(str(m.get('score', '')))}</td>"
                 "</tr>\n"
             )
@@ -370,10 +374,10 @@ tr:hover{{background:#f0f4ff}}
 <span>Total findings: {total_findings}</span>
 </div></div>
 <div class="cards">
-<div class="card bg-crit"><div class="count">{sev_counts['CRITICAL']}</div><div class="label">CRITICAL</div></div>
-<div class="card bg-high"><div class="count">{sev_counts['HIGH']}</div><div class="label">HIGH</div></div>
-<div class="card bg-med"><div class="count">{sev_counts['MEDIUM']}</div><div class="label">MEDIUM</div></div>
-<div class="card bg-low"><div class="count">{sev_counts['LOW']}</div><div class="label">LOW</div></div>
+<div class="card bg-crit"><div class="count">{sev_counts["CRITICAL"]}</div><div class="label">CRITICAL</div></div>
+<div class="card bg-high"><div class="count">{sev_counts["HIGH"]}</div><div class="label">HIGH</div></div>
+<div class="card bg-med"><div class="count">{sev_counts["MEDIUM"]}</div><div class="label">MEDIUM</div></div>
+<div class="card bg-low"><div class="count">{sev_counts["LOW"]}</div><div class="label">LOW</div></div>
 </div>
 <div class="controls">
 <input id="search" placeholder="Search findings..." oninput="applyFilters()">
@@ -415,7 +419,7 @@ function filterSev(s){{document.getElementById('sevFilter').value=s;applyFilters
         try:
             with open(self.file_path, "w", encoding="utf-8") as f:
                 f.write(page)
-        except IOError as e:
+        except OSError as e:
             raise OutputError(f"Failed to write HTML output: {e}")
 
     @property
@@ -440,7 +444,7 @@ class SarifWriter(OutputWriter):
     def write_match(self, match: PiiMatch) -> None:
         self._matches.append(match)
 
-    def finalize(self, metadata: Optional[dict] = None) -> None:
+    def finalize(self, metadata: dict | None = None) -> None:
         # Build unique rules from PII types seen
         rule_ids: list[str] = []
         rule_index: dict[str, int] = {}
@@ -458,19 +462,21 @@ class SarifWriter(OutputWriter):
         results = []
         for m in self._matches:
             truncated = m.text[:100] if m.text else ""
-            results.append({
-                "ruleId": m.type,
-                "ruleIndex": rule_index[m.type],
-                "level": self._SEVERITY_MAP.get(m.severity, "note"),
-                "message": {"text": truncated},
-                "locations": [
-                    {
-                        "physicalLocation": {
-                            "artifactLocation": {"uri": m.file},
+            results.append(
+                {
+                    "ruleId": m.type,
+                    "ruleIndex": rule_index[m.type],
+                    "level": self._SEVERITY_MAP.get(m.severity, "note"),
+                    "message": {"text": truncated},
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {"uri": m.file},
+                            }
                         }
-                    }
-                ],
-            })
+                    ],
+                }
+            )
 
         sarif = {
             "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
@@ -491,7 +497,7 @@ class SarifWriter(OutputWriter):
         try:
             with open(self.file_path, "w", encoding="utf-8") as f:
                 json.dump(sarif, f, indent=2, ensure_ascii=False)
-        except IOError as e:
+        except OSError as e:
             raise OutputError(f"Failed to write SARIF output: {e}")
 
     @property

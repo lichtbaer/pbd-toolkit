@@ -1,7 +1,5 @@
 """Tests for FileProcessorRegistry."""
 
-import pytest
-
 from file_processors import FileProcessorRegistry
 from file_processors.base_processor import BaseFileProcessor
 

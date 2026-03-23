@@ -1,6 +1,7 @@
 """Properties and INI file processor for extracting configuration data."""
 
 import configparser
+
 from file_processors.base_processor import BaseFileProcessor
 
 

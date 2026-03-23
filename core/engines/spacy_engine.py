@@ -1,7 +1,7 @@
 """spaCy-based NER detection engine."""
 
-from core.engines.base import DetectionResult
 from core.config import Config
+from core.engines.base import DetectionResult
 
 
 class SpacyNEREngine:

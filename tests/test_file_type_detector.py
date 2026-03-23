@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 from core.file_type_detector import FileTypeDetector
 
 

@@ -34,7 +34,6 @@ import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
-
 _DEFAULT_CACHE_FILENAME = ".pbd_scan_cache.db"
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS file_cache (

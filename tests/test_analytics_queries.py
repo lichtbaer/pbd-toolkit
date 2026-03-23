@@ -16,21 +16,39 @@ def db_and_store(tmp_path):
     queries = AnalyticsQueries(db=db)
 
     # Seed data: two sessions with findings
-    sid1 = store.create_session(scan_path="/data/project1", config_summary={"engines": ["regex"]})
-    store.record_finding(sid1, "/data/project1/a.pdf", "REGEX_EMAIL", "regex", "MEDIUM", 0.9)
-    store.record_finding(sid1, "/data/project1/a.pdf", "REGEX_IBAN", "regex", "HIGH", 0.95)
-    store.record_finding(sid1, "/data/project1/b.docx", "REGEX_PHONE", "regex", "LOW", 0.8)
+    sid1 = store.create_session(
+        scan_path="/data/project1", config_summary={"engines": ["regex"]}
+    )
+    store.record_finding(
+        sid1, "/data/project1/a.pdf", "REGEX_EMAIL", "regex", "MEDIUM", 0.9
+    )
+    store.record_finding(
+        sid1, "/data/project1/a.pdf", "REGEX_IBAN", "regex", "HIGH", 0.95
+    )
+    store.record_finding(
+        sid1, "/data/project1/b.docx", "REGEX_PHONE", "regex", "LOW", 0.8
+    )
     store.record_engine_stats(sid1, "regex", matches_found=3, files_processed=10)
     store.record_file_type_stats(sid1, ".pdf", files_scanned=5, matches_found=2)
     store.record_file_type_stats(sid1, ".docx", files_scanned=5, matches_found=1)
-    store.complete_session(sid1, total_files=10, files_processed=10, total_matches=3, duration_sec=2.5)
+    store.complete_session(
+        sid1, total_files=10, files_processed=10, total_matches=3, duration_sec=2.5
+    )
 
-    sid2 = store.create_session(scan_path="/data/project2", config_summary={"engines": ["regex", "gliner"]})
-    store.record_finding(sid2, "/data/project2/c.txt", "REGEX_EMAIL", "regex", "MEDIUM", 0.85)
-    store.record_finding(sid2, "/data/project2/c.txt", "NER_PERSON", "gliner", "HIGH", 0.7)
+    sid2 = store.create_session(
+        scan_path="/data/project2", config_summary={"engines": ["regex", "gliner"]}
+    )
+    store.record_finding(
+        sid2, "/data/project2/c.txt", "REGEX_EMAIL", "regex", "MEDIUM", 0.85
+    )
+    store.record_finding(
+        sid2, "/data/project2/c.txt", "NER_PERSON", "gliner", "HIGH", 0.7
+    )
     store.record_engine_stats(sid2, "regex", matches_found=1, files_processed=5)
     store.record_engine_stats(sid2, "gliner", matches_found=1, files_processed=5)
-    store.complete_session(sid2, total_files=5, files_processed=5, total_matches=2, duration_sec=1.0)
+    store.complete_session(
+        sid2, total_files=5, files_processed=5, total_matches=2, duration_sec=1.0
+    )
 
     yield {"db": db, "store": store, "queries": queries, "sid1": sid1, "sid2": sid2}
 
@@ -39,7 +57,6 @@ def db_and_store(tmp_path):
 
 
 class TestSessionQueries:
-
     def test_get_sessions(self, db_and_store):
         q = db_and_store["queries"]
         result = q.get_sessions()
@@ -88,7 +105,6 @@ class TestSessionQueries:
 
 
 class TestFindingQueries:
-
     def test_get_all_findings(self, db_and_store):
         q = db_and_store["queries"]
         result = q.get_findings()
@@ -116,7 +132,6 @@ class TestFindingQueries:
 
 
 class TestAnalyticalQueries:
-
     def test_pii_type_distribution(self, db_and_store):
         q = db_and_store["queries"]
         dist = q.get_pii_type_distribution()

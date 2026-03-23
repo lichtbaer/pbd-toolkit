@@ -1,6 +1,7 @@
 """Markdown file processor with enhanced PII detection."""
 
 import re
+
 from file_processors.base_processor import BaseFileProcessor
 
 

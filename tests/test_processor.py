@@ -3,10 +3,9 @@
 import re
 from unittest.mock import Mock, patch
 
-
-from core.processor import TextProcessor
 from core.config import NerStats
 from core.matches import PiiMatchContainer
+from core.processor import TextProcessor
 
 
 class TestTextProcessor:
@@ -114,6 +113,7 @@ class TestTextProcessor:
     def test_process_file_unsupported_type(self, mock_config, temp_dir):
         """Test processing unsupported file type."""
         from pathlib import Path
+
         from core.scanner import FileInfo
 
         pmc = PiiMatchContainer()
@@ -133,6 +133,7 @@ class TestTextProcessor:
     def test_process_file_success(self, mock_config, temp_dir):
         """Test successful file processing."""
         from pathlib import Path
+
         from core.scanner import FileInfo
 
         pmc = PiiMatchContainer()
@@ -183,7 +184,9 @@ class TestTextChunking:
 
     def test_short_text_not_chunked(self):
         """Text shorter than chunk_size is returned as a single chunk."""
-        chunks = TextProcessor._split_into_chunks("Hello world", chunk_size=100, overlap=20)
+        chunks = TextProcessor._split_into_chunks(
+            "Hello world", chunk_size=100, overlap=20
+        )
         assert chunks == ["Hello world"]
 
     def test_exact_size_not_chunked(self):
@@ -224,6 +227,7 @@ class TestTextChunking:
     def test_process_text_uses_chunking(self, mock_config):
         """process_text splits text into chunks when text_chunk_size is set."""
         import re as _re
+
         mock_config.use_regex = True
         mock_config.text_chunk_size = 50
         mock_config.text_chunk_overlap = 10

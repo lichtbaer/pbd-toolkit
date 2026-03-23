@@ -17,4 +17,3 @@ def test_doctor_command_json():
     result = runner.invoke(app, ["doctor", "--json"])
     assert result.exit_code == 0
     assert '"ok":' in result.stdout
-

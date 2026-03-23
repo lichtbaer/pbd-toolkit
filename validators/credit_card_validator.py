@@ -1,7 +1,6 @@
 """Credit card number validation using Luhn algorithm."""
 
 import re
-from typing import Optional, Tuple
 
 
 class CreditCardValidator:
@@ -48,7 +47,7 @@ class CreditCardValidator:
         return total % 10 == 0
 
     @staticmethod
-    def get_card_type(card_number: str) -> Optional[str]:
+    def get_card_type(card_number: str) -> str | None:
         """Determine credit card type from number.
 
         Args:
@@ -66,7 +65,7 @@ class CreditCardValidator:
         return None
 
     @staticmethod
-    def validate(card_number: str) -> Tuple[bool, Optional[str]]:
+    def validate(card_number: str) -> tuple[bool, str | None]:
         """Validate credit card number.
 
         Args:

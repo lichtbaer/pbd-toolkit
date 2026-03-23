@@ -1,22 +1,21 @@
 """Text and file processing for PII detection."""
 
-from contextlib import nullcontext
+import re
 import threading
 import time
-import re
-from typing import Callable, Optional
+from collections.abc import Callable
+from contextlib import nullcontext
 
 import docx.opc.exceptions
 
 from core.config import Config
-from core.scanner import FileInfo
-from core.statistics import Statistics
 from core.engines import EngineRegistry
 from core.engines.base import DetectionEngine
+from core.matches import PiiMatchContainer
+from core.scanner import FileInfo
+from core.statistics import Statistics
 from file_processors import FileProcessorRegistry
 from file_processors.image_processor import ImageProcessor
-from core.matches import PiiMatchContainer
-
 
 _ASCII_CONTROL_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")
 # Remove ASCII control chars (except \n, \t, \r). This is what typically breaks NLP.
@@ -40,7 +39,7 @@ class TextProcessor:
         self,
         config: Config,
         match_container: PiiMatchContainer,
-        statistics: Optional[Statistics] = None,
+        statistics: Statistics | None = None,
     ):
         """Initialize text processor.
 
@@ -177,7 +176,9 @@ class TextProcessor:
             start += step
         return chunks
 
-    def process_text(self, text: str, file_path: str, *, _deadline: float | None = None) -> None:
+    def process_text(
+        self, text: str, file_path: str, *, _deadline: float | None = None
+    ) -> None:
         """Process text content with all enabled detection engines.
 
         Args:
@@ -306,7 +307,7 @@ class TextProcessor:
     def process_file(
         self,
         file_info: FileInfo,
-        error_callback: Optional[Callable[[str, str], None]] = None,
+        error_callback: Callable[[str, str], None] | None = None,
     ) -> bool:
         """Process a single file: extract text and detect PII.
 
@@ -488,7 +489,7 @@ class TextProcessor:
         self,
         msg: str,
         path: str,
-        error_callback: Optional[Callable[[str, str], None]] = None,
+        error_callback: Callable[[str, str], None] | None = None,
     ) -> None:
         """Add an error message.
 

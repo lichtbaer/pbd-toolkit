@@ -2,9 +2,12 @@
 
 from xml.etree.ElementTree import Element
 
+from file_processors.base_processor import BaseFileProcessor
+
 _defusedxml_import_error: ImportError | None = None
 try:
-    from defusedxml.ElementTree import parse as safe_parse, ParseError as SafeParseError
+    from defusedxml.ElementTree import ParseError as SafeParseError
+    from defusedxml.ElementTree import parse as safe_parse
 
     DEFUSEDXML_AVAILABLE = True
 except ImportError as _exc:
@@ -24,9 +27,6 @@ except ImportError as _exc:
 
     class SafeParseError(Exception):  # type: ignore[no-redef]
         pass
-
-
-from file_processors.base_processor import BaseFileProcessor
 
 
 class XmlProcessor(BaseFileProcessor):
@@ -71,9 +71,7 @@ class XmlProcessor(BaseFileProcessor):
             # If XML is invalid, try to extract text using simple regex
             # This handles malformed XML files that might still contain PII
             try:
-                with open(
-                    file_path, "r", encoding="utf-8", errors="replace"
-                ) as xmlfile:
+                with open(file_path, encoding="utf-8", errors="replace") as xmlfile:
                     content = xmlfile.read()
                     # Extract text between tags using simple pattern
                     import re

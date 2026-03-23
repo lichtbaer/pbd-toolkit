@@ -1,11 +1,11 @@
 """Pytest configuration and shared fixtures."""
 
-from unittest.mock import Mock
-
 import os
 import tempfile
+from unittest.mock import Mock
 
 import pytest
+
 from core.config import Config, NerStats
 
 
@@ -87,6 +87,9 @@ def mock_config():
     # Chunking defaults (used by processor._split_into_chunks)
     config.text_chunk_size = 0
     config.text_chunk_overlap = 200
+    config.context_chars = 0
+    config.max_processing_time_seconds = 300
+    config.vector_save_index = None
 
     # Vector search defaults
     config.use_vector_search = False
