@@ -75,7 +75,7 @@ class ApplicationContext:
         match_container: PiiMatchContainer,
         output_writer: OutputWriter | None = None,
         translate_func: Callable[[str], str] | None = None,
-    ) -> "ApplicationContext":
+    ) -> ApplicationContext:
         """Create ApplicationContext from CLI arguments and dependencies.
 
         Args:

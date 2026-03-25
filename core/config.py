@@ -162,7 +162,7 @@ class Config:
 
     # Processing configuration
     regex_pattern: re.Pattern | None = field(default=None)
-    ner_model: "GLiNER | None" = field(default=None)
+    ner_model: GLiNER | None = field(default=None)
     ner_labels: list[str] = field(default_factory=list)
     ner_threshold: float = field(default=constants.NER_THRESHOLD)
     ner_stats: NerStats = field(default_factory=NerStats)
@@ -371,7 +371,7 @@ class Config:
         csv_writer: csv.writer | None,
         csv_file_handle: object | None,
         translate_func: Callable[[str], str],
-    ) -> "Config":
+    ) -> Config:
         """Create Config from command line arguments.
 
         Args:

@@ -206,9 +206,7 @@ class AnalyticsStore:
         except Exception as exc:
             self._logger.warning("AnalyticsStore: record_finding failed: %s", exc)
 
-    def record_finding_from_match(
-        self, session_id: str, match: PiiMatchLike
-    ) -> None:
+    def record_finding_from_match(self, session_id: str, match: PiiMatchLike) -> None:
         """Convenience wrapper that accepts a ``PiiMatch``-like object.
 
         Uses the ``PiiMatchLike`` protocol to provide type safety while

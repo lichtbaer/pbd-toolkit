@@ -12,7 +12,6 @@ from core.config import Config
 from core.config_loader import ConfigLoader
 from core.context import ApplicationContext
 from core.doctor import run_doctor
-from core.exceptions import OutputError
 from core.matches import PiiMatchContainer
 from core.processor import TextProcessor
 from core.scanner import FileInfo, FileScanner

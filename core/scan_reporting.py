@@ -16,7 +16,6 @@ from core.context import ApplicationContext
 from core.exceptions import OutputError
 from core.matches import PiiMatch, PiiMatchContainer
 from core.severity import combined_file_risk
-from core.statistics import Statistics
 
 
 def compute_file_risk_scores(
@@ -299,9 +298,7 @@ def print_console_summary(
         typer.echo(context._("File Risk Assessment:"))
         for _rl in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
             if _rl in risk_distribution:
-                typer.echo(
-                    f"  {_rl}: {risk_distribution[_rl]} {context._('files')}"
-                )
+                typer.echo(f"  {_rl}: {risk_distribution[_rl]} {context._('files')}")
 
         _risk_weight = {
             "CRITICAL": 4,
@@ -315,26 +312,16 @@ def print_console_summary(
             key=lambda x: _risk_weight.get(x[1], 0),
             reverse=True,
         )[:5]
-        _high_risk = [
-            (f, r) for f, r in top_risk_files if r in ("CRITICAL", "HIGH")
-        ]
+        _high_risk = [(f, r) for f, r in top_risk_files if r in ("CRITICAL", "HIGH")]
         if _high_risk:
             typer.echo()
             typer.echo(context._("Highest risk files:"))
             for _fpath, _risk in _high_risk:
                 _match_count = len(matches_by_file.get(_fpath, []))
                 _types = ", ".join(
-                    sorted(
-                        {
-                            m.type
-                            for m in matches_by_file.get(_fpath, [])
-                            if m.type
-                        }
-                    )
+                    sorted({m.type for m in matches_by_file.get(_fpath, []) if m.type})
                 )
-                typer.echo(
-                    f"  [{_risk}] {_fpath} ({_match_count} findings: {_types})"
-                )
+                typer.echo(f"  [{_risk}] {_fpath} ({_match_count} findings: {_types})")
             typer.echo()
 
         # Actionable recommendations
@@ -412,8 +399,7 @@ def write_statistics_output(
         "files_per_second": context.statistics.files_per_second,
         "matches_per_second": round(
             (
-                context.statistics.matches_found
-                / context.statistics.duration_seconds
+                context.statistics.matches_found / context.statistics.duration_seconds
                 if context.statistics.duration_seconds > 0
                 else 0
             ),
@@ -426,9 +412,7 @@ def write_statistics_output(
         performance_metrics["ner_statistics"] = {
             "chunks_processed": context.statistics.ner_stats.total_chunks_processed,
             "entities_found": context.statistics.ner_stats.total_entities_found,
-            "avg_time_per_chunk": round(
-                context.statistics.avg_ner_time_per_chunk, 3
-            ),
+            "avg_time_per_chunk": round(context.statistics.avg_ner_time_per_chunk, 3),
             "errors": context.statistics.ner_stats.errors,
         }
 

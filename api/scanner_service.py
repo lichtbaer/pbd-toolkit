@@ -192,7 +192,6 @@ class ScannerService:
 
             from core.config import Config
             from core.matches import PiiMatchContainer
-
             from core.statistics import Statistics
 
             # Create config (this also loads regex patterns, NER models, etc.)

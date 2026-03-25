@@ -239,9 +239,7 @@ class DocumentIndexer:
                 logger.debug(f"[vector] Exemplar cache load failed: {exc}")
         return None
 
-    def _save_exemplar_cache(
-        self, texts: list[str], embeddings: np.ndarray
-    ) -> None:
+    def _save_exemplar_cache(self, texts: list[str], embeddings: np.ndarray) -> None:
         """Persist exemplar embeddings to disk cache for future runs."""
         path = self._exemplar_cache_path(texts)
         try:

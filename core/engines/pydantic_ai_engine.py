@@ -15,8 +15,7 @@ from pydantic import BaseModel, Field
 
 from core.config import Config
 from core.engines.base import DetectionResult
-from core.engines.llm_retry import is_retryable_error, retry_with_backoff
-
+from core.engines.llm_retry import retry_with_backoff
 
 try:
     # Optional dependency: used for text-only LLM detection.
