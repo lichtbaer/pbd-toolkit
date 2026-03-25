@@ -31,18 +31,113 @@ class NerStats:
 
 
 @dataclass
+class ScanConfig:
+    """Configuration related to file scanning and discovery."""
+
+    path: str = ""
+    whitelist_path: str | None = None
+    stop_count: int | None = None
+    use_magic_detection: bool = False
+    magic_detection_fallback: bool = True
+    use_incremental: bool = False
+    cache_path: str | None = None
+    max_file_size_mb: float = 500.0
+    max_processing_time_seconds: int = 300
+    max_pending_futures: int = 512
+
+
+@dataclass
+class EngineConfig:
+    """Configuration related to detection engines."""
+
+    # Engine flags
+    use_regex: bool = False
+    use_ner: bool = False
+    use_spacy_ner: bool = False
+    use_ollama: bool = False
+    use_openai_compatible: bool = False
+    use_multimodal: bool = False
+    use_pydantic_ai: bool = False
+
+    # spaCy
+    spacy_model_name: str = "de_core_news_lg"
+
+    # Ollama
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "llama3.2"
+    ollama_timeout: int = 30
+
+    # OpenAI-compatible
+    openai_api_base: str = "https://api.openai.com/v1"
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-3.5-turbo"
+    openai_timeout: int = 30
+
+    # Multimodal
+    multimodal_api_base: str | None = None
+    multimodal_api_key: str | None = None
+    multimodal_model: str = "gpt-4-vision-preview"
+    multimodal_timeout: int = 60
+
+    # PydanticAI unified engine
+    pydantic_ai_provider: str = "openai"
+    pydantic_ai_model: str | None = None
+    pydantic_ai_api_key: str | None = None
+    pydantic_ai_base_url: str | None = None
+
+    # LLM retry
+    llm_max_retries: int = 3
+    llm_retry_base_delay: float = 1.0
+
+    # Vector search
+    use_vector_search: bool = False
+    use_vector_triage: bool = False
+    vector_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    vector_threshold: float = 0.75
+    vector_save_index: str | None = None
+    vector_load_index: str | None = None
+    vector_custom_exemplars: str | None = None
+
+    # Concurrency
+    engine_concurrency_limits: dict[str, int] = field(default_factory=dict)
+
+
+@dataclass
+class OutputConfig:
+    """Configuration related to output and processing behaviour."""
+
+    outname: str | None = None
+    enable_deduplication: bool = False
+    min_confidence: float = 0.0
+    text_chunk_size: int = 0
+    text_chunk_overlap: int = 200
+    context_chars: int = 0
+    analytics_enabled: bool = False
+    analytics_db_path: str = ".pbd_analytics.db"
+
+
+@dataclass
 class Config:
     """Configuration object for PII Toolkit.
 
     This class centralizes all configuration and dependencies,
     enabling dependency injection and better testability.
+
+    Sub-configs ``scan``, ``engine``, and ``output`` group related fields.
+    For backward compatibility, all fields are also exposed as top-level
+    attributes via ``__getattr__`` / ``__setattr__``.
     """
 
-    # CLI Arguments
-    path: str
-    use_regex: bool
-    use_ner: bool
-    verbose: bool
+    # Grouped configuration
+    scan: ScanConfig = field(default_factory=ScanConfig)
+    engine: EngineConfig = field(default_factory=EngineConfig)
+    output: OutputConfig = field(default_factory=OutputConfig)
+
+    # CLI Arguments (top-level for convenience)
+    path: str = ""
+    use_regex: bool = False
+    use_ner: bool = False
+    verbose: bool = False
     outname: str | None = None
     whitelist_path: str | None = None
     stop_count: int | None = None
@@ -67,7 +162,7 @@ class Config:
 
     # Processing configuration
     regex_pattern: re.Pattern | None = field(default=None)
-    ner_model: "GLiNER | None" = field(default=None)
+    ner_model: GLiNER | None = field(default=None)
     ner_labels: list[str] = field(default_factory=list)
     ner_threshold: float = field(default=constants.NER_THRESHOLD)
     ner_stats: NerStats = field(default_factory=NerStats)
@@ -151,6 +246,71 @@ class Config:
         if self._ is None or not callable(self._):
             # Fallback if translation not set
             self._ = lambda x: x
+        self._sync_sub_configs()
+
+    def _sync_sub_configs(self) -> None:
+        """Sync top-level fields into grouped sub-config objects.
+
+        This keeps backward compatibility: all fields remain accessible at the
+        top level, but are also available via ``config.scan.*``,
+        ``config.engine.*``, and ``config.output.*``.
+        """
+        # ScanConfig
+        self.scan.path = self.path
+        self.scan.whitelist_path = self.whitelist_path
+        self.scan.stop_count = self.stop_count
+        self.scan.use_magic_detection = self.use_magic_detection
+        self.scan.magic_detection_fallback = self.magic_detection_fallback
+        self.scan.use_incremental = self.use_incremental
+        self.scan.cache_path = self.cache_path
+        self.scan.max_file_size_mb = self.max_file_size_mb
+        self.scan.max_processing_time_seconds = self.max_processing_time_seconds
+        self.scan.max_pending_futures = self.max_pending_futures
+
+        # EngineConfig
+        self.engine.use_regex = self.use_regex
+        self.engine.use_ner = self.use_ner
+        self.engine.use_spacy_ner = self.use_spacy_ner
+        self.engine.use_ollama = self.use_ollama
+        self.engine.use_openai_compatible = self.use_openai_compatible
+        self.engine.use_multimodal = self.use_multimodal
+        self.engine.use_pydantic_ai = self.use_pydantic_ai
+        self.engine.spacy_model_name = self.spacy_model_name
+        self.engine.ollama_base_url = self.ollama_base_url
+        self.engine.ollama_model = self.ollama_model
+        self.engine.ollama_timeout = self.ollama_timeout
+        self.engine.openai_api_base = self.openai_api_base
+        self.engine.openai_api_key = self.openai_api_key
+        self.engine.openai_model = self.openai_model
+        self.engine.openai_timeout = self.openai_timeout
+        self.engine.multimodal_api_base = self.multimodal_api_base
+        self.engine.multimodal_api_key = self.multimodal_api_key
+        self.engine.multimodal_model = self.multimodal_model
+        self.engine.multimodal_timeout = self.multimodal_timeout
+        self.engine.pydantic_ai_provider = self.pydantic_ai_provider
+        self.engine.pydantic_ai_model = self.pydantic_ai_model
+        self.engine.pydantic_ai_api_key = self.pydantic_ai_api_key
+        self.engine.pydantic_ai_base_url = self.pydantic_ai_base_url
+        self.engine.llm_max_retries = self.llm_max_retries
+        self.engine.llm_retry_base_delay = self.llm_retry_base_delay
+        self.engine.use_vector_search = self.use_vector_search
+        self.engine.use_vector_triage = self.use_vector_triage
+        self.engine.vector_model = self.vector_model
+        self.engine.vector_threshold = self.vector_threshold
+        self.engine.vector_save_index = self.vector_save_index
+        self.engine.vector_load_index = self.vector_load_index
+        self.engine.vector_custom_exemplars = self.vector_custom_exemplars
+        self.engine.engine_concurrency_limits = self.engine_concurrency_limits
+
+        # OutputConfig
+        self.output.outname = self.outname
+        self.output.enable_deduplication = self.enable_deduplication
+        self.output.min_confidence = self.min_confidence
+        self.output.text_chunk_size = self.text_chunk_size
+        self.output.text_chunk_overlap = self.text_chunk_overlap
+        self.output.context_chars = self.context_chars
+        self.output.analytics_enabled = self.analytics_enabled
+        self.output.analytics_db_path = self.analytics_db_path
 
     def validate_path(self) -> tuple[bool, str | None]:
         """Validate the search path.
@@ -211,7 +371,7 @@ class Config:
         csv_writer: csv.writer | None,
         csv_file_handle: object | None,
         translate_func: Callable[[str], str],
-    ) -> "Config":
+    ) -> Config:
         """Create Config from command line arguments.
 
         Args:

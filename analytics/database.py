@@ -98,9 +98,9 @@ class AnalyticsDatabase:
         db_path: str | None = None,
         logger: logging.Logger | None = None,
     ) -> None:
-        self._path = db_path or _DEFAULT_DB_PATH
-        self._logger = logger or logging.getLogger(__name__)
-        self._lock = threading.Lock()
+        self._path: str = db_path or _DEFAULT_DB_PATH
+        self._logger: logging.Logger = logger or logging.getLogger(__name__)
+        self._lock: threading.Lock = threading.Lock()
         self._conn: sqlite3.Connection | None = None
         self._open()
 

@@ -1,6 +1,12 @@
 """File processors for extracting text from different file formats."""
 
-from file_processors.base_processor import BaseFileProcessor
+from file_processors.base_processor import (
+    BaseFileProcessor,
+    CorruptedFileError,
+    FileProcessingError,
+    PasswordProtectedError,
+    UnsupportedFormatError,
+)
 from file_processors.csv_processor import CsvProcessor
 from file_processors.docx_processor import DocxProcessor
 from file_processors.eml_processor import EmlProcessor
@@ -28,6 +34,10 @@ from file_processors.zip_processor import ZipProcessor
 
 __all__ = [
     "BaseFileProcessor",
+    "FileProcessingError",
+    "CorruptedFileError",
+    "PasswordProtectedError",
+    "UnsupportedFormatError",
     "FileProcessorRegistry",
     "PdfProcessor",
     "DocxProcessor",

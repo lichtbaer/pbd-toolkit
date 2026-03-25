@@ -1,4 +1,9 @@
-"""Regex-based detection engine."""
+"""Regex-based detection engine.
+
+Patterns are loaded from ``config_types.json`` by default. Additional
+patterns can be loaded at runtime from an external YAML or JSON file via
+``RegexEngine.load_custom_patterns(path)``.
+"""
 
 import logging
 
@@ -167,3 +172,84 @@ class RegexEngine:
             True if enabled and pattern is loaded
         """
         return self.enabled and self.pattern is not None
+
+    @staticmethod
+    def load_custom_patterns(path: str) -> list[dict]:
+        """Load additional regex patterns from an external YAML or JSON file.
+
+        The file should contain a list of pattern entries, each with at least:
+        - ``expression``: the regex pattern string
+        - ``label``: the PII type label (e.g. ``REGEX_CUSTOM_ID``)
+
+        Optional fields:
+        - ``validation``: validator name (``luhn``, ``iban``, ``tax_id``, ``bic``)
+        - ``description``: human-readable description
+
+        Example YAML::
+
+            patterns:
+              - label: REGEX_CUSTOM_ID
+                expression: "CUST-\\\\d{8}"
+                description: "Custom customer ID"
+              - label: REGEX_EMPLOYEE_ID
+                expression: "EMP[A-Z]\\\\d{6}"
+
+        Args:
+            path: Path to the YAML or JSON file.
+
+        Returns:
+            List of pattern dicts suitable for extending config_types regex entries.
+        """
+        import json as _json
+
+        try:
+            if path.lower().endswith((".yaml", ".yml")):
+                try:
+                    import yaml  # type: ignore
+
+                    with open(path, encoding="utf-8") as fh:
+                        data = yaml.safe_load(fh)
+                except ImportError:
+                    _logger.warning(
+                        "PyYAML not installed; cannot load YAML regex patterns."
+                    )
+                    return []
+            else:
+                with open(path, encoding="utf-8") as fh:
+                    data = _json.load(fh)
+
+            if isinstance(data, dict):
+                data = data.get("patterns", data.get("regex", []))
+
+            if not isinstance(data, list):
+                _logger.warning(
+                    "Custom regex patterns file must contain a list; got %s",
+                    type(data).__name__,
+                )
+                return []
+
+            valid_entries: list[dict] = []
+            for entry in data:
+                if not isinstance(entry, dict):
+                    continue
+                if "expression" not in entry or "label" not in entry:
+                    _logger.warning(
+                        "Skipping custom regex entry without 'expression' and 'label': %s",
+                        entry,
+                    )
+                    continue
+                valid_entries.append(entry)
+
+            _logger.debug(
+                "Loaded %d custom regex patterns from %s", len(valid_entries), path
+            )
+            return valid_entries
+
+        except FileNotFoundError:
+            _logger.warning("Custom regex patterns file not found: %s", path)
+            return []
+        except Exception as exc:
+            _logger.warning(
+                "Failed to load custom regex patterns from %s: %s", path, exc
+            )
+            return []

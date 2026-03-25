@@ -50,14 +50,13 @@ class AnalyticsQueries:
             params.append(status)
 
         with self._db.lock:
-            cur = conn.execute(f"SELECT COUNT(*) FROM scan_sessions {where}", params)
+            # where is built from hardcoded column names, not user input
+            count_sql = f"SELECT COUNT(*) FROM scan_sessions {where}"  # nosec B608
+            cur = conn.execute(count_sql, params)
             total = cur.fetchone()[0]
 
-            cur = conn.execute(
-                f"""SELECT * FROM scan_sessions {where}
-                    ORDER BY started_at DESC LIMIT ? OFFSET ?""",
-                params + [limit, offset],
-            )
+            list_sql = f"SELECT * FROM scan_sessions {where} ORDER BY started_at DESC LIMIT ? OFFSET ?"  # nosec B608
+            cur = conn.execute(list_sql, params + [limit, offset])
             rows = [dict(r) for r in cur.fetchall()]
 
         return {"sessions": rows, "total": total, "limit": limit, "offset": offset}
@@ -158,14 +157,13 @@ class AnalyticsQueries:
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
         with self._db.lock:
-            cur = conn.execute(f"SELECT COUNT(*) FROM findings {where}", params)
+            # where is built from hardcoded column names, not user input
+            count_sql = f"SELECT COUNT(*) FROM findings {where}"  # nosec B608
+            cur = conn.execute(count_sql, params)
             total = cur.fetchone()[0]
 
-            cur = conn.execute(
-                f"""SELECT * FROM findings {where}
-                    ORDER BY created_at DESC LIMIT ? OFFSET ?""",
-                params + [limit, offset],
-            )
+            list_sql = f"SELECT * FROM findings {where} ORDER BY created_at DESC LIMIT ? OFFSET ?"  # nosec B608
+            cur = conn.execute(list_sql, params + [limit, offset])
             rows = [dict(r) for r in cur.fetchall()]
 
         return {"findings": rows, "total": total, "limit": limit, "offset": offset}
