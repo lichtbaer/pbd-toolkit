@@ -11,10 +11,25 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from analytics.database import AnalyticsDatabase
 from core.privacy_dimensions import get_dimension
+
+
+@runtime_checkable
+class PiiMatchLike(Protocol):
+    """Protocol for PII match objects accepted by the analytics store.
+
+    Avoids importing ``matches.PiiMatch`` directly (which would
+    create a circular dependency) while providing type safety.
+    """
+
+    file: str
+    type: str
+    engine: str | None
+    severity: str | None
+    ner_score: float | None
 
 
 class AnalyticsStore:
@@ -191,19 +206,21 @@ class AnalyticsStore:
         except Exception as exc:
             self._logger.warning("AnalyticsStore: record_finding failed: %s", exc)
 
-    def record_finding_from_match(self, session_id: str, match: Any) -> None:
-        """Convenience wrapper that accepts a ``PiiMatch`` object.
+    def record_finding_from_match(
+        self, session_id: str, match: PiiMatchLike
+    ) -> None:
+        """Convenience wrapper that accepts a ``PiiMatch``-like object.
 
-        This avoids importing ``matches.PiiMatch`` directly (which would
-        create a circular dependency) by duck-typing the match object.
+        Uses the ``PiiMatchLike`` protocol to provide type safety while
+        avoiding direct imports of ``matches.PiiMatch`` (circular dependency).
         """
         self.record_finding(
             session_id=session_id,
-            file_path=getattr(match, "file", ""),
-            pii_type=getattr(match, "type", ""),
-            engine=getattr(match, "engine", "") or "unknown",
-            severity=getattr(match, "severity", None),
-            confidence=getattr(match, "ner_score", None),
+            file_path=match.file,
+            pii_type=match.type,
+            engine=match.engine or "unknown",
+            severity=match.severity,
+            confidence=match.ner_score,
         )
 
     # ------------------------------------------------------------------

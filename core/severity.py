@@ -14,7 +14,10 @@ Combination-risk escalation (applied per file):
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Collection
+
+_logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Per-type severity map
@@ -171,3 +174,103 @@ def combined_file_risk(pii_types: Collection[str]) -> str:
     # Rule 5: maximum of individual levels
     max_weight = max(_LEVEL_WEIGHT.get(lvl, 2) for lvl in individual_levels.values())
     return _WEIGHT_LEVEL.get(max_weight, DEFAULT_SEVERITY)
+
+
+# ---------------------------------------------------------------------------
+# Custom severity configuration (YAML/JSON)
+# ---------------------------------------------------------------------------
+
+
+def load_custom_severity_config(path: str) -> None:
+    """Load custom severity configuration from a YAML or JSON file.
+
+    The file can contain:
+
+    - ``severity_map``: dict of PII type → severity level overrides
+    - ``person_labels``: list of additional person-identifier labels
+    - ``escalate_with_person_to_critical``: list of additional labels that
+      escalate to CRITICAL when combined with a person identifier
+    - ``default_severity``: default severity for unknown types
+
+    Example YAML::
+
+        severity_map:
+          REGEX_CUSTOM_ID: CRITICAL
+          NER_CUSTOM_FIELD: HIGH
+        person_labels:
+          - NER_CUSTOM_PERSON
+        escalate_with_person_to_critical:
+          - REGEX_CUSTOM_ID
+        default_severity: MEDIUM
+
+    Args:
+        path: Path to a YAML or JSON configuration file.
+    """
+    global SEVERITY_MAP, _PERSON_LABELS, _ESCALATE_WITH_PERSON_TO_CRITICAL
+    global DEFAULT_SEVERITY
+
+    import json as _json
+
+    try:
+        if path.lower().endswith((".yaml", ".yml")):
+            try:
+                import yaml  # type: ignore
+
+                with open(path, encoding="utf-8") as fh:
+                    data = yaml.safe_load(fh)
+            except ImportError:
+                _logger.warning(
+                    "PyYAML not installed; cannot load YAML severity config. "
+                    "Install with: pip install PyYAML"
+                )
+                return
+        else:
+            with open(path, encoding="utf-8") as fh:
+                data = _json.load(fh)
+
+        if not isinstance(data, dict):
+            _logger.warning(
+                "Severity config must be a mapping; got %s", type(data).__name__
+            )
+            return
+
+        # Merge severity map overrides
+        custom_map = data.get("severity_map", {})
+        if isinstance(custom_map, dict):
+            valid_levels = set(_LEVEL_WEIGHT.keys())
+            for pii_type, level in custom_map.items():
+                if isinstance(level, str) and level.upper() in valid_levels:
+                    SEVERITY_MAP[str(pii_type)] = level.upper()
+                else:
+                    _logger.warning(
+                        "Ignoring invalid severity level '%s' for type '%s'",
+                        level,
+                        pii_type,
+                    )
+
+        # Extend person labels
+        extra_person = data.get("person_labels", [])
+        if isinstance(extra_person, list):
+            _PERSON_LABELS = _PERSON_LABELS | frozenset(
+                str(lbl) for lbl in extra_person
+            )
+
+        # Extend escalation labels
+        extra_escalate = data.get("escalate_with_person_to_critical", [])
+        if isinstance(extra_escalate, list):
+            _ESCALATE_WITH_PERSON_TO_CRITICAL = (
+                _ESCALATE_WITH_PERSON_TO_CRITICAL
+                | frozenset(str(lbl) for lbl in extra_escalate)
+            )
+
+        # Override default severity
+        default = data.get("default_severity")
+        if isinstance(default, str) and default.upper() in _LEVEL_WEIGHT:
+            DEFAULT_SEVERITY = default.upper()
+
+        _logger.debug("Custom severity config loaded from %s", path)
+
+    except FileNotFoundError:
+        _logger.warning("Severity config file not found: %s", path)
+    except Exception as exc:
+        _logger.warning("Failed to load severity config from %s: %s", path, exc)

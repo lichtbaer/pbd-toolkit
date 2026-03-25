@@ -896,14 +896,12 @@ def scan(
     # Update match count in statistics
     context.statistics.matches_found = len(context.match_container.pii_matches)
 
-    # Compute per-file risk scores using combination-risk escalation
-    from core.severity import combined_file_risk
+    # --- Post-scan reporting (extracted to core.scan_reporting) ---
+    from core import scan_reporting
 
-    file_risk_scores: dict[str, str] = {}
-    matches_by_file = context.match_container.by_file()
-    for fpath, file_matches in matches_by_file.items():
-        pii_types = [m.type for m in file_matches if m.type]
-        file_risk_scores[fpath] = combined_file_risk(pii_types)
+    file_risk_scores, matches_by_file = scan_reporting.compute_file_risk_scores(
+        context.match_container
+    )
 
     # Aggregate matches for statistics mode
     if statistics_aggregator:
@@ -914,203 +912,22 @@ def scan(
     context.statistics.stop()
 
     # Complete analytics session (if enabled)
-    if analytics_store and analytics_session_id:
-        try:
-            analytics_store.complete_session(
-                session_id=analytics_session_id,
-                total_files=context.statistics.total_files_found,
-                files_processed=context.statistics.files_processed,
-                total_matches=context.statistics.matches_found,
-                total_errors=context.statistics.total_errors,
-                duration_sec=context.statistics.duration_seconds,
-            )
-            # Record per-engine stats
-            for (
-                engine_name,
-                match_count,
-            ) in context.statistics.matches_by_engine.items():
-                analytics_store.record_engine_stats(
-                    session_id=analytics_session_id,
-                    engine=engine_name,
-                    matches_found=match_count,
-                )
-            # Record per-file-type stats
-            for ext, ext_count in context.statistics.extension_counts.items():
-                analytics_store.record_file_type_stats(
-                    session_id=analytics_session_id,
-                    extension=ext,
-                    files_scanned=ext_count,
-                )
-            analytics_store.close()
-        except Exception as exc:
-            logger.warning("Failed to finalize analytics session: %s", exc)
+    scan_reporting.finalize_analytics(
+        analytics_store, analytics_session_id, context, logger
+    )
 
     # Calculate total errors
     total_errors = sum(len(v) for v in errors.values())
     context.statistics.total_errors = total_errors
 
-    # Output all results
-    context.logger.info(context._("Statistics"))
-    context.logger.info("----------\n")
-    context.logger.info(context._("The following file extensions have been found:"))
-    for k, v in sorted(
-        context.statistics.extension_counts.items(),
-        key=lambda item: item[1],
-        reverse=True,
-    ):
-        context.logger.info(f"{k:>10}: {v:>10} Dateien")
-    context.logger.info(
-        context._(
-            "TOTAL: {} files.\nQUALIFIED: {} files (supported file extension)\n\n"
-        ).format(
-            context.statistics.total_files_found, context.statistics.files_processed
-        )
+    # Log results
+    scan_reporting.log_scan_results(context, errors)
+
+    # Build metadata and write output
+    output_metadata = scan_reporting.build_output_metadata(
+        context, errors, file_risk_scores, matches_by_file
     )
-
-    context.logger.info(context._("Findings"))
-    context.logger.info("--------\n")
-    context.logger.info(context._("--> see *_findings.csv\n\n"))
-
-    context.logger.info(context._("Errors"))
-    context.logger.info("------\n")
-    for k, v in errors.items():
-        context.logger.info(f"\t{k}")
-        for f in v:
-            context.logger.info(f"\t\t{f}")
-
-    context.logger.info("\n")
-    context.logger.info(
-        context._("Analysis finished at {}").format(context.statistics.end_time)
-    )
-    context.logger.info(
-        context._("Performance of analysis: {} analyzed files per second").format(
-            context.statistics.files_per_second
-        )
-    )
-
-    # Output NER statistics if NER was used
-    if (
-        context.config.use_ner
-        and context.statistics.ner_stats.total_chunks_processed > 0
-    ):
-        context.logger.info("\n" + context._("NER Statistics"))
-        context.logger.info("------------")
-        context.logger.info(
-            context._("Chunks processed: {}").format(
-                context.statistics.ner_stats.total_chunks_processed
-            )
-        )
-        context.logger.info(
-            context._("Entities found: {}").format(
-                context.statistics.ner_stats.total_entities_found
-            )
-        )
-        context.logger.info(
-            context._("Total NER processing time: {:.2f}s").format(
-                context.statistics.ner_stats.total_processing_time
-            )
-        )
-        context.logger.info(
-            context._("Average time per chunk: {:.3f}s").format(
-                context.statistics.avg_ner_time_per_chunk
-            )
-        )
-        if context.statistics.ner_stats.entities_by_type:
-            context.logger.info(context._("Entities by type:"))
-            for entity_type, count in sorted(
-                context.statistics.ner_stats.entities_by_type.items(),
-                key=lambda x: x[1],
-                reverse=True,
-            ):
-                context.logger.info(f"  {entity_type}: {count}")
-        if context.statistics.ner_stats.errors > 0:
-            context.logger.warning(
-                context._("NER errors encountered: {}").format(
-                    context.statistics.ner_stats.errors
-                )
-            )
-
-    # Prepare metadata for output writers
-    output_metadata = {
-        "start_time": (
-            context.statistics.start_time.isoformat()
-            if context.statistics.start_time
-            else None
-        ),
-        "end_time": (
-            context.statistics.end_time.isoformat()
-            if context.statistics.end_time
-            else None
-        ),
-        "duration_seconds": context.statistics.duration_seconds,
-        "path": context.config.path,
-        "methods": {
-            "regex": context.config.use_regex,
-            "ner": context.config.use_ner,
-            "spacy_ner": getattr(context.config, "use_spacy_ner", False),
-            "ollama": getattr(context.config, "use_ollama", False),
-            "openai_compatible": getattr(
-                context.config, "use_openai_compatible", False
-            ),
-            "multimodal": getattr(context.config, "use_multimodal", False),
-            "pydantic_ai": getattr(context.config, "use_pydantic_ai", False),
-        },
-        "total_files": context.statistics.total_files_found,
-        "analyzed_files": context.statistics.files_processed,
-        "matches_found": context.statistics.matches_found,
-        "error_count": context.statistics.total_errors,
-        "statistics": context.statistics.get_summary_dict(),
-        "file_extensions": dict(
-            sorted(
-                context.statistics.extension_counts.items(),
-                key=lambda item: item[1],
-                reverse=True,
-            )
-        ),
-        "errors": [
-            {"type": error_type, "files": file_list}
-            for error_type, file_list in errors.items()
-        ],
-        "file_risk_scores": {
-            fpath: {
-                "risk_level": risk,
-                "match_count": len(matches_by_file.get(fpath, [])),
-                "pii_types": list(
-                    {m.type for m in matches_by_file.get(fpath, []) if m.type}
-                ),
-            }
-            for fpath, risk in sorted(
-                file_risk_scores.items(),
-                key=lambda x: {
-                    "CRITICAL": 4,
-                    "HIGH": 3,
-                    "MEDIUM": 2,
-                    "LOW": 1,
-                    "NONE": 0,
-                }.get(x[1], 0),
-                reverse=True,
-            )
-        },
-    }
-
-    # Write output using writer
-    if context.output_writer:
-        # For non-streaming formats (JSON, XLSX), write all matches now
-        if not context.output_writer.supports_streaming:
-            # Write all matches that were collected during processing
-            for pm in context.match_container.pii_matches:
-                context.output_writer.write_match(pm)
-
-        # Finalize output
-        try:
-            context.output_writer.finalize(metadata=output_metadata)
-        except OutputError as e:
-            context.logger.error(f"Failed to write output: {e}")
-            raise typer.Exit(code=constants.EXIT_GENERAL_ERROR)
-    else:
-        # Fallback: Close CSV file handle if it exists
-        if csv_file_handle:
-            csv_file_handle.close()
+    scan_reporting.write_output(context, output_metadata, csv_file_handle)
 
     # Redaction: create redacted copies if requested
     if getattr(args, "redact", False) and matches_by_file:
@@ -1127,248 +944,27 @@ def scan(
         if redacted_paths and not (hasattr(args, "quiet") and args.quiet):
             typer.echo(f"\nRedacted {len(redacted_paths)} files to: {_redact_dir}")
 
-    # Generate and write statistics output if statistics mode is enabled
-    if statistics_aggregator:
-        # Determine statistics output file path
-        if hasattr(args, "statistics_output") and args.statistics_output:
-            statistics_file_path = args.statistics_output
-        else:
-            # Auto-generate path in output directory
-            statistics_file_path = output_dir + outslug + "_statistics.json"
+    # Statistics output
+    scan_reporting.write_statistics_output(
+        context, args, statistics_aggregator, output_dir, outslug
+    )
 
-        # Get aggregated statistics
-        aggregated_stats = statistics_aggregator.get_statistics()
-
-        # Prepare scan metadata
-        scan_metadata = {
-            "scan_id": outslug,
-            "start_time": (
-                context.statistics.start_time.isoformat()
-                if context.statistics.start_time
-                else None
-            ),
-            "end_time": (
-                context.statistics.end_time.isoformat()
-                if context.statistics.end_time
-                else None
-            ),
-            "duration_seconds": round(context.statistics.duration_seconds, 2),
-            "scan_path": context.config.path,
-            "detection_methods": {
-                "regex": context.config.use_regex,
-                "ner": context.config.use_ner,
-                "spacy_ner": getattr(context.config, "use_spacy_ner", False),
-                "ollama": getattr(context.config, "use_ollama", False),
-                "openai_compatible": getattr(
-                    context.config, "use_openai_compatible", False
-                ),
-                "multimodal": getattr(context.config, "use_multimodal", False),
-                "pydantic_ai": getattr(context.config, "use_pydantic_ai", False),
-            },
-            "total_files_scanned": context.statistics.total_files_found,
-            "total_files_analyzed": context.statistics.files_processed,
-            "total_matches_found": context.statistics.matches_found,
-            "statistics_strict": bool(getattr(args, "statistics_strict", False)),
-        }
-
-        # Prepare performance metrics
-        performance_metrics = {
-            "files_per_second": context.statistics.files_per_second,
-            "matches_per_second": round(
-                (
-                    context.statistics.matches_found
-                    / context.statistics.duration_seconds
-                    if context.statistics.duration_seconds > 0
-                    else 0
-                ),
-                2,
-            ),
-            "processing_time_seconds": round(context.statistics.duration_seconds, 2),
-        }
-
-        # Add NER statistics if available
-        if context.statistics.ner_stats.total_chunks_processed > 0:
-            performance_metrics["ner_statistics"] = {
-                "chunks_processed": context.statistics.ner_stats.total_chunks_processed,
-                "entities_found": context.statistics.ner_stats.total_entities_found,
-                "avg_time_per_chunk": round(
-                    context.statistics.avg_ner_time_per_chunk, 3
-                ),
-                "errors": context.statistics.ner_stats.errors,
-            }
-
-        # Create statistics writer
-        from core.writers import PrivacyStatisticsWriter
-
-        stats_writer = PrivacyStatisticsWriter(statistics_file_path)
-
-        # Write statistics
-        try:
-            stats_writer.finalize(
-                metadata={
-                    "statistics": aggregated_stats,
-                    "scan_metadata": scan_metadata,
-                    "performance_metrics": performance_metrics,
-                }
-            )
-            context.logger.info(
-                f"Privacy-focused statistics written to: {statistics_file_path}"
-            )
-        except OutputError as e:
-            context.logger.error(f"Failed to write statistics output: {e}")
-            # Don't fail the entire scan if statistics writing fails
-
-    # Show summary to console (unless in quiet mode)
+    # Console summary
     if not (hasattr(args, "quiet") and args.quiet):
-        summary_format = (
+        summary_fmt = (
             getattr(args, "summary_format", "human")
             if hasattr(args, "summary_format")
             else "human"
         )
-
-        if summary_format == "json":
-            # Machine-readable JSON output
-            import json
-
-            summary_data = {
-                "start_time": (
-                    context.statistics.start_time.isoformat()
-                    if context.statistics.start_time
-                    else None
-                ),
-                "end_time": (
-                    context.statistics.end_time.isoformat()
-                    if context.statistics.end_time
-                    else None
-                ),
-                "duration_seconds": context.statistics.duration_seconds,
-                "statistics": {
-                    "files_scanned": context.statistics.total_files_found,
-                    "files_analyzed": context.statistics.files_processed,
-                    "matches_found": context.statistics.matches_found,
-                    "errors": context.statistics.total_errors,
-                    "throughput_files_per_sec": context.statistics.files_per_second,
-                },
-                "output_file": context.output_file_path or output_file_path,
-                "output_directory": output_dir,
-                "errors_summary": (
-                    {k: len(v) for k, v in errors.items()} if errors else {}
-                ),
-                "file_risk_scores": file_risk_scores,
-            }
-            typer.echo(json.dumps(summary_data, indent=2))
-        else:
-            # Human-readable output
-            typer.echo("\n" + "=" * 50)
-            typer.echo(context._("Analysis Summary"))
-            typer.echo("=" * 50)
-            if context.statistics.start_time:
-                typer.echo(
-                    f"{context._('Started:')}     {context.statistics.start_time.strftime('%Y-%m-%d %H:%M:%S')}"
-                )
-            if context.statistics.end_time:
-                typer.echo(
-                    f"{context._('Finished:')}    {context.statistics.end_time.strftime('%Y-%m-%d %H:%M:%S')}"
-                )
-            typer.echo(f"{context._('Duration:')}    {context.statistics.duration}")
-            typer.echo()
-            typer.echo(context._("Statistics:"))
-            typer.echo(
-                f"  {context._('Files scanned:')}      {context.statistics.total_files_found:,}"
-            )
-            typer.echo(
-                f"  {context._('Files analyzed:')}     {context.statistics.files_processed:,}"
-            )
-            typer.echo(
-                f"  {context._('Matches found:')}      {context.statistics.matches_found:,}"
-            )
-            typer.echo(
-                f"  {context._('Errors:')}             {context.statistics.total_errors:,}"
-            )
-            typer.echo()
-            typer.echo(context._("Performance:"))
-            typer.echo(
-                f"  {context._('Throughput:')}         {context.statistics.files_per_second} {context._('files/sec')}"
-            )
-            typer.echo()
-            if errors:
-                typer.echo(context._("Errors Summary:"))
-                for k, v in errors.items():
-                    typer.echo(f"  {k}: {len(v)} {context._('files')}")
-                typer.echo()
-
-            # Per-file risk summary: show highest-risk files
-            if file_risk_scores:
-                # Count files per risk level
-                risk_distribution: dict[str, int] = {}
-                for _risk_level in file_risk_scores.values():
-                    risk_distribution[_risk_level] = (
-                        risk_distribution.get(_risk_level, 0) + 1
-                    )
-
-                typer.echo(context._("File Risk Assessment:"))
-                for _rl in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
-                    if _rl in risk_distribution:
-                        typer.echo(
-                            f"  {_rl}: {risk_distribution[_rl]} {context._('files')}"
-                        )
-
-                # Show top 5 highest-risk files
-                _risk_weight = {
-                    "CRITICAL": 4,
-                    "HIGH": 3,
-                    "MEDIUM": 2,
-                    "LOW": 1,
-                    "NONE": 0,
-                }
-                top_risk_files = sorted(
-                    file_risk_scores.items(),
-                    key=lambda x: _risk_weight.get(x[1], 0),
-                    reverse=True,
-                )[:5]
-                _high_risk = [
-                    (f, r) for f, r in top_risk_files if r in ("CRITICAL", "HIGH")
-                ]
-                if _high_risk:
-                    typer.echo()
-                    typer.echo(context._("Highest risk files:"))
-                    for _fpath, _risk in _high_risk:
-                        _match_count = len(matches_by_file.get(_fpath, []))
-                        _types = ", ".join(
-                            sorted(
-                                {
-                                    m.type
-                                    for m in matches_by_file.get(_fpath, [])
-                                    if m.type
-                                }
-                            )
-                        )
-                        typer.echo(
-                            f"  [{_risk}] {_fpath} ({_match_count} findings: {_types})"
-                        )
-                typer.echo()
-
-            # Actionable recommendations based on findings
-            _critical_count = risk_distribution.get("CRITICAL", 0)
-            _high_count = risk_distribution.get("HIGH", 0)
-            if _critical_count > 0 or _high_count > 0:
-                typer.echo(context._("Recommended actions:"))
-                if _critical_count > 0:
-                    typer.echo(
-                        f"  ! {_critical_count} {context._('files with CRITICAL risk - immediate review recommended')}"
-                    )
-                if _high_count > 0:
-                    typer.echo(
-                        f"  ! {_high_count} {context._('files with HIGH risk - review recommended')}"
-                    )
-                typer.echo()
-
-            # Get output file name
-            output_file = context.output_file_path or output_file_path
-
-            typer.echo(f"{context._('Output file:')} {output_file}")
-            typer.echo(f"{context._('Output directory:')} {output_dir}")
-            typer.echo("=" * 50 + "\n")
+        scan_reporting.print_console_summary(
+            context,
+            errors,
+            file_risk_scores,
+            matches_by_file,
+            output_file_path,
+            output_dir,
+            summary_format=summary_fmt,
+        )
 
 
 @app.command()

@@ -15,27 +15,7 @@ from pydantic import BaseModel, Field
 
 from core.config import Config
 from core.engines.base import DetectionResult
-
-# Transient error indicators that warrant a retry
-_RETRYABLE_EXCEPTION_SUBSTRINGS = (
-    "rate limit",
-    "ratelimit",
-    "429",
-    "503",
-    "502",
-    "timeout",
-    "timed out",
-    "connection",
-    "temporarily unavailable",
-    "overloaded",
-    "try again",
-)
-
-
-def _is_retryable_error(exc: Exception) -> bool:
-    """Return True if the exception looks like a transient/retryable API error."""
-    msg = str(exc).lower()
-    return any(kw in msg for kw in _RETRYABLE_EXCEPTION_SUBSTRINGS)
+from core.engines.llm_retry import is_retryable_error, retry_with_backoff
 
 
 try:
@@ -374,37 +354,18 @@ class PydanticAIEngine:
     def _retry_with_backoff(self, func, *args, **kwargs):
         """Call *func* with exponential backoff retry on transient errors.
 
-        Retries up to ``self.max_retries`` times for errors that look transient
-        (rate limits, timeouts, connection resets, 5xx responses).  Non-transient
-        errors are re-raised immediately without any retry.
-
-        Args:
-            func: Callable to invoke.
-            *args / **kwargs: Forwarded to *func*.
-
-        Returns:
-            Return value of *func* on success.
-
-        Raises:
-            The last exception if all attempts are exhausted.
+        Delegates to ``core.engines.llm_retry.retry_with_backoff``.
         """
-        last_exc: Exception | None = None
-        for attempt in range(self.max_retries + 1):
-            try:
-                return func(*args, **kwargs)
-            except Exception as exc:
-                last_exc = exc
-                if attempt >= self.max_retries or not _is_retryable_error(exc):
-                    raise
-                delay = self.retry_base_delay * (2**attempt)
-                if self.config.verbose:
-                    self.config.logger.warning(
-                        f"[{self.name}] Transient error (attempt {attempt + 1}/{self.max_retries + 1}), "
-                        f"retrying in {delay:.1f}s: {exc}"
-                    )
-                time.sleep(delay)
-        # Should never reach here, but satisfy the type checker
-        raise last_exc  # type: ignore[misc]
+        return retry_with_backoff(
+            func,
+            *args,
+            max_retries=self.max_retries,
+            base_delay=self.retry_base_delay,
+            verbose=bool(self.config.verbose),
+            logger=self.config.logger,
+            context_name=self.name,
+            **kwargs,
+        )
 
     def detect(
         self,

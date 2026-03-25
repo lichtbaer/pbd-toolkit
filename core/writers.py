@@ -6,10 +6,16 @@ import abc
 import csv
 import html
 import json
+import logging
 from typing import Any, TextIO
 
 from core.exceptions import OutputError
 from core.matches import PiiMatch
+
+_logger = logging.getLogger(__name__)
+
+# Threshold at which JsonWriter warns about high memory usage
+_JSON_MEMORY_WARNING_THRESHOLD = 50_000
 
 
 class OutputWriter(abc.ABC):
@@ -88,14 +94,19 @@ class CsvWriter(OutputWriter):
 
 
 class JsonWriter(OutputWriter):
-    """Writes findings to a JSON file."""
+    """Writes findings to a JSON file.
+
+    Note: This writer accumulates all matches in memory before writing.
+    For very large scans (>50k findings), consider using JSONL format
+    instead, which supports true streaming.
+    """
 
     def __init__(self, file_path: str, include_header: bool = True):
         super().__init__(file_path, include_header)
         self.matches: list[dict] = []
+        self._warned_memory = False
 
     def write_match(self, match: PiiMatch) -> None:
-        # Convert match to dict
         match_dict = {
             "text": match.text,
             "file": match.file,
@@ -105,7 +116,6 @@ class JsonWriter(OutputWriter):
             "severity": match.severity,
             "metadata": match.metadata,
         }
-        # Include context fields when available
         if match.context_before is not None:
             match_dict["context_before"] = match.context_before
         if match.context_after is not None:
@@ -113,6 +123,17 @@ class JsonWriter(OutputWriter):
         if match.char_offset is not None:
             match_dict["char_offset"] = match.char_offset
         self.matches.append(match_dict)
+
+        if (
+            not self._warned_memory
+            and len(self.matches) >= _JSON_MEMORY_WARNING_THRESHOLD
+        ):
+            self._warned_memory = True
+            _logger.warning(
+                "JSON writer is holding %d+ findings in memory. "
+                "Consider using --format jsonl for streaming output.",
+                _JSON_MEMORY_WARNING_THRESHOLD,
+            )
 
     def finalize(self, metadata: dict | None = None) -> None:
         output_data = {"metadata": metadata or {}, "findings": self.matches}
@@ -125,6 +146,82 @@ class JsonWriter(OutputWriter):
     @property
     def supports_streaming(self) -> bool:
         return False
+
+
+class StreamingJsonWriter(OutputWriter):
+    """Writes findings to a JSON file using streaming (incremental writes).
+
+    Unlike ``JsonWriter`` which holds all matches in memory, this writer
+    appends each match to disk immediately, producing valid JSON output.
+    Metadata is written during ``finalize()``.
+
+    The output structure is identical to ``JsonWriter``::
+
+        {"metadata": {...}, "findings": [{...}, {...}, ...]}
+    """
+
+    def __init__(self, file_path: str, include_header: bool = True):
+        super().__init__(file_path, include_header)
+        self._count = 0
+        try:
+            self._file = open(file_path, "w", encoding="utf-8")
+            # Write the opening of the JSON structure; findings will be appended.
+            self._file.write('{"metadata": null, "findings": [\n')
+        except OSError as e:
+            raise OutputError(f"Failed to open output file: {e}")
+
+    def write_match(self, match: PiiMatch) -> None:
+        payload = {
+            "text": match.text,
+            "file": match.file,
+            "type": match.type,
+            "score": match.ner_score,
+            "engine": match.engine,
+            "severity": match.severity,
+            "metadata": match.metadata,
+        }
+        if match.context_before is not None:
+            payload["context_before"] = match.context_before
+        if match.context_after is not None:
+            payload["context_after"] = match.context_after
+        if match.char_offset is not None:
+            payload["char_offset"] = match.char_offset
+
+        prefix = ",\n" if self._count > 0 else ""
+        self._file.write(prefix + json.dumps(payload, ensure_ascii=False))
+        self._count += 1
+
+    def finalize(self, metadata: dict | None = None) -> None:
+        try:
+            # Close the findings array
+            self._file.write("\n]")
+            # Rewrite metadata by appending it as a top-level key
+            # We need to patch the initial null placeholder.
+            # Approach: close the object and re-write metadata via seek.
+            self._file.write("}")
+            self._file.close()
+
+            # Now patch the metadata placeholder at the start
+            if metadata:
+                with open(self.file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                content = content.replace(
+                    '"metadata": null',
+                    '"metadata": ' + json.dumps(metadata, ensure_ascii=False),
+                    1,
+                )
+                with open(self.file_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+        except OSError as e:
+            raise OutputError(f"Failed to write streaming JSON output: {e}")
+
+    @property
+    def supports_streaming(self) -> bool:
+        return True
+
+    @property
+    def file_handle(self) -> TextIO:
+        return self._file
 
 
 class JsonlWriter(OutputWriter):
@@ -511,6 +608,8 @@ def create_output_writer(
     """Factory function to create the appropriate output writer."""
     if output_format == "json":
         return JsonWriter(file_path, include_header)
+    elif output_format == "streaming-json":
+        return StreamingJsonWriter(file_path, include_header)
     elif output_format == "jsonl":
         return JsonlWriter(file_path, include_header)
     elif output_format == "xlsx":

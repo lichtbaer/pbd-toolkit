@@ -79,7 +79,7 @@ class PiiMatchContainer:
     enable_deduplication: bool = False
     # Minimum confidence threshold (0.0 = accept all)
     min_confidence: float = 0.0
-    # Compiled regex pattern for efficient whitelist matching
+    # Compiled regex pattern for efficient whitelist matching (pre-compiled at init)
     _whitelist_pattern: re.Pattern | None = field(default=None, init=False, repr=False)
     # Ordered dict of (text_lower, file, type) keys for O(1) deduplication lookup
     # with bounded capacity (FIFO eviction when exceeding _DEDUP_MAX_ENTRIES)
@@ -97,6 +97,24 @@ class PiiMatchContainer:
     _lock: threading.Lock = field(
         default_factory=threading.Lock, init=False, repr=False
     )
+
+    def __post_init__(self) -> None:
+        """Pre-compile whitelist patterns at initialization time."""
+        if self.whitelist:
+            self._compile_whitelist_pattern()
+
+    def set_whitelist(self, whitelist: list[str]) -> None:
+        """Set the whitelist and pre-compile the regex pattern.
+
+        Args:
+            whitelist: List of whitelist entries.
+        """
+        with self._lock:
+            self.whitelist = whitelist
+            self._whitelist_pattern = None
+        # Re-compile outside the lock used by _compile_whitelist_pattern
+        if whitelist:
+            self._compile_whitelist_pattern()
 
     def set_csv_writer(self, csv_writer: csv.writer | None) -> None:
         """Set the CSV writer for output.
@@ -216,10 +234,11 @@ class PiiMatchContainer:
         with self._lock:
             whitelisted: bool = False
 
-            # Use compiled regex pattern for efficient whitelist checking
+            # Use pre-compiled regex pattern for efficient whitelist checking.
+            # The pattern is compiled at init or when set_whitelist() is called.
+            # Lazy fallback retained for safety if whitelist was set directly.
             if self.whitelist:
                 if self._whitelist_pattern is None:
-                    # Inline compile while holding lock (avoid races)
                     patterns = [self._entry_to_regex(w) for w in self.whitelist if w]
                     if patterns:
                         self._whitelist_pattern = re.compile("|".join(patterns))

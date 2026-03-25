@@ -162,6 +162,9 @@ class DocumentIndexer:
         ``custom_exemplars_path`` (YAML or JSON).  Custom categories that
         share a name with a built-in category extend that category's exemplar
         list; unknown names create new detection categories.
+
+        Embedding results are cached to disk (pickle) to avoid re-computation
+        on subsequent runs with the same model and exemplar set.
         """
         # Start with built-in exemplars
         exemplars: dict[str, list[str]] = {k: list(v) for k, v in PII_EXEMPLARS.items()}
@@ -182,6 +185,18 @@ class DocumentIndexer:
                 categories.append(category)
                 texts.append(text)
 
+        # Try to load cached exemplar embeddings
+        cached = self._load_exemplar_cache(texts)
+        if cached is not None:
+            self._exemplar_embeddings = cached
+            self._exemplar_categories = categories
+            self._exemplar_texts = texts
+            if self.verbose:
+                logger.debug(
+                    f"[vector] Loaded cached exemplar embeddings: {cached.shape}"
+                )
+            return
+
         if self.verbose:
             logger.debug(f"[vector] Pre-computing {len(texts)} exemplar embeddings …")
 
@@ -191,10 +206,52 @@ class DocumentIndexer:
         self._exemplar_categories = categories
         self._exemplar_texts = texts
 
+        # Persist cache for future runs
+        self._save_exemplar_cache(texts, self._exemplar_embeddings)
+
         if self.verbose:
             logger.debug(
                 f"[vector] Exemplar matrix ready: {self._exemplar_embeddings.shape}"
             )
+
+    def _exemplar_cache_path(self, texts: list[str]) -> str:
+        """Compute a deterministic cache file path based on model name and exemplar texts."""
+        import hashlib
+
+        key = hashlib.sha256(
+            (self.model_name + "\0" + "\0".join(texts)).encode()
+        ).hexdigest()[:16]
+        safe_model = self.model_name.replace("/", "_")
+        cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "pbd-toolkit")
+        return os.path.join(cache_dir, f"exemplar_embeddings_{safe_model}_{key}.npz")
+
+    def _load_exemplar_cache(self, texts: list[str]) -> np.ndarray | None:
+        """Try to load pre-computed exemplar embeddings from disk cache."""
+        path = self._exemplar_cache_path(texts)
+        try:
+            if os.path.isfile(path):
+                data = np.load(path)
+                embeddings = data["embeddings"]
+                if embeddings.shape[0] == len(texts):
+                    return embeddings
+        except Exception as exc:
+            if self.verbose:
+                logger.debug(f"[vector] Exemplar cache load failed: {exc}")
+        return None
+
+    def _save_exemplar_cache(
+        self, texts: list[str], embeddings: np.ndarray
+    ) -> None:
+        """Persist exemplar embeddings to disk cache for future runs."""
+        path = self._exemplar_cache_path(texts)
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            np.savez_compressed(path, embeddings=embeddings)
+            if self.verbose:
+                logger.debug(f"[vector] Exemplar embeddings cached to {path}")
+        except Exception as exc:
+            if self.verbose:
+                logger.debug(f"[vector] Failed to cache exemplar embeddings: {exc}")
 
     def _load_custom_exemplars(self, path: str) -> dict[str, list[str]]:
         """Load custom PII exemplar texts from a YAML or JSON file.

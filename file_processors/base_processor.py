@@ -4,6 +4,40 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator
 
 
+class FileProcessingError(Exception):
+    """Raised when a file processor fails to extract text.
+
+    Attributes:
+        file_path: Path of the file that caused the error.
+        processor_name: Name of the processor that failed.
+        original_error: The underlying exception, if any.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        file_path: str = "",
+        processor_name: str = "",
+        original_error: Exception | None = None,
+    ) -> None:
+        self.file_path = file_path
+        self.processor_name = processor_name
+        self.original_error = original_error
+        super().__init__(message)
+
+
+class CorruptedFileError(FileProcessingError):
+    """Raised when a file appears to be corrupted or malformed."""
+
+
+class UnsupportedFormatError(FileProcessingError):
+    """Raised when a file format is not supported by the processor."""
+
+
+class PasswordProtectedError(FileProcessingError):
+    """Raised when a file is password-protected and cannot be read."""
+
+
 class BaseFileProcessor(ABC):
     """Abstract base class for file processors.
 
@@ -12,6 +46,16 @@ class BaseFileProcessor(ABC):
 
     Processors can optionally implement can_process to indicate which
     file extensions they support. The default implementation returns False.
+
+    Error handling:
+        Processors should raise specific error types for known failure modes:
+        - ``CorruptedFileError`` for malformed/corrupted files
+        - ``PasswordProtectedError`` for encrypted files
+        - ``UnsupportedFormatError`` for format mismatches
+        - ``FileProcessingError`` for other extraction failures
+
+        Callers can then handle these granularly instead of catching
+        generic exceptions.
     """
 
     @abstractmethod
@@ -26,7 +70,10 @@ class BaseFileProcessor(ABC):
             (for chunked processing of large files)
 
         Raises:
-            Various exceptions depending on the file type and processing issues
+            FileProcessingError: Base class for all processing errors.
+            CorruptedFileError: When the file is corrupted or malformed.
+            PasswordProtectedError: When the file is password-protected.
+            UnsupportedFormatError: When the format is not supported.
         """
         pass
 
