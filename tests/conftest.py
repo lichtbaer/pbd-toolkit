@@ -95,6 +95,16 @@ def mock_config():
     config.use_vector_search = False
     config.use_vector_triage = False
 
+    # File scanning defaults
+    config.use_magic_detection = False
+    config.magic_detection_fallback = True
+    config.max_pending_futures = 512
+
+    # Tuning limits
+    config.dedup_max_entries = 500_000
+    config.max_whitelist_regex_len = 500
+    config.json_memory_warning_threshold = 50_000
+
     # Mock validate_file_path to always return valid
     def validate_file_path(path):
         return True, None

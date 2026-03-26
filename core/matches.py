@@ -6,9 +6,13 @@ import re
 import threading
 from collections import OrderedDict
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from core.resources import load_config_types
 from core.severity import classify as _classify_severity
+
+if TYPE_CHECKING:
+    from core.protocols import AnalyticsStoreProtocol, OutputWriterProtocol
 
 _DEDUP_MAX_ENTRIES = 500_000
 _MAX_WHITELIST_REGEX_LEN = 500
@@ -79,19 +83,26 @@ class PiiMatchContainer:
     enable_deduplication: bool = False
     # Minimum confidence threshold (0.0 = accept all)
     min_confidence: float = 0.0
+    # Configurable limits (defaults match previous hardcoded values)
+    dedup_max_entries: int = _DEDUP_MAX_ENTRIES
+    max_whitelist_regex_len: int = _MAX_WHITELIST_REGEX_LEN
     # Compiled regex pattern for efficient whitelist matching (pre-compiled at init)
     _whitelist_pattern: re.Pattern | None = field(default=None, init=False, repr=False)
     # Ordered dict of (text_lower, file, type) keys for O(1) deduplication lookup
-    # with bounded capacity (FIFO eviction when exceeding _DEDUP_MAX_ENTRIES)
+    # with bounded capacity (FIFO eviction when exceeding dedup_max_entries)
     _seen_keys: OrderedDict = field(default_factory=OrderedDict, init=False, repr=False)
     # CSV writer for output (injected dependency, only used for CSV format)
     _csv_writer: csv.writer | None = field(default=None, init=False, repr=False)
     # Output format (csv, json, xlsx)
     _output_format: str = field(default="csv", init=False, repr=False)
-    # Optional output writer for streaming formats (duck-typed: must implement write_match()).
-    _output_writer: object | None = field(default=None, init=False, repr=False)
-    # Optional analytics store (duck-typed: must implement record_finding_from_match())
-    _analytics_store: object | None = field(default=None, init=False, repr=False)
+    # Optional output writer for streaming formats (implements OutputWriterProtocol).
+    _output_writer: OutputWriterProtocol | None = field(
+        default=None, init=False, repr=False
+    )
+    # Optional analytics store (implements AnalyticsStoreProtocol).
+    _analytics_store: AnalyticsStoreProtocol | None = field(
+        default=None, init=False, repr=False
+    )
     _analytics_session_id: str | None = field(default=None, init=False, repr=False)
     # Internal lock for thread-safe match aggregation / streaming writes
     _lock: threading.Lock = field(
@@ -104,7 +115,7 @@ class PiiMatchContainer:
             self._compile_whitelist_pattern()
 
     def set_whitelist(self, whitelist: list[str]) -> None:
-        """Set the whitelist and pre-compile the regex pattern.
+        """Set the whitelist and pre-compile the regex pattern atomically.
 
         Args:
             whitelist: List of whitelist entries.
@@ -112,9 +123,12 @@ class PiiMatchContainer:
         with self._lock:
             self.whitelist = whitelist
             self._whitelist_pattern = None
-        # Re-compile outside the lock used by _compile_whitelist_pattern
-        if whitelist:
-            self._compile_whitelist_pattern()
+            if whitelist:
+                max_len = self.max_whitelist_regex_len
+                patterns = [self._entry_to_regex(w, max_len) for w in whitelist if w]
+                valid = [p for p in patterns if p]
+                if valid:
+                    self._whitelist_pattern = re.compile("|".join(valid))
 
     def set_csv_writer(self, csv_writer: csv.writer | None) -> None:
         """Set the CSV writer for output.
@@ -135,23 +149,21 @@ class PiiMatchContainer:
             self._output_format = output_format
 
     def set_analytics_store(
-        self, store: object | None, session_id: str | None = None
+        self, store: AnalyticsStoreProtocol | None, session_id: str | None = None
     ) -> None:
         """Set an analytics store for persisting findings.
 
-        Duck-typed to avoid circular imports – the store must implement
-        ``record_finding_from_match(session_id, match)``.
+        The store must implement :class:`~core.protocols.AnalyticsStoreProtocol`.
         """
         with self._lock:
             self._analytics_store = store
             self._analytics_session_id = session_id
 
-    def set_output_writer(self, output_writer: object | None) -> None:
+    def set_output_writer(self, output_writer: OutputWriterProtocol | None) -> None:
         """Set an output writer for streaming formats.
 
-        This is intentionally duck-typed to avoid import cycles:
-        `core.writers` imports `matches.PiiMatch`, so `matches` must not import
-        `core.writers.OutputWriter`.
+        The writer must implement :class:`~core.protocols.OutputWriterProtocol`.
+        Uses TYPE_CHECKING import to avoid circular imports with ``core.writers``.
         """
         with self._lock:
             self._output_writer = output_writer
@@ -171,7 +183,9 @@ class PiiMatchContainer:
             return results
 
     @staticmethod
-    def _entry_to_regex(entry: str) -> str:
+    def _entry_to_regex(
+        entry: str, max_regex_len: int = _MAX_WHITELIST_REGEX_LEN
+    ) -> str:
         """Convert a single whitelist entry to a regex fragment.
 
         Supported formats:
@@ -181,7 +195,7 @@ class PiiMatchContainer:
         """
         if entry.startswith("regex:"):
             raw = entry[6:]
-            if len(raw) > _MAX_WHITELIST_REGEX_LEN:
+            if len(raw) > max_regex_len:
                 _logger.warning(
                     "Whitelist regex too long (%d chars), skipping: %.40s...",
                     len(raw),
@@ -208,9 +222,13 @@ class PiiMatchContainer:
         """
         with self._lock:
             if self.whitelist and self._whitelist_pattern is None:
-                patterns = [self._entry_to_regex(w) for w in self.whitelist if w]
-                if patterns:
-                    self._whitelist_pattern = re.compile("|".join(patterns))
+                max_len = self.max_whitelist_regex_len
+                patterns = [
+                    self._entry_to_regex(w, max_len) for w in self.whitelist if w
+                ]
+                valid = [p for p in patterns if p]
+                if valid:
+                    self._whitelist_pattern = re.compile("|".join(valid))
 
     """ Helper function for adding matches to the matches container. This generic, internal method is
         called by the other methods intended for public use, its aim is to reduce redundancy. """
@@ -259,7 +277,7 @@ class PiiMatchContainer:
                 if dedup_key in self._seen_keys:
                     return
                 self._seen_keys[dedup_key] = None
-                if len(self._seen_keys) > _DEDUP_MAX_ENTRIES:
+                if len(self._seen_keys) > self.dedup_max_entries:
                     self._seen_keys.popitem(last=False)  # evict oldest
 
             pm = PiiMatch(

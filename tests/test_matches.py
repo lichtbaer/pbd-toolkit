@@ -1,6 +1,7 @@
 """Tests for PII matching functionality."""
 
 import re
+from types import SimpleNamespace
 
 from core.matches import PiiMatch, PiiMatchContainer
 
@@ -187,3 +188,80 @@ class TestPiiMatchContainerDeduplication:
         assert not errors
         # Only one match should survive deduplication
         assert len(container.pii_matches) == 1
+
+
+class TestSetWhitelistAtomicity:
+    """Tests for atomic whitelist compilation in set_whitelist."""
+
+    def test_set_whitelist_compiles_pattern_atomically(self):
+        """After set_whitelist, the pattern must be immediately available."""
+        container = PiiMatchContainer()
+        container.set_whitelist(["test@example.com", "info@"])
+        assert container._whitelist_pattern is not None
+        assert container._whitelist_pattern.search("test@example.com")
+        assert container._whitelist_pattern.search("info@company.de")
+
+    def test_set_whitelist_empty_clears_pattern(self):
+        """Setting an empty whitelist clears the compiled pattern."""
+        container = PiiMatchContainer(whitelist=["test@"])
+        assert container._whitelist_pattern is not None
+        container.set_whitelist([])
+        assert container._whitelist_pattern is None
+
+    def test_set_whitelist_regex_entry(self):
+        """Whitelist entries with regex: prefix are compiled correctly."""
+        container = PiiMatchContainer()
+        container.set_whitelist(["regex:\\d{3}-\\d{4}"])
+        assert container._whitelist_pattern is not None
+        assert container._whitelist_pattern.search("555-1234")
+
+
+class TestConfigurableConstants:
+    """Tests for configurable dedup_max_entries and max_whitelist_regex_len."""
+
+    def _make_result(self, text, type_="EMAIL"):
+        return SimpleNamespace(
+            text=text,
+            entity_type=type_,
+            engine_name="regex",
+            confidence=None,
+            metadata={},
+        )
+
+    def test_dedup_max_entries_eviction(self):
+        """FIFO eviction kicks in when dedup_max_entries is exceeded."""
+        container = PiiMatchContainer(enable_deduplication=True, dedup_max_entries=3)
+        for i in range(5):
+            r = self._make_result(f"match{i}@example.com")
+            container.add_detection_results([r], f"/file{i}.txt")
+
+        # All 5 matches should be added (eviction only removes dedup keys,
+        # not the matches themselves)
+        assert len(container.pii_matches) == 5
+        # But the dedup seen_keys should be bounded
+        assert len(container._seen_keys) <= 4  # 3 + 1 before eviction
+
+    def test_max_whitelist_regex_len_rejects_long_regex(self):
+        """Long regex entries are skipped when max_whitelist_regex_len is small."""
+        container = PiiMatchContainer(max_whitelist_regex_len=10)
+        container.set_whitelist(["regex:" + "a" * 20])
+        # Pattern should be None because the only entry was too long
+        assert container._whitelist_pattern is None
+
+
+class TestProtocolConformance:
+    """Verify that output writers conform to OutputWriterProtocol."""
+
+    def test_writers_satisfy_output_writer_protocol(self):
+        """All concrete writers implement the OutputWriterProtocol interface."""
+        import tempfile
+
+        from core.protocols import OutputWriterProtocol
+        from core.writers import CsvWriter, JsonlWriter, JsonWriter
+
+        with tempfile.NamedTemporaryFile(suffix=".tmp") as f:
+            for cls in (CsvWriter, JsonWriter, JsonlWriter):
+                instance = cls(f.name)
+                assert isinstance(instance, OutputWriterProtocol), (
+                    f"{cls.__name__} instance does not satisfy OutputWriterProtocol"
+                )

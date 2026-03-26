@@ -101,10 +101,16 @@ class JsonWriter(OutputWriter):
     instead, which supports true streaming.
     """
 
-    def __init__(self, file_path: str, include_header: bool = True):
+    def __init__(
+        self,
+        file_path: str,
+        include_header: bool = True,
+        memory_warning_threshold: int = _JSON_MEMORY_WARNING_THRESHOLD,
+    ):
         super().__init__(file_path, include_header)
         self.matches: list[dict] = []
         self._warned_memory = False
+        self._memory_warning_threshold = memory_warning_threshold
 
     def write_match(self, match: PiiMatch) -> None:
         match_dict = {
@@ -126,13 +132,13 @@ class JsonWriter(OutputWriter):
 
         if (
             not self._warned_memory
-            and len(self.matches) >= _JSON_MEMORY_WARNING_THRESHOLD
+            and len(self.matches) >= self._memory_warning_threshold
         ):
             self._warned_memory = True
             _logger.warning(
                 "JSON writer is holding %d+ findings in memory. "
                 "Consider using --format jsonl for streaming output.",
-                _JSON_MEMORY_WARNING_THRESHOLD,
+                self._memory_warning_threshold,
             )
 
     def finalize(self, metadata: dict | None = None) -> None:
@@ -603,11 +609,14 @@ class SarifWriter(OutputWriter):
 
 
 def create_output_writer(
-    output_format: str, file_path: str, include_header: bool = True
+    output_format: str,
+    file_path: str,
+    include_header: bool = True,
+    json_memory_warning_threshold: int = _JSON_MEMORY_WARNING_THRESHOLD,
 ) -> OutputWriter:
     """Factory function to create the appropriate output writer."""
     if output_format == "json":
-        return JsonWriter(file_path, include_header)
+        return JsonWriter(file_path, include_header, json_memory_warning_threshold)
     elif output_format == "streaming-json":
         return StreamingJsonWriter(file_path, include_header)
     elif output_format == "jsonl":

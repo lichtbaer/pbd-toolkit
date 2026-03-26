@@ -73,8 +73,8 @@ class TextProcessor:
             engine = EngineRegistry.get_engine(engine_name, self.config)
             if engine and engine.is_available():
                 self.engines.append(engine)
-                if getattr(self.config, "verbose", False):
-                    getattr(self.config, "logger", None) and self.config.logger.debug(
+                if self.config.verbose and self.config.logger:
+                    self.config.logger.debug(
                         f"Engine '{engine_name}' loaded and enabled"
                     )
 
@@ -107,24 +107,28 @@ class TextProcessor:
             engines.append("regex")
         if self.config.use_ner:
             engines.append("gliner")
-        if getattr(self.config, "use_spacy_ner", False):
+        if self.config.use_spacy_ner:
             engines.append("spacy-ner")
-        if getattr(self.config, "use_vector_search", False):
+        if self.config.use_vector_search:
             engines.append("vector-search")
         # Use PydanticAI unified engine if explicitly enabled or if any legacy LLM engine is enabled
         # PydanticAI engine automatically handles ollama, openai-compatible, and multimodal
         if (
-            getattr(self.config, "use_pydantic_ai", False)
-            or getattr(self.config, "use_ollama", False)
-            or getattr(self.config, "use_openai_compatible", False)
-            or getattr(self.config, "use_multimodal", False)
+            self.config.use_pydantic_ai
+            or self.config.use_ollama
+            or self.config.use_openai_compatible
+            or self.config.use_multimodal
         ):
             engines.append("pydantic-ai")
         return engines
 
     @staticmethod
     def _update_ner_stats(stats, processing_time: float, results: list) -> None:
-        """Update NER statistics for a single stats object."""
+        """Update NER statistics for a single stats object.
+
+        Callers MUST hold ``_process_lock`` before invoking this method.
+        It mutates *stats* in-place without its own locking.
+        """
         stats.total_chunks_processed += 1
         stats.total_processing_time += processing_time
         stats.total_entities_found += len(results)
@@ -138,7 +142,7 @@ class TextProcessor:
         self, engine_name: str, file_path: str, error: Exception, level: str = "warning"
     ) -> None:
         """Record an engine processing error in stats and logs."""
-        if engine_name == "gliner":
+        if engine_name in ("gliner", "spacy-ner", "pydantic-ai"):
             with self._process_lock:
                 self.config.ner_stats.errors += 1
                 if self.statistics:
@@ -193,7 +197,7 @@ class TextProcessor:
         self._ensure_engines_current()
 
         # Vector triage pre-filter: skip chunk if no PII signal detected
-        if getattr(self.config, "use_vector_triage", False):
+        if self.config.use_vector_triage:
             if not self._vector_triage_pass(text):
                 return
 
@@ -216,8 +220,8 @@ class TextProcessor:
 
         # Determine text chunks for processing.  Chunking applies when
         # text_chunk_size > 0 AND the text exceeds that size.
-        chunk_size = getattr(self.config, "text_chunk_size", 0)
-        chunk_overlap = getattr(self.config, "text_chunk_overlap", 200)
+        chunk_size = self.config.text_chunk_size
+        chunk_overlap = self.config.text_chunk_overlap
         text_chunks = self._split_into_chunks(text, chunk_size, chunk_overlap)
 
         # Run all enabled engines
@@ -268,7 +272,7 @@ class TextProcessor:
 
         # Add all results to match container and update per-engine statistics
         if all_results:
-            _ctx_chars = getattr(self.config, "context_chars", 0)
+            _ctx_chars = self.config.context_chars
             with self._process_lock:
                 self.match_container.add_detection_results(
                     all_results,
@@ -329,7 +333,7 @@ class TextProcessor:
         # Notify the vector engine of the current file so that indexed chunks
         # carry the correct file path and hash (enables cross-document analysis
         # and incremental-scan support).
-        if getattr(self.config, "vector_save_index", None):
+        if self.config.vector_save_index:
             for engine in self.engines:
                 if engine.name == "vector-search" and hasattr(
                     engine, "set_current_file"
@@ -357,16 +361,16 @@ class TextProcessor:
             return False
 
         file_start_time = time.monotonic()
-        file_timeout = getattr(self.config, "max_processing_time_seconds", 300)
+        file_timeout = self.config.max_processing_time_seconds
 
         try:
             # Handle image files with PydanticAI engine (supports multimodal)
             if isinstance(processor, ImageProcessor):
                 if (
                     self.config.use_multimodal
-                    or getattr(self.config, "use_pydantic_ai", False)
-                    or getattr(self.config, "use_ollama", False)
-                    or getattr(self.config, "use_openai_compatible", False)
+                    or self.config.use_pydantic_ai
+                    or self.config.use_ollama
+                    or self.config.use_openai_compatible
                 ):
                     # Get PydanticAI engine (handles multimodal detection)
                     pydantic_ai_engine = None

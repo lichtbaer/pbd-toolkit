@@ -1,6 +1,8 @@
 """Tests for file scanner."""
 
+import concurrent.futures
 from pathlib import Path
+from unittest.mock import patch
 
 from core.scanner import FileInfo, FileScanner, ScanResult
 
@@ -160,3 +162,65 @@ class TestFileScanner:
         assert result.extension_counts[".pdf"] == 3
         assert "error1" in result.errors
         assert "file1.txt" in result.errors["error1"]
+
+    def test_scan_logs_warning_when_future_drain_fails(self, mock_config, temp_dir):
+        """Test that exceptions during future draining are logged, not silenced."""
+        test_file = Path(temp_dir) / "test.txt"
+        test_file.write_text("content")
+
+        call_count = 0
+
+        def callback_returning_future(file_info: FileInfo):
+            nonlocal call_count
+            call_count += 1
+            fut = concurrent.futures.Future()
+            fut.set_result(None)
+            return fut
+
+        def failing_wait(futures, **kwargs):
+            raise OSError("Simulated drain failure")
+
+        scanner = FileScanner(mock_config)
+
+        with patch("concurrent.futures.wait", side_effect=failing_wait):
+            result = scanner.scan(temp_dir, file_callback=callback_returning_future)
+
+        # The scanner should still return a result (resilient)
+        assert isinstance(result, ScanResult)
+        # The logger should have been called with a warning
+        mock_config.logger.warning.assert_called()
+        warning_args = str(mock_config.logger.warning.call_args_list)
+        assert (
+            "pending futures" in warning_args.lower()
+            or "drain" in warning_args.lower()
+            or "OSError" in warning_args
+        )
+
+    def test_scan_logs_warning_when_final_wait_fails(self, mock_config, temp_dir):
+        """Test that final wait failure is logged."""
+        test_file = Path(temp_dir) / "test.txt"
+        test_file.write_text("content")
+
+        def callback_returning_future(file_info: FileInfo):
+            fut = concurrent.futures.Future()
+            fut.set_result(None)
+            return fut
+
+        scanner = FileScanner(mock_config)
+
+        # We need the future to still be "pending" so that the final drain runs.
+        # Patch wait only at the final drain (outside the loop).
+        original_wait = concurrent.futures.wait
+        wait_call_count = 0
+
+        def failing_on_second(futures, **kwargs):
+            nonlocal wait_call_count
+            wait_call_count += 1
+            if wait_call_count > 1:
+                raise RuntimeError("Final wait failed")
+            return original_wait(futures, **kwargs)
+
+        with patch("concurrent.futures.wait", side_effect=failing_on_second):
+            result = scanner.scan(temp_dir, file_callback=callback_returning_future)
+
+        assert isinstance(result, ScanResult)

@@ -646,6 +646,8 @@ def scan(
     pmc: PiiMatchContainer = PiiMatchContainer(
         enable_deduplication=_dedup_enabled,
         min_confidence=_min_conf_val,
+        dedup_max_entries=config_obj.dedup_max_entries,
+        max_whitelist_regex_len=config_obj.max_whitelist_regex_len,
     )
     pmc.set_csv_writer(csv_writer)
     pmc.set_output_format(args.format if hasattr(args, "format") else "csv")

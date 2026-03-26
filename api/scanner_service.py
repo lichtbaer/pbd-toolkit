@@ -213,6 +213,8 @@ class ScannerService:
             pmc = PiiMatchContainer(
                 enable_deduplication=deduplicate,
                 min_confidence=min_confidence,
+                dedup_max_entries=config_obj.dedup_max_entries,
+                max_whitelist_regex_len=config_obj.max_whitelist_regex_len,
             )
             pmc.set_analytics_store(self._store, session_id)
 

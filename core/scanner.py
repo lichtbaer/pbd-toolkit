@@ -62,7 +62,7 @@ class FileScanner:
         self._errors: dict[str, list[str]] = {}
 
         # Initialize file type detector if enabled
-        use_magic = getattr(config, "use_magic_detection", False)
+        use_magic = config.use_magic_detection
         self.file_type_detector = (
             FileTypeDetector(enabled=use_magic) if use_magic else None
         )
@@ -93,10 +93,7 @@ class FileScanner:
         # Prevent unbounded growth of pending futures when scanning large trees.
         # This is especially important for multi-worker runs where file_callback
         # submits to a ThreadPoolExecutor and returns futures.
-        raw_max_pending = getattr(self.config, "max_pending_futures", 512)
-        max_pending_futures = (
-            int(raw_max_pending) if isinstance(raw_max_pending, int) else 512
-        )
+        max_pending_futures = self.config.max_pending_futures
 
         # Estimate total files for progress bar (if verbose and no stop_count)
         # This can double runtime on huge directory trees, so it's opt-in.
@@ -168,9 +165,7 @@ class FileScanner:
                         # Use magic detection if:
                         # 1. File has no extension, OR
                         # 2. magic_detection_fallback is enabled AND the extension is unsupported
-                        magic_fallback = getattr(
-                            self.config, "magic_detection_fallback", True
-                        )
+                        magic_fallback = self.config.magic_detection_fallback
                         ext_supported = bool(ext) and (
                             FileProcessorRegistry.get_processor(ext) is not None
                         )
@@ -263,9 +258,14 @@ class FileScanner:
                                                     self._add_error(error_msg, fpath)
                                                 else:
                                                     self._add_error(error_msg, "")
-                                    except Exception:
-                                        # Keep scanning even if draining fails.
-                                        pass
+                                    except Exception as drain_exc:
+                                        # Keep scanning even if draining fails, but log for debuggability.
+                                        self.config.logger.warning(
+                                            "Failed to drain pending futures: %s: %s",
+                                            type(drain_exc).__name__,
+                                            drain_exc,
+                                            exc_info=self.config.verbose,
+                                        )
                         except Exception as e:
                             error_msg = f"Callback error: {type(e).__name__}: {str(e)}"
                             self.config.logger.error(
@@ -323,9 +323,14 @@ class FileScanner:
                             self._add_error(error_msg, full_path)
                         else:
                             self._add_error(error_msg, "")
-            except Exception:
-                # If waiting itself fails, continue with scan result.
-                pass
+            except Exception as wait_exc:
+                # If waiting itself fails, log and continue with scan result.
+                self.config.logger.warning(
+                    "Failed to wait for pending futures at scan end: %s: %s",
+                    type(wait_exc).__name__,
+                    wait_exc,
+                    exc_info=self.config.verbose,
+                )
 
         # Build and return result
         return ScanResult(

@@ -188,3 +188,29 @@ def test_privacy_statistics_writer(tmp_path):
     assert "statistics_by_dimension" in data
     assert "summary" in data
     assert "metadata" in data
+
+
+def test_json_writer_configurable_memory_warning(tmp_path, caplog):
+    """Test JsonWriter warns at custom memory_warning_threshold."""
+    import logging
+
+    out = tmp_path / "findings.json"
+    writer = JsonWriter(str(out), memory_warning_threshold=3)
+
+    match = PiiMatch(
+        text="test@example.com",
+        file="/tmp/a.txt",
+        type="REGEX_EMAIL",
+        ner_score=None,
+        engine="regex",
+        metadata={},
+    )
+
+    with caplog.at_level(logging.WARNING, logger="core.writers"):
+        for _ in range(5):
+            writer.write_match(match)
+
+    assert any(
+        "3" in record.message and "memory" in record.message.lower()
+        for record in caplog.records
+    )
