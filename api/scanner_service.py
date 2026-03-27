@@ -175,7 +175,7 @@ class ScannerService:
                 ollama_model="llama3.2",
                 openai_api_base="https://api.openai.com/v1",
                 openai_api_key=os.environ.get("OPENAI_API_KEY"),
-                openai_model="gpt-3.5-turbo",
+                openai_model="gpt-4o-mini",
                 pydantic_ai_provider="openai",
                 pydantic_ai_model=None,
                 pydantic_ai_api_key=None,

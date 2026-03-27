@@ -100,8 +100,8 @@ class ScanCache:
             if self._conn:
                 try:
                     self._conn.close()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    self._logger.debug("ScanCache: failed to close connection: %s", exc)
                 self._conn = None
 
     # ------------------------------------------------------------------

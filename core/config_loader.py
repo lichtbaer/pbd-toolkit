@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -27,7 +28,7 @@ class ConfigLoader:
         "ollama_model": "llama3.2",
         "openai_compatible": False,
         "openai_api_base": "https://api.openai.com/v1",
-        "openai_model": "gpt-3.5-turbo",
+        "openai_model": "gpt-4o-mini",
         "multimodal": False,
         "multimodal_api_base": None,
         "multimodal_api_key": None,
@@ -57,6 +58,34 @@ class ConfigLoader:
         "verbose": False,
         "quiet": False,
     }
+
+    @staticmethod
+    def load_env_overrides() -> dict[str, Any]:
+        """Read PBD_TOOLKIT_* environment variables and return them as a config dict.
+
+        Supported variables:
+            PBD_TOOLKIT_CONFIG  – default config file path (used by CLI before --config)
+            PBD_LOG_LEVEL       – log level override (DEBUG, INFO, WARNING, ERROR)
+            PBD_OUTPUT_DIR      – default output directory
+
+        Returns:
+            Dictionary with config values derived from environment variables.
+        """
+        overrides: dict[str, Any] = {}
+
+        config_env = os.environ.get("PBD_TOOLKIT_CONFIG")
+        if config_env:
+            overrides["config"] = config_env
+
+        log_level = os.environ.get("PBD_LOG_LEVEL")
+        if log_level and log_level.upper() in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+            overrides["log_level"] = log_level.upper()
+
+        output_dir = os.environ.get("PBD_OUTPUT_DIR")
+        if output_dir:
+            overrides["output_dir"] = output_dir
+
+        return overrides
 
     @staticmethod
     def load_config(config_path: Path) -> dict[str, Any]:

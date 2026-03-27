@@ -32,9 +32,14 @@ def create_scan(body: ScanRequest, request: Request) -> ScanResponse:
     service = request.app.state.scanner_service
 
     try:
+        engines = body.validated_engines
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    try:
         session_id = service.start_scan(
             path=body.path,
-            engines=body.engines,
+            engines=engines,
             profile=body.profile,
             deduplicate=body.deduplicate,
             incremental=body.incremental,
@@ -44,6 +49,8 @@ def create_scan(body: ScanRequest, request: Request) -> ScanResponse:
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to start scan: {exc}")
 
     return ScanResponse(session_id=session_id, status="running", message="Scan started")
 
@@ -52,7 +59,7 @@ def create_scan(body: ScanRequest, request: Request) -> ScanResponse:
 def list_scans(
     request: Request,
     limit: int = Query(50, ge=1, le=500),
-    offset: int = Query(0, ge=0),
+    offset: int = Query(0, ge=0, le=100_000),
     status: str | None = Query(None),
 ) -> SessionListResponse:
     """List scan sessions with optional status filter."""
@@ -87,7 +94,7 @@ def get_scan_findings(
     session_id: str,
     request: Request,
     limit: int = Query(100, ge=1, le=1000),
-    offset: int = Query(0, ge=0),
+    offset: int = Query(0, ge=0, le=100_000),
     pii_type: str | None = Query(None),
     severity: str | None = Query(None),
     engine: str | None = Query(None),

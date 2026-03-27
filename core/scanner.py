@@ -156,8 +156,8 @@ class FileScanner:
                     file_size_mb = None
                     try:
                         file_size_mb = os.path.getsize(full_path) / (1024 * 1024)
-                    except OSError:
-                        pass
+                    except OSError as e:
+                        self.config.logger.debug("Could not determine file size for %s: %s", full_path, e)
 
                     # Detect MIME type using magic numbers if enabled
                     mime_type = None

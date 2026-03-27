@@ -11,10 +11,14 @@ from pydantic import BaseModel, Field
 # ------------------------------------------------------------------
 
 
+_VALID_ENGINES = frozenset({"regex", "gliner", "spacy", "pydantic-ai", "vector", "ollama", "openai"})
+_VALID_PROFILES = frozenset({"quick", "standard", "deep", "gdpr-audit", "ci"})
+
+
 class ScanRequest(BaseModel):
     """Request body for ``POST /api/v1/scans``."""
 
-    path: str = Field(..., description="Root directory to scan")
+    path: str = Field(..., min_length=1, description="Root directory to scan")
     engines: list[str] = Field(
         default=["regex"],
         description="Detection engines to use (regex, gliner, spacy, pydantic-ai, vector)",
@@ -25,10 +29,20 @@ class ScanRequest(BaseModel):
     deduplicate: bool = Field(False, description="Remove duplicate findings")
     incremental: bool = Field(False, description="Skip unchanged files")
     text_chunk_size: int = Field(
-        0, description="Text chunk size for NER (0 = disabled)"
+        0, ge=0, description="Text chunk size for NER (0 = disabled)"
     )
-    min_confidence: float = Field(0.0, description="Minimum confidence threshold")
-    context_chars: int = Field(0, description="Context chars around findings")
+    min_confidence: float = Field(
+        0.0, ge=0.0, le=1.0, description="Minimum confidence threshold (0.0–1.0)"
+    )
+    context_chars: int = Field(0, ge=0, description="Context chars around findings")
+
+    @property
+    def validated_engines(self) -> list[str]:
+        """Return engines after validating against known engine names."""
+        unknown = [e for e in self.engines if e not in _VALID_ENGINES]
+        if unknown:
+            raise ValueError(f"Unknown engine(s): {unknown}. Valid: {sorted(_VALID_ENGINES)}")
+        return self.engines
 
 
 class ScanResponse(BaseModel):
