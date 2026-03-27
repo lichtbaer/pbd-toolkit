@@ -61,9 +61,12 @@ class ApplicationContext:
                         self.csv_writer = self.output_writer.get_writer()
                     if self.csv_file_handle is None:
                         self.csv_file_handle = self.output_writer.file_handle
-            except Exception:
+            except Exception as exc:
                 # Don't fail context creation if optional CSV back-compat wiring fails
-                pass
+                import logging
+                logging.getLogger(__name__).debug(
+                    "Optional CSV back-compat wiring failed (non-critical): %s", exc
+                )
 
     @classmethod
     def from_cli_args(

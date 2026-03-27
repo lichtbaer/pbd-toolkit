@@ -158,8 +158,8 @@ class PydanticAIEngine:
         elif getattr(self.config, "use_multimodal", False):
             return getattr(self.config, "multimodal_model", "gpt-4-vision-preview")
         elif self.provider == "openai":
-            return getattr(self.config, "openai_model", "gpt-3.5-turbo")
-        return getattr(self.config, "pydantic_ai_model", "gpt-3.5-turbo")
+            return getattr(self.config, "openai_model", "gpt-4o-mini")
+        return getattr(self.config, "pydantic_ai_model", "gpt-4o-mini")
 
     def _get_api_key(self) -> str | None:
         """Get API key for the provider.

@@ -70,7 +70,7 @@ class EngineConfig:
     # OpenAI-compatible
     openai_api_base: str = "https://api.openai.com/v1"
     openai_api_key: str | None = None
-    openai_model: str = "gpt-3.5-turbo"
+    openai_model: str = "gpt-4o-mini"
     openai_timeout: int = 30
 
     # Multimodal
@@ -177,7 +177,7 @@ class Config:
     ollama_timeout: int = 30
     openai_api_base: str = "https://api.openai.com/v1"
     openai_api_key: str | None = None
-    openai_model: str = "gpt-3.5-turbo"
+    openai_model: str = "gpt-4o-mini"
     openai_timeout: int = 30
 
     # Multimodal engine configuration

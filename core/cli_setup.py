@@ -121,8 +121,8 @@ def __setup_args(translate_func: Callable[[str], str]) -> argparse.Namespace:
     )
     parser.add_argument(
         "--openai-model",
-        default="gpt-3.5-turbo",
-        help=translate_func("OpenAI model to use (default: gpt-3.5-turbo)"),
+        default="gpt-4o-mini",
+        help=translate_func("OpenAI model to use (default: gpt-4o-mini)"),
     )
 
     # Multimodal image detection

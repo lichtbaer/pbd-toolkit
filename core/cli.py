@@ -141,9 +141,9 @@ def scan(
         None, "--openai-api-key", help="OpenAI API key (or set OPENAI_API_KEY env var)"
     ),
     openai_model: str = typer.Option(
-        "gpt-3.5-turbo",
+        "gpt-4o-mini",
         "--openai-model",
-        help="OpenAI model to use (default: gpt-3.5-turbo)",
+        help="OpenAI model to use (default: gpt-4o-mini)",
     ),
     # Multimodal image detection
     multimodal: bool = typer.Option(
@@ -395,8 +395,23 @@ def scan(
     # Disable telemetry in dependencies for privacy
     setup.__check_telemetry_settings()
 
+    # Apply environment variable overrides for unset CLI options.
+    env_overrides = ConfigLoader.load_env_overrides()
+    if config is None and "config" in env_overrides:
+        config = Path(env_overrides["config"])
+    if output_dir == "./output/" and "output_dir" in env_overrides:
+        output_dir = env_overrides["output_dir"]
+
     # Setup language handling
     translate_func = setup.__setup_lang()
+
+    # Deprecation warning for --path option (prefer positional PATH argument).
+    if path_opt is not None:
+        typer.echo(
+            "Warning: --path is deprecated. Pass the directory as a positional argument instead: "
+            "pbd-toolkit scan /your/directory",
+            err=True,
+        )
 
     # Create argparse-like namespace for compatibility with existing code
     # Prefer --path over positional PATH (if both are provided).
@@ -463,6 +478,18 @@ def scan(
     }
 
     args = _create_argparse_namespace_from_typer_args(**typer_args)
+
+    # Deprecation warnings for legacy engine flags.
+    if ollama:
+        typer.echo(
+            "Warning: --ollama is deprecated. Use --pydantic-ai --pydantic-ai-provider ollama instead.",
+            err=True,
+        )
+    if openai_compatible:
+        typer.echo(
+            "Warning: --openai-compatible is deprecated. Use --pydantic-ai --pydantic-ai-provider openai instead.",
+            err=True,
+        )
 
     # Load scan profile if provided (applied before config file so config can override)
     if profile:
