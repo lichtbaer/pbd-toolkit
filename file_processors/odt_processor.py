@@ -1,10 +1,18 @@
 """ODT file processor using odfpy library."""
 
-from odf.opendocument import load
-from odf.table import Table, TableCell, TableRow
-from odf.text import H, P
-
 from file_processors.base_processor import BaseFileProcessor
+
+try:
+    from odf.opendocument import load
+    from odf.table import Table, TableCell, TableRow
+    from odf.text import H, P
+except Exception:  # pragma: no cover - optional dependency
+    load = None  # type: ignore[assignment]
+    Table = None  # type: ignore[assignment]
+    TableCell = None  # type: ignore[assignment]
+    TableRow = None  # type: ignore[assignment]
+    H = None  # type: ignore[assignment]
+    P = None  # type: ignore[assignment]
 
 
 class OdtProcessor(BaseFileProcessor):
@@ -29,6 +37,12 @@ class OdtProcessor(BaseFileProcessor):
             FileNotFoundError: If file does not exist
             Exception: For other ODT processing errors
         """
+        if load is None:
+            raise ImportError(
+                "odfpy is required for ODT processing. "
+                "Install it with: pip install odfpy"
+            )
+
         text_parts: list[str] = []
 
         try:

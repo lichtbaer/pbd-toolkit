@@ -1,6 +1,10 @@
 """iCalendar (ICS) file processor for extracting calendar data."""
 
+import logging
+
 from file_processors.base_processor import BaseFileProcessor
+
+_logger = logging.getLogger(__name__)
 
 
 class IcalProcessor(BaseFileProcessor):
@@ -115,7 +119,8 @@ class IcalProcessor(BaseFileProcessor):
                     first_line = f.readline().strip()
                     if first_line == "BEGIN:VCALENDAR":
                         return True
-            except Exception:
+            except (OSError, ValueError) as e:
+                _logger.debug("Could not read file header for %s: %s", file_path, e)
                 pass
 
         return False

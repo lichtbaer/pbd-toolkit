@@ -85,6 +85,7 @@ class TestRegexEngine:
         mock_match = Mock()
         mock_match.group.return_value = "test@example.com"
         mock_match.groups.return_value = (None, "test@example.com", None)
+        mock_match.start.return_value = 0
 
         mock_config.regex_pattern.finditer = Mock(return_value=[mock_match])
 
@@ -110,6 +111,7 @@ class TestRegexEngine:
         # Mock credit card match
         mock_match = Mock()
         mock_match.group.return_value = "4111111111111111"
+        mock_match.start.return_value = 0
         mock_match.groups.return_value = (
             None,
             None,

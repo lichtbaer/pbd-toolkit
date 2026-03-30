@@ -1,9 +1,12 @@
 """MBOX mailbox processor for extracting emails from Unix mailboxes."""
 
 import email
+import logging
 from collections.abc import Iterator
 
 from file_processors.base_processor import BaseFileProcessor
+
+_logger = logging.getLogger(__name__)
 
 
 class MboxProcessor(BaseFileProcessor):
@@ -40,9 +43,13 @@ class MboxProcessor(BaseFileProcessor):
                             msg_text = self._process_message(b"".join(current_message))
                             if msg_text:
                                 yield msg_text
-                        except Exception:
+                        except Exception as exc:
                             # Skip messages that can't be parsed
-                            pass
+                            _logger.debug(
+                                "Skipping unparseable message in MBOX: %s: %s",
+                                file_path,
+                                exc,
+                            )
                         current_message = []
 
                 current_message.append(line)
@@ -53,8 +60,12 @@ class MboxProcessor(BaseFileProcessor):
                     msg_text = self._process_message(b"".join(current_message))
                     if msg_text:
                         yield msg_text
-                except Exception:
-                    pass
+                except Exception as exc:
+                    _logger.debug(
+                        "Skipping unparseable message in MBOX: %s: %s",
+                        file_path,
+                        exc,
+                    )
 
     def _process_message(self, message_bytes: bytes) -> str:
         """Process a single email message.
@@ -90,8 +101,10 @@ class MboxProcessor(BaseFileProcessor):
                                 body_parts.append(
                                     payload.decode(charset, errors="replace")
                                 )
-                            except Exception:
-                                pass
+                            except Exception as exc:
+                                _logger.debug(
+                                    "Failed to decode text/plain part: %s", exc
+                                )
                     elif content_type == "text/html":
                         # Extract text from HTML (simple approach)
                         payload = part.get_payload(decode=True)
@@ -104,8 +117,10 @@ class MboxProcessor(BaseFileProcessor):
 
                                 html_text = re.sub(r"<[^>]+>", "", html_text)
                                 body_parts.append(html_text)
-                            except Exception:
-                                pass
+                            except Exception as exc:
+                                _logger.debug(
+                                    "Failed to decode text/html part: %s", exc
+                                )
             else:
                 # Single part message
                 payload = msg.get_payload(decode=True)
@@ -113,8 +128,10 @@ class MboxProcessor(BaseFileProcessor):
                     try:
                         charset = msg.get_content_charset() or "utf-8"
                         body_parts.append(payload.decode(charset, errors="replace"))
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        _logger.debug(
+                            "Failed to decode single-part message body: %s", exc
+                        )
 
             # Combine headers and body
             result = "\n".join(headers)
@@ -122,8 +139,9 @@ class MboxProcessor(BaseFileProcessor):
                 result += "\n\n" + "\n".join(body_parts)
 
             return result
-        except Exception:
+        except Exception as exc:
             # Return raw text if parsing fails
+            _logger.debug("Email message parse failed, using raw text: %s", exc)
             try:
                 return message_bytes.decode("utf-8", errors="replace")
             except Exception:

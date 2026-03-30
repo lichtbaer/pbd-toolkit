@@ -1,5 +1,6 @@
 """Base class for file processors."""
 
+import logging
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 
@@ -97,3 +98,81 @@ class BaseFileProcessor(ABC):
             MIME type when magic number detection is enabled.
         """
         return False
+
+
+_logger = logging.getLogger(__name__)
+
+# Standard encoding fallback chain used across all file processors.
+_ENCODING_FALLBACK_CHAIN = ("utf-8", "utf-8-sig", "cp1252", "iso-8859-1", "latin-1")
+
+
+def decode_with_fallback(
+    data: bytes,
+    encodings: tuple[str, ...] = _ENCODING_FALLBACK_CHAIN,
+) -> str:
+    """Decode bytes using a chain of encodings, returning the first successful result.
+
+    This provides a unified encoding strategy across all file processors,
+    replacing the ad-hoc encoding fallback chains that previously existed
+    in individual processors.
+
+    Args:
+        data: Raw bytes to decode.
+        encodings: Tuple of encoding names to try in order.
+
+    Returns:
+        Decoded string.
+
+    Raises:
+        UnicodeDecodeError: If none of the encodings succeed.
+    """
+    last_error: UnicodeDecodeError | None = None
+    for enc in encodings:
+        try:
+            return data.decode(enc)
+        except UnicodeDecodeError as exc:
+            last_error = exc
+            continue
+
+    # All encodings failed — raise the last error
+    if last_error is not None:
+        raise last_error
+    raise UnicodeDecodeError("utf-8", data, 0, len(data), "no encodings provided")
+
+
+def read_text_with_fallback(
+    file_path: str,
+    encodings: tuple[str, ...] = _ENCODING_FALLBACK_CHAIN,
+) -> str:
+    """Read a text file trying multiple encodings.
+
+    Args:
+        file_path: Path to the text file.
+        encodings: Tuple of encoding names to try in order.
+
+    Returns:
+        File content as string.
+
+    Raises:
+        UnicodeDecodeError: If none of the encodings succeed.
+        FileNotFoundError: If the file does not exist.
+        PermissionError: If the file cannot be accessed.
+    """
+    last_error: UnicodeDecodeError | None = None
+    for enc in encodings:
+        try:
+            with open(file_path, encoding=enc) as fh:
+                return fh.read()
+        except UnicodeDecodeError as exc:
+            last_error = exc
+            continue
+
+    if last_error is not None:
+        raise UnicodeDecodeError(
+            last_error.encoding,
+            last_error.object,
+            last_error.start,
+            last_error.end,
+            f"Could not decode file with any of: {', '.join(encodings)}",
+        ) from last_error
+    raise UnicodeDecodeError("utf-8", b"", 0, 0, "no encodings provided")

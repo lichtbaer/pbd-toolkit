@@ -1,8 +1,9 @@
 """CSV file processor using Python's built-in csv module."""
 
 import csv
+import io
 
-from file_processors.base_processor import BaseFileProcessor
+from file_processors.base_processor import BaseFileProcessor, read_text_with_fallback
 
 
 class CsvProcessor(BaseFileProcessor):
@@ -32,60 +33,22 @@ class CsvProcessor(BaseFileProcessor):
             Exception: For other CSV processing errors
         """
         text_parts: list[str] = []
-        last_error: UnicodeDecodeError | None = None
 
-        # Try different encodings
-        encodings = ["utf-8", "utf-8-sig", "latin-1", "cp1252", "iso-8859-1"]
+        content = read_text_with_fallback(file_path)
 
-        for encoding in encodings:
-            try:
-                with open(file_path, encoding=encoding, newline="") as csvfile:
-                    # Try to detect delimiter by reading first line
-                    sample = csvfile.read(1024)
-                    csvfile.seek(0)
+        # Detect delimiter from first 1024 chars
+        sample = content[:1024]
+        delimiters = [",", ";", "\t", "|"]
+        delimiter_counts = {d: sample.count(d) for d in delimiters}
+        detected_delimiter = ","
+        if max(delimiter_counts.values()) > 0:
+            detected_delimiter = max(delimiter_counts, key=delimiter_counts.get)
 
-                    # Try common delimiters
-                    delimiters = [",", ";", "\t", "|"]
-                    detected_delimiter = ","
-
-                    # Simple heuristic: use delimiter that appears most in first line
-                    delimiter_counts = {
-                        delim: sample.count(delim) for delim in delimiters
-                    }
-                    if max(delimiter_counts.values()) > 0:
-                        detected_delimiter = max(
-                            delimiter_counts, key=delimiter_counts.get
-                        )
-
-                    # Read CSV with detected delimiter
-                    reader = csv.reader(csvfile, delimiter=detected_delimiter)
-
-                    for row in reader:
-                        # Extract all cell values
-                        for cell in row:
-                            if cell and cell.strip():  # Only add non-empty cells
-                                text_parts.append(cell.strip())
-
-                    # Successfully read with this encoding
-                    return " ".join(text_parts)
-
-            except UnicodeDecodeError as e:
-                # Try next encoding
-                last_error = e
-                continue
-            except Exception:
-                # Re-raise other exceptions immediately
-                raise
-
-        # If we get here, all encodings failed
-        if last_error:
-            raise UnicodeDecodeError(
-                last_error.encoding,
-                last_error.object,
-                last_error.start,
-                last_error.end,
-                f"Could not decode CSV file with any of the attempted encodings: {', '.join(encodings)}",
-            ) from last_error
+        reader = csv.reader(io.StringIO(content), delimiter=detected_delimiter)
+        for row in reader:
+            for cell in row:
+                if cell and cell.strip():
+                    text_parts.append(cell.strip())
 
         return " ".join(text_parts)
 

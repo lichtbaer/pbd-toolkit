@@ -11,7 +11,9 @@ from pydantic import BaseModel, Field
 # ------------------------------------------------------------------
 
 
-_VALID_ENGINES = frozenset({"regex", "gliner", "spacy", "pydantic-ai", "vector", "ollama", "openai"})
+_VALID_ENGINES = frozenset(
+    {"regex", "gliner", "spacy", "pydantic-ai", "vector", "ollama", "openai"}
+)
 _VALID_PROFILES = frozenset({"quick", "standard", "deep", "gdpr-audit", "ci"})
 
 
@@ -41,7 +43,9 @@ class ScanRequest(BaseModel):
         """Return engines after validating against known engine names."""
         unknown = [e for e in self.engines if e not in _VALID_ENGINES]
         if unknown:
-            raise ValueError(f"Unknown engine(s): {unknown}. Valid: {sorted(_VALID_ENGINES)}")
+            raise ValueError(
+                f"Unknown engine(s): {unknown}. Valid: {sorted(_VALID_ENGINES)}"
+            )
         return self.engines
 
 

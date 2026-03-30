@@ -6,6 +6,8 @@ from file_processors.base_processor import (
     FileProcessingError,
     PasswordProtectedError,
     UnsupportedFormatError,
+    decode_with_fallback,
+    read_text_with_fallback,
 )
 from file_processors.csv_processor import CsvProcessor
 from file_processors.docx_processor import DocxProcessor
@@ -38,6 +40,8 @@ __all__ = [
     "CorruptedFileError",
     "PasswordProtectedError",
     "UnsupportedFormatError",
+    "decode_with_fallback",
+    "read_text_with_fallback",
     "FileProcessorRegistry",
     "PdfProcessor",
     "DocxProcessor",

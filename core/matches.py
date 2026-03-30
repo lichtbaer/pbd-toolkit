@@ -230,6 +230,25 @@ class PiiMatchContainer:
                 if valid:
                     self._whitelist_pattern = re.compile("|".join(valid))
 
+    def _is_whitelisted(self, text: str) -> bool:
+        """Check if text matches whitelist pattern with timeout protection."""
+        import concurrent.futures
+
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(self._whitelist_pattern.search, text)
+                result = future.result(timeout=2)
+                return result is not None
+        except concurrent.futures.TimeoutError:
+            _logger.warning(
+                "Whitelist regex timed out on text of %d chars",
+                len(text),
+            )
+            return False
+        except re.error as exc:
+            _logger.warning("Whitelist regex error: %s", exc)
+            return False
+
     """ Helper function for adding matches to the matches container. This generic, internal method is
         called by the other methods intended for public use, its aim is to reduce redundancy. """
 
@@ -260,7 +279,7 @@ class PiiMatchContainer:
                     patterns = [self._entry_to_regex(w) for w in self.whitelist if w]
                     if patterns:
                         self._whitelist_pattern = re.compile("|".join(patterns))
-                if self._whitelist_pattern and self._whitelist_pattern.search(text):
+                if self._whitelist_pattern and self._is_whitelisted(text):
                     whitelisted = True
 
             if whitelisted:
