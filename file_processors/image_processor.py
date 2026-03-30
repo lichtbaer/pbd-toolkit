@@ -1,9 +1,12 @@
 """Image file processor for extracting text and metadata from images."""
 
 import base64
+import logging
 import os
 
 from file_processors.base_processor import BaseFileProcessor
+
+_logger = logging.getLogger(__name__)
 
 
 class ImageProcessor(BaseFileProcessor):
@@ -45,7 +48,8 @@ class ImageProcessor(BaseFileProcessor):
             with open(file_path, "rb") as img_file:
                 img_data = img_file.read()
                 return base64.b64encode(img_data).decode("utf-8")
-        except Exception:
+        except (OSError, ValueError) as e:
+            _logger.warning("Failed to read image file %s: %s", file_path, e)
             return None
 
     def get_image_mime_type(self, file_path: str) -> str | None:

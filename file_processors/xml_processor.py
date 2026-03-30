@@ -67,22 +67,17 @@ class XmlProcessor(BaseFileProcessor):
             # Extract text from root and all descendants
             self._extract_text_from_element(root, text_parts)
 
-        except SafeParseError as e:
-            # If XML is invalid, try to extract text using simple regex
-            # This handles malformed XML files that might still contain PII
-            try:
-                with open(file_path, encoding="utf-8", errors="replace") as xmlfile:
-                    content = xmlfile.read()
-                    # Extract text between tags using simple pattern
-                    import re
+        except SafeParseError:
+            # Do NOT fall back to regex-based extraction — that would bypass
+            # the security guarantees of defusedxml (XXE, billion-laughs, etc.).
+            # Let the caller handle the parse error via its standard error path.
+            import logging
 
-                    # Match text between > and < (content of tags)
-                    text_pattern = r">([^<]+)<"
-                    matches = re.findall(text_pattern, content)
-                    text_parts.extend([m.strip() for m in matches if m.strip()])
-            except Exception:
-                # Re-raise original parse error if fallback also fails
-                raise SafeParseError(f"Invalid XML file: {str(e)}") from e
+            logging.getLogger(__name__).warning(
+                "Skipping malformed XML file (defusedxml rejected it): %s",
+                file_path,
+            )
+            raise
 
         return " ".join(text_parts)
 

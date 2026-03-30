@@ -28,6 +28,20 @@ class ScanResult:
     # Errors encountered: {"error_type": ["file1", "file2", ...]}
     errors: dict[str, list[str]] = field(default_factory=dict)
 
+    # Skipped files grouped by reason (e.g., "password_protected", "too_large", "corrupt")
+    skipped_files: dict[str, list[str]] = field(default_factory=dict)
+
+    def record_skipped(self, reason: str, file_path: str) -> None:
+        """Record a skipped file with the reason it was skipped.
+
+        Args:
+            reason: Category of skip (e.g., "password_protected", "too_large", "corrupt")
+            file_path: Path of the skipped file
+        """
+        if reason not in self.skipped_files:
+            self.skipped_files[reason] = []
+        self.skipped_files[reason].append(file_path)
+
 
 @dataclass
 class FileInfo:
@@ -157,7 +171,9 @@ class FileScanner:
                     try:
                         file_size_mb = os.path.getsize(full_path) / (1024 * 1024)
                     except OSError as e:
-                        self.config.logger.debug("Could not determine file size for %s: %s", full_path, e)
+                        self.config.logger.debug(
+                            "Could not determine file size for %s: %s", full_path, e
+                        )
 
                     # Detect MIME type using magic numbers if enabled
                     mime_type = None

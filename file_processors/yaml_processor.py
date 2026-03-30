@@ -1,8 +1,11 @@
 """YAML file processor using PyYAML library."""
 
+import logging
 from typing import Any
 
 from file_processors.base_processor import BaseFileProcessor
+
+_logger = logging.getLogger(__name__)
 
 try:
     import yaml
@@ -61,8 +64,11 @@ class YamlProcessor(BaseFileProcessor):
                     data: Any = yaml.safe_load(yamlfile)  # type: ignore[union-attr]
                     if data is not None:
                         self._extract_strings(data, text_parts)
-                except Exception:
+                except yaml.YAMLError as e:  # type: ignore[union-attr]
                     # If YAML is invalid, try to extract strings using simple regex
+                    _logger.debug(
+                        "YAML parse failed, falling back to regex extraction: %s", e
+                    )
                     # This handles malformed YAML files that might still contain PII
                     yamlfile.seek(0)
                     content = yamlfile.read()

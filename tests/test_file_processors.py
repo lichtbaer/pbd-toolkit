@@ -305,6 +305,7 @@ class TestOdtProcessor:
 
     def test_file_not_found(self, temp_dir):
         """Test that FileNotFoundError is raised for non-existent file."""
+        pytest.importorskip("odf.opendocument")
         processor = OdtProcessor()
         non_existent = os.path.join(temp_dir, "nonexistent.odt")
         with pytest.raises(FileNotFoundError):
@@ -461,6 +462,7 @@ class TestOdsProcessor:
 
     def test_file_not_found(self, temp_dir):
         """Test that FileNotFoundError is raised for non-existent file."""
+        pytest.importorskip("odf.opendocument")
         processor = OdsProcessor()
         non_existent = os.path.join(temp_dir, "nonexistent.ods")
         with pytest.raises(FileNotFoundError):
@@ -851,16 +853,18 @@ class TestXmlProcessor:
         assert "John Doe" in text
         assert "john@example.com" in text
 
-    def test_extract_text_from_malformed_xml_fallback(self, temp_dir):
-        """Test that malformed XML uses regex fallback to extract text."""
+    def test_extract_text_from_malformed_xml_raises(self, temp_dir):
+        """Test that malformed XML raises ParseError (no unsafe regex fallback)."""
         file_path = os.path.join(temp_dir, "malformed.xml")
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(
                 "<root><name>John Doe</name><email>john@example.com</email></root"
             )  # missing >
         processor = XmlProcessor()
-        text = processor.extract_text(file_path)
-        assert "John Doe" in text or "john@example.com" in text
+        # Malformed XML must NOT be silently processed via regex fallback,
+        # as that would bypass defusedxml security guarantees.
+        with pytest.raises(Exception):
+            processor.extract_text(file_path)
 
 
 class TestVcfProcessor:

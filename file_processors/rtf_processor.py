@@ -1,8 +1,12 @@
 """RTF file processor using striprtf library."""
 
+import logging
+
 from striprtf.striprtf import rtf_to_text
 
 from file_processors.base_processor import BaseFileProcessor
+
+_logger = logging.getLogger(__name__)
 
 
 class RtfProcessor(BaseFileProcessor):
@@ -42,8 +46,11 @@ class RtfProcessor(BaseFileProcessor):
             except UnicodeDecodeError as e:
                 last_error = e
                 continue
-            except Exception:
+            except (ValueError, OSError) as e:
                 # Re-raise other exceptions immediately
+                _logger.warning(
+                    "RTF processing error with encoding %s: %s", encoding, e
+                )
                 raise
 
         # If all encodings failed, raise the last error

@@ -1,9 +1,19 @@
 """ODS file processor using odfpy library."""
 
-from odf.opendocument import load
-from odf.table import Table, TableCell, TableRow
+import logging
 
 from file_processors.base_processor import BaseFileProcessor
+
+_logger = logging.getLogger(__name__)
+
+try:
+    from odf.opendocument import load
+    from odf.table import Table, TableCell, TableRow
+except Exception:  # pragma: no cover - optional dependency
+    load = None  # type: ignore[assignment]
+    Table = None  # type: ignore[assignment]
+    TableCell = None  # type: ignore[assignment]
+    TableRow = None  # type: ignore[assignment]
 
 
 class OdsProcessor(BaseFileProcessor):
@@ -30,6 +40,12 @@ class OdsProcessor(BaseFileProcessor):
             FileNotFoundError: If file does not exist
             Exception: For other ODS processing errors
         """
+        if load is None:
+            raise ImportError(
+                "odfpy is required for ODS processing. "
+                "Install it with: pip install odfpy"
+            )
+
         text_parts: list[str] = []
 
         try:

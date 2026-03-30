@@ -116,6 +116,25 @@ class OutputConfig:
     analytics_db_path: str = ".pbd_analytics.db"
 
 
+def _build_sub_config_fields() -> dict[str, tuple[str, ...]]:
+    """Derive sub-config field mappings from dataclass introspection.
+
+    Adding a new field to a sub-config only requires adding it to the
+    sub-config dataclass and the top-level Config —
+    ``_sync_sub_configs()`` needs no manual update.
+    """
+    import dataclasses as _dc
+
+    return {
+        "scan": tuple(f.name for f in _dc.fields(ScanConfig)),
+        "engine": tuple(f.name for f in _dc.fields(EngineConfig)),
+        "output": tuple(f.name for f in _dc.fields(OutputConfig)),
+    }
+
+
+_SUB_CONFIG_FIELDS = _build_sub_config_fields()
+
+
 @dataclass
 class Config:
     """Configuration object for PII Toolkit.
@@ -256,66 +275,20 @@ class Config:
     def _sync_sub_configs(self) -> None:
         """Sync top-level fields into grouped sub-config objects.
 
-        This keeps backward compatibility: all fields remain accessible at the
-        top level, but are also available via ``config.scan.*``,
+        This keeps backward compatibility: all fields remain accessible at
+        the top level, but are also available via ``config.scan.*``,
         ``config.engine.*``, and ``config.output.*``.
+
+        The mapping is derived automatically from each sub-config's
+        dataclass fields, so new fields only need to be added to the
+        sub-config dataclass and the top-level ``Config`` — this method
+        requires no manual update.
         """
-        # ScanConfig
-        self.scan.path = self.path
-        self.scan.whitelist_path = self.whitelist_path
-        self.scan.stop_count = self.stop_count
-        self.scan.use_magic_detection = self.use_magic_detection
-        self.scan.magic_detection_fallback = self.magic_detection_fallback
-        self.scan.use_incremental = self.use_incremental
-        self.scan.cache_path = self.cache_path
-        self.scan.max_file_size_mb = self.max_file_size_mb
-        self.scan.max_processing_time_seconds = self.max_processing_time_seconds
-        self.scan.max_pending_futures = self.max_pending_futures
-
-        # EngineConfig
-        self.engine.use_regex = self.use_regex
-        self.engine.use_ner = self.use_ner
-        self.engine.use_spacy_ner = self.use_spacy_ner
-        self.engine.use_ollama = self.use_ollama
-        self.engine.use_openai_compatible = self.use_openai_compatible
-        self.engine.use_multimodal = self.use_multimodal
-        self.engine.use_pydantic_ai = self.use_pydantic_ai
-        self.engine.spacy_model_name = self.spacy_model_name
-        self.engine.ollama_base_url = self.ollama_base_url
-        self.engine.ollama_model = self.ollama_model
-        self.engine.ollama_timeout = self.ollama_timeout
-        self.engine.openai_api_base = self.openai_api_base
-        self.engine.openai_api_key = self.openai_api_key
-        self.engine.openai_model = self.openai_model
-        self.engine.openai_timeout = self.openai_timeout
-        self.engine.multimodal_api_base = self.multimodal_api_base
-        self.engine.multimodal_api_key = self.multimodal_api_key
-        self.engine.multimodal_model = self.multimodal_model
-        self.engine.multimodal_timeout = self.multimodal_timeout
-        self.engine.pydantic_ai_provider = self.pydantic_ai_provider
-        self.engine.pydantic_ai_model = self.pydantic_ai_model
-        self.engine.pydantic_ai_api_key = self.pydantic_ai_api_key
-        self.engine.pydantic_ai_base_url = self.pydantic_ai_base_url
-        self.engine.llm_max_retries = self.llm_max_retries
-        self.engine.llm_retry_base_delay = self.llm_retry_base_delay
-        self.engine.use_vector_search = self.use_vector_search
-        self.engine.use_vector_triage = self.use_vector_triage
-        self.engine.vector_model = self.vector_model
-        self.engine.vector_threshold = self.vector_threshold
-        self.engine.vector_save_index = self.vector_save_index
-        self.engine.vector_load_index = self.vector_load_index
-        self.engine.vector_custom_exemplars = self.vector_custom_exemplars
-        self.engine.engine_concurrency_limits = self.engine_concurrency_limits
-
-        # OutputConfig
-        self.output.outname = self.outname
-        self.output.enable_deduplication = self.enable_deduplication
-        self.output.min_confidence = self.min_confidence
-        self.output.text_chunk_size = self.text_chunk_size
-        self.output.text_chunk_overlap = self.text_chunk_overlap
-        self.output.context_chars = self.context_chars
-        self.output.analytics_enabled = self.analytics_enabled
-        self.output.analytics_db_path = self.analytics_db_path
+        for attr, field_names in _SUB_CONFIG_FIELDS.items():
+            sub = getattr(self, attr)
+            for name in field_names:
+                if hasattr(self, name):
+                    setattr(sub, name, getattr(self, name))
 
     def validate_path(self) -> tuple[bool, str | None]:
         """Validate the search path.

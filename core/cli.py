@@ -949,7 +949,7 @@ def scan(
     context.statistics.total_errors = total_errors
 
     # Log results
-    scan_reporting.log_scan_results(context, errors)
+    scan_reporting.log_scan_results(context, errors, scan_result=scan_result)
 
     # Build metadata and write output
     output_metadata = scan_reporting.build_output_metadata(

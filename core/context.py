@@ -64,6 +64,7 @@ class ApplicationContext:
             except Exception as exc:
                 # Don't fail context creation if optional CSV back-compat wiring fails
                 import logging
+
                 logging.getLogger(__name__).debug(
                     "Optional CSV back-compat wiring failed (non-critical): %s", exc
                 )

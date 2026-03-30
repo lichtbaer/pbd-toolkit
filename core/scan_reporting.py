@@ -127,6 +127,7 @@ def write_output(
 def log_scan_results(
     context: ApplicationContext,
     errors: dict[str, list[str]],
+    scan_result: Any = None,
 ) -> None:
     """Write scan results to the logger."""
     context.logger.info(context._("Statistics"))
@@ -149,6 +150,16 @@ def log_scan_results(
     context.logger.info(context._("Findings"))
     context.logger.info("--------\n")
     context.logger.info(context._("--> see *_findings.csv\n\n"))
+
+    # Skipped files summary
+    if scan_result and scan_result.skipped_files:
+        context.logger.info(context._("Skipped Files"))
+        context.logger.info("-------------\n")
+        for reason, file_list in context.scan_result.skipped_files.items():
+            context.logger.info(f"\t{reason}: {len(file_list)} file(s)")
+            for f in file_list:
+                context.logger.info(f"\t\t{f}")
+        context.logger.info("")
 
     context.logger.info(context._("Errors"))
     context.logger.info("------\n")

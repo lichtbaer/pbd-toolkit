@@ -1,9 +1,15 @@
 """JSON file processor using Python's built-in json module."""
 
 import json
+import logging
+import os
 from typing import Any
 
 from file_processors.base_processor import BaseFileProcessor
+
+_logger = logging.getLogger(__name__)
+
+_JSON_MEMORY_WARNING_MB = 50
 
 
 class JsonProcessor(BaseFileProcessor):
@@ -33,6 +39,14 @@ class JsonProcessor(BaseFileProcessor):
             FileNotFoundError: If file does not exist
             Exception: For other JSON processing errors
         """
+        file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+        if file_size_mb > _JSON_MEMORY_WARNING_MB:
+            _logger.warning(
+                "Large JSON file (%.1f MB) will be loaded entirely into memory: %s",
+                file_size_mb,
+                file_path,
+            )
+
         text_parts: list[str] = []
 
         with open(file_path, encoding="utf-8", errors="replace") as jsonfile:

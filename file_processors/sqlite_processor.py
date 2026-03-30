@@ -1,9 +1,12 @@
 """SQLite database processor for extracting text from database files."""
 
+import logging
 import sqlite3
 from collections.abc import Iterator
 
 from file_processors.base_processor import BaseFileProcessor
+
+_logger = logging.getLogger(__name__)
 
 
 class SqliteProcessor(BaseFileProcessor):
@@ -110,17 +113,21 @@ class SqliteProcessor(BaseFileProcessor):
                                     + " | ".join(row_text_parts)
                                     + "\n"
                                 )
-                    except sqlite3.Error:
+                    except sqlite3.Error as e:
                         # Skip tables that can't be read
+                        _logger.debug(
+                            "SQLite error reading table %s: %s", table_name, e
+                        )
                         continue
-                    except Exception:
-                        # Skip tables with errors
+                    except (UnicodeDecodeError, ValueError) as e:
+                        # Skip tables with encoding or value errors
+                        _logger.debug("Error processing table %s: %s", table_name, e)
                         continue
             finally:
                 conn.close()
         except sqlite3.Error:
             raise
-        except Exception:
+        except (PermissionError, FileNotFoundError):
             raise
 
     @staticmethod
@@ -153,7 +160,8 @@ class SqliteProcessor(BaseFileProcessor):
                     # SQLite files start with "SQLite format 3"
                     if header.startswith(b"SQLite format 3"):
                         return True
-            except Exception:
+            except (OSError, ValueError) as e:
+                _logger.debug("Could not read file header for %s: %s", file_path, e)
                 pass
 
         return False

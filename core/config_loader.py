@@ -78,7 +78,13 @@ class ConfigLoader:
             overrides["config"] = config_env
 
         log_level = os.environ.get("PBD_LOG_LEVEL")
-        if log_level and log_level.upper() in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+        if log_level and log_level.upper() in {
+            "DEBUG",
+            "INFO",
+            "WARNING",
+            "ERROR",
+            "CRITICAL",
+        }:
             overrides["log_level"] = log_level.upper()
 
         output_dir = os.environ.get("PBD_OUTPUT_DIR")

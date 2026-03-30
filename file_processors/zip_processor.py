@@ -1,10 +1,13 @@
 """ZIP archive processor for extracting and scanning contents."""
 
+import logging
 import os
 import zipfile
 from collections.abc import Iterator
 
-from file_processors.base_processor import BaseFileProcessor
+from file_processors.base_processor import BaseFileProcessor, decode_with_fallback
+
+_logger = logging.getLogger(__name__)
 
 # Maximum total uncompressed bytes to read from a single ZIP archive.
 # This guards against ZIP bomb attacks (e.g. 42.zip) where a tiny
@@ -64,6 +67,13 @@ class ZipProcessor(BaseFileProcessor):
                         continue
 
                     if info.file_size > _MAX_SINGLE_FILE_BYTES:
+                        _logger.warning(
+                            "Skipping oversized file in ZIP (%d MB > %d MB limit): %s/%s",
+                            info.file_size // (1024 * 1024),
+                            _MAX_SINGLE_FILE_BYTES // (1024 * 1024),
+                            file_path,
+                            filename,
+                        )
                         continue
 
                     # Detect ZIP bombs via suspicious compression ratio.
@@ -71,10 +81,21 @@ class ZipProcessor(BaseFileProcessor):
                         info.compress_size > 0
                         and info.file_size / info.compress_size > _MAX_COMPRESSION_RATIO
                     ):
+                        _logger.warning(
+                            "Skipping suspicious compression ratio in ZIP (%.0f:1): %s/%s",
+                            info.file_size / info.compress_size,
+                            file_path,
+                            filename,
+                        )
                         continue
 
                     total_uncompressed += info.file_size
                     if total_uncompressed > _MAX_UNCOMPRESSED_BYTES:
+                        _logger.warning(
+                            "ZIP archive total uncompressed size exceeds %d MB limit, stopping: %s",
+                            _MAX_UNCOMPRESSED_BYTES // (1024 * 1024),
+                            file_path,
+                        )
                         break
 
                     try:
@@ -83,30 +104,46 @@ class ZipProcessor(BaseFileProcessor):
                             # Try to read as text
                             try:
                                 content = file_in_zip.read()
-                                # Try UTF-8 first
                                 try:
-                                    text = content.decode("utf-8")
+                                    text = decode_with_fallback(content)
                                 except UnicodeDecodeError:
-                                    # Fallback to latin-1
-                                    try:
-                                        text = content.decode("latin-1")
-                                    except UnicodeDecodeError:
-                                        # Skip binary files
-                                        continue
+                                    _logger.debug(
+                                        "Skipping binary/undecodable file in ZIP: %s/%s",
+                                        file_path,
+                                        filename,
+                                    )
+                                    continue
 
                                 # Yield text with filename context
                                 yield f"[File in ZIP: {filename}]\n{text}\n"
-                            except Exception:
+                            except Exception as exc:
                                 # Skip files that can't be read
+                                _logger.debug(
+                                    "Skipping file in ZIP due to error: %s/%s: %s",
+                                    file_path,
+                                    filename,
+                                    exc,
+                                )
                                 continue
                     except zipfile.BadZipFile:
                         # Skip corrupted files in archive
                         continue
                     except RuntimeError:
                         # Password-protected file
+                        _logger.warning(
+                            "Skipping password-protected file in ZIP: %s/%s",
+                            file_path,
+                            filename,
+                        )
                         continue
-                    except Exception:
+                    except Exception as exc:
                         # Other errors, skip this file
+                        _logger.debug(
+                            "Skipping file in ZIP due to error: %s/%s: %s",
+                            file_path,
+                            filename,
+                            exc,
+                        )
                         continue
         except zipfile.BadZipFile:
             raise

@@ -5,7 +5,9 @@ patterns can be loaded at runtime from an external YAML or JSON file via
 ``RegexEngine.load_custom_patterns(path)``.
 """
 
+import concurrent.futures
 import logging
+import re
 
 from core.config import Config
 from core.engines.base import DetectionResult
@@ -14,6 +16,10 @@ from core.engines.base import DetectionResult
 from core.matches import config_regex_sorted
 
 _logger = logging.getLogger(__name__)
+
+# ReDoS protection constants
+_REGEX_CHUNK_SIZE = 1_048_576  # 1 MB per chunk
+_REGEX_TIMEOUT_SECONDS = 10  # seconds per chunk
 
 try:
     from validators.credit_card_validator import CreditCardValidator
@@ -85,6 +91,48 @@ class RegexEngine:
             return []
 
         results = []
+        # Process in chunks to limit regex execution time
+        chunks = (
+            self._split_text(text) if len(text) > _REGEX_CHUNK_SIZE else [(text, 0)]
+        )
+
+        for chunk, base_offset in chunks:
+            chunk_results = self._detect_chunk(chunk, base_offset)
+            results.extend(chunk_results)
+
+        return results
+
+    def _split_text(self, text: str) -> list[tuple[str, int]]:
+        """Split text into overlapping chunks for safe regex processing."""
+        overlap = 200  # overlap to avoid missing matches at boundaries
+        chunks: list[tuple[str, int]] = []
+        start = 0
+        while start < len(text):
+            end = min(start + _REGEX_CHUNK_SIZE, len(text))
+            chunks.append((text[start:end], start))
+            start = end - overlap if end < len(text) else end
+        return chunks
+
+    def _detect_chunk(self, text: str, base_offset: int) -> list[DetectionResult]:
+        """Detect PII in a single chunk with timeout protection."""
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(self._run_finditer, text, base_offset)
+                return future.result(timeout=_REGEX_TIMEOUT_SECONDS)
+        except concurrent.futures.TimeoutError:
+            _logger.warning(
+                "Regex detection timed out after %ds on chunk of %d chars",
+                _REGEX_TIMEOUT_SECONDS,
+                len(text),
+            )
+            return []
+        except re.error as exc:
+            _logger.warning("Regex error during detection: %s", exc)
+            return []
+
+    def _run_finditer(self, text: str, base_offset: int) -> list[DetectionResult]:
+        """Run finditer and collect results (executed in worker thread)."""
+        results = []
         for match in self.pattern.finditer(text):
             entity_type, config_entry = self._get_entity_type(match)
             # If this isn't the "combined" pattern with groups, fall back to a generic label
@@ -105,10 +153,9 @@ class RegexEngine:
                     entity_type=entity_type,
                     confidence=_confidence,
                     engine_name="regex",
-                    offset=match.start(),
+                    offset=match.start() + base_offset,
                 )
             )
-
         return results
 
     def _get_entity_type(self, match) -> tuple[str | None, dict | None]:
