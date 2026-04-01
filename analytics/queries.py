@@ -378,6 +378,65 @@ class AnalyticsQueries:
             cur = conn.execute(sql, params + [limit])
             return [dict(r) for r in cur.fetchall()]
 
+    def get_pii_density(
+        self,
+        session_id: str | None = None,
+        top_n: int = 20,
+    ) -> list[dict[str, Any]]:
+        """Return PII density scores per directory.
+
+        Density is defined as ``findings_count / files_scanned`` for each
+        directory prefix.  Higher scores indicate folders that contain
+        proportionally more PII and should be prioritised for remediation.
+
+        Args:
+            session_id: Scope to a single scan session (optional).
+            top_n: Number of top directories to return.
+
+        Returns:
+            List of dicts with keys ``directory``, ``findings_count``,
+            ``distinct_types``, ``distinct_files``, ``density_score``.
+        """
+        conn = self._db.connection
+        if conn is None:
+            return []
+
+        where = ""
+        params: list[Any] = []
+        if session_id:
+            where = "WHERE session_id = ?"
+            params.append(session_id)
+
+        # Extract parent directory from file_path using SQLite string functions.
+        # rtrim(..., replace(file_path, '/', '')) removes everything after the
+        # last slash – portable across Linux/Windows paths stored as strings.
+        sql = f"""
+            SELECT
+                CASE
+                    WHEN instr(file_path, '/') > 0
+                        THEN substr(file_path, 1, length(file_path) - length(replace(file_path, '/', '')) - instr(rtrim(file_path, replace(file_path, '/', '')), '/') + length(file_path) - length(rtrim(file_path, replace(file_path, '/', ''))))
+                    ELSE '.'
+                END AS directory,
+                COUNT(*) AS findings_count,
+                COUNT(DISTINCT pii_type) AS distinct_types,
+                COUNT(DISTINCT file_path) AS distinct_files
+            FROM findings {where}
+            GROUP BY directory
+            ORDER BY findings_count DESC
+            LIMIT ?
+        """  # nosec B608
+
+        with self._db.lock:
+            cur = conn.execute(sql, params + [top_n])
+            rows = [dict(r) for r in cur.fetchall()]
+
+        # Compute density score = findings / distinct_files (avoid div-by-zero)
+        for row in rows:
+            files = row.get("distinct_files") or 1
+            row["density_score"] = round(row["findings_count"] / files, 3)
+
+        return rows
+
     def get_dashboard_summary(self) -> dict[str, Any]:
         """Get an aggregated dashboard summary across all sessions."""
         conn = self._db.connection

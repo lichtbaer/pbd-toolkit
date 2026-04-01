@@ -81,6 +81,10 @@ class PiiMatchContainer:
     # When True, suppress duplicate (text, file, type) matches across engines.
     # The first match (highest confidence if available) wins.
     enable_deduplication: bool = False
+    # When True, fuse confidence scores from multiple engines for the same
+    # (text, file, type) triple. The fused score is max(scores) + bonus based
+    # on the number of confirming engines, capped at 1.0.
+    enable_confidence_fusion: bool = False
     # Minimum confidence threshold (0.0 = accept all)
     min_confidence: float = 0.0
     # Configurable limits (defaults match previous hardcoded values)
@@ -91,6 +95,8 @@ class PiiMatchContainer:
     # Ordered dict of (text_lower, file, type) keys for O(1) deduplication lookup
     # with bounded capacity (FIFO eviction when exceeding dedup_max_entries)
     _seen_keys: OrderedDict = field(default_factory=OrderedDict, init=False, repr=False)
+    # Maps dedup_key → (list_index, set_of_engines) for confidence fusion
+    _fusion_index: dict = field(default_factory=dict, init=False, repr=False)
     # CSV writer for output (injected dependency, only used for CSV format)
     _csv_writer: csv.writer | None = field(default=None, init=False, repr=False)
     # Output format (csv, json, xlsx)
@@ -290,6 +296,28 @@ class PiiMatchContainer:
                 if ner_score < self.min_confidence:
                     return
 
+            # Confidence fusion: when the same (text, file, type) is found by
+            # multiple engines, update the stored match's score instead of
+            # creating a new entry.  The fused score is:
+            #   max(all_scores) + 0.05 * (n_engines - 1), capped at 1.0
+            if self.enable_confidence_fusion:
+                fusion_key = (text.lower(), file, type)
+                if fusion_key in self._fusion_index:
+                    idx, engines_seen = self._fusion_index[fusion_key]
+                    if engine not in engines_seen:
+                        engines_seen.add(engine)
+                        existing = self.pii_matches[idx]
+                        scores = [
+                            s
+                            for s in [existing.ner_score, ner_score]
+                            if s is not None
+                        ]
+                        if scores:
+                            bonus = 0.05 * (len(engines_seen) - 1)
+                            existing.ner_score = min(1.0, max(scores) + bonus)
+                        existing.metadata["fused_engines"] = sorted(engines_seen)
+                    return
+
             # Deduplication: skip if an identical (text, file, type) match is already stored
             if self.enable_deduplication:
                 dedup_key = (text.lower(), file, type)
@@ -312,6 +340,11 @@ class PiiMatchContainer:
                 char_offset=char_offset,
             )
             self.pii_matches.append(pm)
+
+            # Register in fusion index for future multi-engine matches
+            if self.enable_confidence_fusion:
+                fusion_key = (text.lower(), file, type)
+                self._fusion_index[fusion_key] = (len(self.pii_matches) - 1, {engine})
 
             # Only write directly for CSV format
             if self._output_format == "csv" and self._csv_writer:
