@@ -105,3 +105,19 @@ def top_affected_files(
     _validate_optional_session_id(session_id)
     queries = request.app.state.analytics_queries
     return queries.get_top_affected_files(session_id=session_id, limit=limit)
+
+
+@router.get("/density")
+def pii_density(
+    request: Request,
+    session_id: str | None = Query(None),
+    top_n: int = Query(20, ge=1, le=100),
+) -> list[dict[str, Any]]:
+    """PII density score per directory (findings / files_scanned).
+
+    Higher scores indicate directories with a higher concentration of PII,
+    useful for prioritising remediation efforts.
+    """
+    _validate_optional_session_id(session_id)
+    queries = request.app.state.analytics_queries
+    return queries.get_pii_density(session_id=session_id, top_n=top_n)

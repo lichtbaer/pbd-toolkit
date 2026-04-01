@@ -296,6 +296,11 @@ def scan(
         "--deduplicate",
         help="Remove duplicate findings with identical text, file, and type across all engines",
     ),
+    confidence_fusion: bool = typer.Option(
+        False,
+        "--confidence-fusion",
+        help="When multiple engines detect the same PII, merge their confidence scores (max + corroboration bonus). Implies deduplication.",
+    ),
     text_chunk_size: int = typer.Option(
         0,
         "--text-chunk-size",
@@ -343,6 +348,23 @@ def scan(
         None,
         "--redact-dir",
         help="Directory for redacted output files (default: output_dir/redacted/)",
+    ),
+    # Pseudo-anonymization
+    pseudonymize: bool = typer.Option(
+        False,
+        "--pseudonymize",
+        help="Create pseudo-anonymized copies with realistic fake values instead of [REDACTED:TYPE]",
+    ),
+    pseudonymize_dir: str | None = typer.Option(
+        None,
+        "--pseudonymize-dir",
+        help="Directory for pseudo-anonymized output files (default: output_dir/pseudonymized/)",
+    ),
+    # Webhook notification
+    webhook_url: str | None = typer.Option(
+        None,
+        "--webhook-url",
+        help="POST scan summary as JSON to this URL when the scan completes",
     ),
     # Incremental scanning
     incremental: bool = typer.Option(
@@ -459,6 +481,7 @@ def scan(
         "jobs": jobs,
         "no_header": no_header,
         "deduplicate": deduplicate,
+        "confidence_fusion": confidence_fusion,
         "text_chunk_size": text_chunk_size,
         "text_chunk_overlap": text_chunk_overlap,
         "statistics_mode": statistics_mode,
@@ -471,6 +494,9 @@ def scan(
         "cache_path": cache_path,
         "redact": redact,
         "redact_dir": redact_dir,
+        "pseudonymize": pseudonymize,
+        "pseudonymize_dir": pseudonymize_dir,
+        "webhook_url": webhook_url,
         "context_chars": context_chars,
         "min_confidence": min_confidence,
         "analytics": analytics,
@@ -617,7 +643,8 @@ def scan(
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
 
     # Apply extra CLI flags to config object
-    config_obj.enable_deduplication = bool(getattr(args, "deduplicate", False))
+    _use_fusion = bool(getattr(args, "confidence_fusion", False))
+    config_obj.enable_deduplication = bool(getattr(args, "deduplicate", False)) or _use_fusion
     _chunk_size = getattr(args, "text_chunk_size", 0)
     if isinstance(_chunk_size, int) and _chunk_size >= 0:
         config_obj.text_chunk_size = _chunk_size
@@ -669,9 +696,11 @@ def scan(
 
     # Initialize components
     _dedup_enabled = bool(getattr(args, "deduplicate", False))
+    _fusion_enabled = bool(getattr(args, "confidence_fusion", False))
     _min_conf_val = config_obj.min_confidence
     pmc: PiiMatchContainer = PiiMatchContainer(
-        enable_deduplication=_dedup_enabled,
+        enable_deduplication=_dedup_enabled or _fusion_enabled,
+        enable_confidence_fusion=_fusion_enabled,
         min_confidence=_min_conf_val,
         dedup_max_entries=config_obj.dedup_max_entries,
         max_whitelist_regex_len=config_obj.max_whitelist_regex_len,
@@ -971,6 +1000,59 @@ def scan(
         )
         if redacted_paths and not (hasattr(args, "quiet") and args.quiet):
             typer.echo(f"\nRedacted {len(redacted_paths)} files to: {_redact_dir}")
+
+    # Pseudo-anonymization: create files with realistic fake replacements
+    if getattr(args, "pseudonymize", False) and matches_by_file:
+        from core.pseudonymizer import pseudonymize_files
+
+        _pseudo_dir = getattr(args, "pseudonymize_dir", None) or os.path.join(
+            output_dir, "pseudonymized"
+        )
+        pseudo_paths = pseudonymize_files(
+            matches_by_file=matches_by_file,
+            output_dir=_pseudo_dir,
+            logger=context.logger,
+        )
+        if pseudo_paths and not (hasattr(args, "quiet") and args.quiet):
+            typer.echo(
+                f"\nPseudo-anonymized {len(pseudo_paths)} files to: {_pseudo_dir}"
+            )
+
+    # Webhook: POST scan summary to configured URL
+    _webhook_url = getattr(args, "webhook_url", None)
+    if _webhook_url:
+        import json as _json
+
+        try:
+            import urllib.request as _urllib_req
+
+            _summary_payload = {
+                "scan_path": str(config_obj.path),
+                "total_findings": len(context.match_container.pii_matches),
+                "files_scanned": context.statistics.files_processed,
+                "duration_sec": context.statistics.elapsed_time,
+                "severity_counts": {
+                    sev: sum(
+                        1
+                        for m in context.match_container.pii_matches
+                        if m.severity == sev
+                    )
+                    for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW")
+                },
+                "output_file": output_file_path,
+            }
+            _req = _urllib_req.Request(
+                _webhook_url,
+                data=_json.dumps(_summary_payload).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with _urllib_req.urlopen(_req, timeout=10) as _resp:  # noqa: S310
+                _status = _resp.status
+            if not (hasattr(args, "quiet") and args.quiet):
+                typer.echo(f"\nWebhook delivered (HTTP {_status}): {_webhook_url}")
+        except Exception as _exc:
+            typer.echo(f"\nWebhook delivery failed: {_exc}", err=True)
 
     # Statistics output
     scan_reporting.write_statistics_output(
@@ -1306,6 +1388,323 @@ def serve(
     if cors_origins:
         argv.extend(["--cors-origins", cors_origins])
     serve_main(argv)
+
+
+@app.command("install-hook")
+def install_hook(
+    hook_type: str = typer.Option(
+        "pre-commit",
+        "--hook-type",
+        help="Git hook type to install (default: pre-commit)",
+    ),
+    engines: str = typer.Option(
+        "--regex",
+        "--engines",
+        help="Engine flags to pass to pbd-toolkit scan (default: --regex)",
+    ),
+    git_dir: str = typer.Option(
+        ".",
+        "--git-dir",
+        help="Root of the git repository (default: current directory)",
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="Overwrite an existing hook without confirmation"
+    ),
+) -> None:
+    """Install a git hook that scans staged files for PII before committing.
+
+    The hook runs ``pbd-toolkit scan`` on all staged files. The commit is
+    blocked if any PII findings exceed severity MEDIUM.
+
+    [bold]Examples:[/bold]
+
+        pbd-toolkit install-hook
+
+        pbd-toolkit install-hook --engines "--regex --ner" --force
+    """
+    import stat
+
+    hooks_dir = os.path.join(git_dir, ".git", "hooks")
+    if not os.path.isdir(hooks_dir):
+        typer.echo(
+            f"Error: .git/hooks directory not found in '{git_dir}'. "
+            "Make sure you are inside a git repository.",
+            err=True,
+        )
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+
+    hook_path = os.path.join(hooks_dir, hook_type)
+
+    if os.path.exists(hook_path) and not force:
+        overwrite = typer.confirm(
+            f"Hook already exists at '{hook_path}'. Overwrite?", default=False
+        )
+        if not overwrite:
+            typer.echo("Aborted.")
+            raise typer.Exit()
+
+    hook_script = f"""#!/bin/sh
+# pbd-toolkit {hook_type} hook – auto-generated
+# Scans staged files for PII. Blocks commit if HIGH/CRITICAL findings exist.
+
+set -e
+
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+if [ -z "$STAGED_FILES" ]; then
+    exit 0
+fi
+
+TMPDIR=$(mktemp -d)
+trap "rm -rf $TMPDIR" EXIT
+
+echo "$STAGED_FILES" | while IFS= read -r f; do
+    [ -f "$f" ] && cp --parents "$f" "$TMPDIR/" 2>/dev/null || true
+done
+
+pbd-toolkit scan "$TMPDIR" {engines} \\
+    --format json --outname pbd_hook_check --output-dir "$TMPDIR/out/" --quiet 2>/dev/null || true
+
+FINDINGS=$(find "$TMPDIR/out/" -name "*.json" | head -1)
+if [ -n "$FINDINGS" ]; then
+    CRITICAL=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(sum(1 for f in d.get('findings',[]) if f.get('severity') in ('CRITICAL','HIGH')))" "$FINDINGS" 2>/dev/null || echo 0)
+    if [ "$CRITICAL" -gt 0 ]; then
+        echo ""
+        echo "pbd-toolkit: $CRITICAL HIGH/CRITICAL PII finding(s) detected in staged files."
+        echo "Run: pbd-toolkit scan . {engines} --format json"
+        echo "to review findings before committing."
+        echo ""
+        exit 1
+    fi
+fi
+
+exit 0
+"""
+
+    with open(hook_path, "w", encoding="utf-8") as f:
+        f.write(hook_script)
+
+    # Make executable
+    current_mode = os.stat(hook_path).st_mode
+    os.chmod(hook_path, current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+    typer.echo(f"Git {hook_type} hook installed at: {hook_path}")
+    typer.echo(
+        "The hook will scan staged files with: "
+        f"pbd-toolkit scan <staged_files> {engines}"
+    )
+
+
+@app.command("test-pattern")
+def test_pattern(
+    text: str | None = typer.Option(
+        None,
+        "--text",
+        "-t",
+        help="Text to scan for PII. If omitted, reads from stdin.",
+    ),
+    regex: bool = typer.Option(True, "--regex/--no-regex", help="Use regex engine (default: on)"),
+    ner: bool = typer.Option(False, "--ner", help="Use GLiNER NER engine"),
+    show_all: bool = typer.Option(
+        False,
+        "--show-all",
+        help="Show all matches including low-confidence ones",
+    ),
+    output_format: str = typer.Option(
+        "human",
+        "--format",
+        help="Output format: 'human' (default) or 'json'",
+        case_sensitive=False,
+    ),
+) -> None:
+    """Test detection engines against a text snippet without scanning files.
+
+    Useful for verifying that your patterns, whitelists, and engine settings
+    produce the expected results before running a full scan.
+
+    [bold]Examples:[/bold]
+
+        pbd-toolkit test-pattern --text "Call me at +49 30 123456"
+
+        echo "IBAN: DE89370400440532013000" | pbd-toolkit test-pattern
+
+        pbd-toolkit test-pattern --text "anna.schmidt@example.com" --format json
+    """
+    import json as _json
+    import sys
+
+    if text is None:
+        if sys.stdin.isatty():
+            typer.echo(
+                "Reading from stdin … (pass --text to provide text directly)",
+                err=True,
+            )
+        text = sys.stdin.read()
+
+    if not text.strip():
+        typer.echo("Error: no input text provided.", err=True)
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+
+    if not regex and not ner:
+        typer.echo(
+            "Error: at least one engine must be enabled (--regex or --ner).",
+            err=True,
+        )
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+
+    from core.matches import PiiMatchContainer
+
+    container = PiiMatchContainer()
+
+    if regex:
+        from core.engines.regex_engine import RegexEngine
+
+        cfg_obj = type("C", (), {"regex_pattern": None, "verbose": False})()
+        engine = RegexEngine(cfg_obj)
+        if engine.is_available():
+            results = engine.detect(text, file_path="<test-input>")
+            container.add_detection_results(results, "<test-input>")
+
+    if ner:
+        try:
+            from core.engines.gliner_engine import GlinerEngine
+
+            cfg_obj = type(
+                "C", (), {"ner_threshold": 0.3, "ner_labels": [], "verbose": False}
+            )()
+            engine_ner = GlinerEngine(cfg_obj)
+            if engine_ner.is_available():
+                results_ner = engine_ner.detect(text, file_path="<test-input>")
+                container.add_detection_results(results_ner, "<test-input>")
+        except ImportError:
+            typer.echo(
+                "Warning: GLiNER not installed (pip install 'pbd-toolkit[gliner]')",
+                err=True,
+            )
+
+    matches = container.pii_matches
+    if not show_all:
+        matches = [m for m in matches if (m.ner_score or 0) >= 0.3 or m.engine == "regex"]
+
+    if output_format.lower() == "json":
+        typer.echo(
+            _json.dumps(
+                [
+                    {
+                        "text": m.text,
+                        "type": m.type,
+                        "engine": m.engine,
+                        "score": m.ner_score,
+                        "severity": m.severity,
+                    }
+                    for m in matches
+                ],
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+    else:
+        if not matches:
+            typer.echo("No PII detected in the provided text.")
+        else:
+            typer.echo(f"\nFound {len(matches)} PII finding(s):\n")
+            sep = "─" * 60
+            typer.echo(sep)
+            for m in matches:
+                score_str = f"  score={m.ner_score:.3f}" if m.ner_score else ""
+                typer.echo(
+                    f"  [{m.severity or '?'}] {m.type}  (engine: {m.engine}{score_str})"
+                )
+                typer.echo(f"  → {m.text!r}")
+                typer.echo(sep)
+
+
+@app.command("export-config")
+def export_config(
+    output_path: str | None = typer.Argument(
+        None,
+        help="Output file path (default: stdout). Use .yaml or .json extension.",
+    ),
+    output_format: str = typer.Option(
+        "yaml",
+        "--format",
+        help="Output format: 'yaml' (default) or 'json'",
+        case_sensitive=False,
+    ),
+    config: Path | None = typer.Option(
+        None,
+        "--config",
+        help="Base config file to export (optional, uses defaults otherwise)",
+    ),
+) -> None:
+    """Export the current (default) configuration to a reusable YAML or JSON file.
+
+    The exported file can be used with ``pbd-toolkit scan --config <file>`` to
+    reproduce identical scan settings across teams and CI pipelines.
+
+    [bold]Examples:[/bold]
+
+        pbd-toolkit export-config                          # print defaults to stdout
+
+        pbd-toolkit export-config my-scan.yaml            # save to file
+
+        pbd-toolkit export-config --format json > cfg.json
+    """
+    import dataclasses
+    import json as _json
+
+    from core.config import Config, EngineConfig, OutputConfig, ScanConfig
+
+    # Build a default Config (optionally merged from file)
+    cfg = Config()
+    if config is not None:
+        try:
+            from core.config_loader import ConfigLoader
+
+            file_data = ConfigLoader.load_from_file(str(config))
+            cfg = ConfigLoader.apply_to_config(file_data, cfg)
+        except Exception as exc:
+            typer.echo(f"Warning: could not load config file: {exc}", err=True)
+
+    # Serialise sub-configs to nested dicts, skipping non-serialisable fields
+    def _to_dict(dc_instance) -> dict:
+        result = {}
+        for f in dataclasses.fields(dc_instance):
+            val = getattr(dc_instance, f.name)
+            if isinstance(val, (str, int, float, bool, list, dict, type(None))):
+                result[f.name] = val
+        return result
+
+    export_data = {
+        "scan": _to_dict(cfg.scan),
+        "engine": _to_dict(cfg.engine),
+        "output": _to_dict(cfg.output),
+    }
+
+    if output_format.lower() == "json":
+        serialized = _json.dumps(export_data, indent=2, ensure_ascii=False)
+    else:
+        try:
+            import yaml as _yaml  # type: ignore[import]
+
+            serialized = _yaml.dump(export_data, allow_unicode=True, sort_keys=False)
+        except ImportError:
+            # Fallback: manual YAML-like output without pyyaml
+            serialized = _json.dumps(export_data, indent=2, ensure_ascii=False)
+            typer.echo(
+                "Warning: PyYAML not installed, falling back to JSON format.",
+                err=True,
+            )
+
+    if output_path:
+        try:
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(serialized + "\n")
+            typer.echo(f"Configuration exported to: {output_path}")
+        except OSError as exc:
+            typer.echo(f"Error writing config: {exc}", err=True)
+            raise typer.Exit(code=constants.EXIT_GENERAL_ERROR)
+    else:
+        typer.echo(serialized)
 
 
 def cli() -> None:
