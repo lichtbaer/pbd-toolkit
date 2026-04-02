@@ -1,5 +1,6 @@
 """File scanner for discovering and validating files."""
 
+import fnmatch
 import os
 import threading
 from collections.abc import Callable
@@ -81,6 +82,37 @@ class FileScanner:
             FileTypeDetector(enabled=use_magic) if use_magic else None
         )
 
+    def _is_excluded(self, file_path: str) -> bool:
+        """Return True if *file_path* matches any configured exclude pattern.
+
+        Patterns support fnmatch glob syntax and are matched against:
+        - the full path
+        - the path relative to the scan root (when available)
+        - individual path components (for simple directory names like 'tests/')
+
+        Args:
+            file_path: Absolute or relative file/directory path to test.
+
+        Returns:
+            True if the path should be excluded from scanning.
+        """
+        patterns = getattr(self.config, "exclude_patterns", [])
+        if not patterns:
+            return False
+        for pattern in patterns:
+            # Normalize: strip trailing slash so 'tests/' matches the dir name
+            pat = pattern.rstrip("/")
+            # 1. Full path match (supports **/*.bak style patterns)
+            if fnmatch.fnmatch(file_path, pat):
+                return True
+            if fnmatch.fnmatch(file_path, f"*/{pat}"):
+                return True
+            # 2. Any path component matches a simple name pattern
+            parts = file_path.replace("\\", "/").split("/")
+            if any(fnmatch.fnmatch(part, pat) for part in parts):
+                return True
+        return False
+
     def scan(
         self,
         path: str,
@@ -141,10 +173,20 @@ class FileScanner:
         try:
             # Walk all files and subdirectories
             for root, dirs, files in os.walk(path):
+                # Prune excluded subdirectories in-place (prevents descent)
+                dirs[:] = [
+                    d for d in dirs if not self._is_excluded(os.path.join(root, d))
+                ]
+
                 for filename in files:
                     total_files_found += 1
 
                     full_path = os.path.join(root, filename)
+
+                    # Skip files matching exclude patterns
+                    if self._is_excluded(full_path):
+                        continue
+
                     ext = os.path.splitext(full_path)[1].lower()
 
                     # Count extension (thread-safe)

@@ -87,6 +87,8 @@ class PiiMatchContainer:
     enable_confidence_fusion: bool = False
     # Minimum confidence threshold (0.0 = accept all)
     min_confidence: float = 0.0
+    # Minimum severity level for output (None = no filter). Does not affect pii_matches storage.
+    min_severity: str | None = None
     # Configurable limits (defaults match previous hardcoded values)
     dedup_max_entries: int = _DEDUP_MAX_ENTRIES
     max_whitelist_regex_len: int = _MAX_WHITELIST_REGEX_LEN
@@ -345,6 +347,19 @@ class PiiMatchContainer:
             if self.enable_confidence_fusion:
                 fusion_key = (text.lower(), file, type)
                 self._fusion_index[fusion_key] = (len(self.pii_matches) - 1, {engine})
+
+            # Check min_severity output filter before writing to output streams.
+            # pii_matches always keeps all matches for post-scan processing (fail_on_severity, redaction).
+            _meets_min_sev = True
+            if self.min_severity:
+                from core.severity import _LEVEL_WEIGHT as _SW
+
+                _threshold = _SW.get(self.min_severity, 0)
+                _pm_weight = _SW.get(pm.severity or "", 0)
+                _meets_min_sev = _pm_weight >= _threshold
+
+            if not _meets_min_sev:
+                return
 
             # Only write directly for CSV format
             if self._output_format == "csv" and self._csv_writer:

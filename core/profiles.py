@@ -52,6 +52,28 @@ PROFILES: dict[str, dict] = {
         "summary_format": "json",
         "quiet": False,
         "mode": "fast",
+        "fail_on_severity": "HIGH",
+    },
+    "medical": {
+        "_description": "Healthcare-focused scan: MRN, health NER types, GDPR Art. 9 special category data",
+        "regex": True,
+        "ner": True,
+        "spacy_ner": False,
+        "pydantic_ai": False,
+        "deduplicate": True,
+        "statistics_mode": True,
+        "min_severity": "MEDIUM",
+        "mode": "balanced",
+    },
+    "credentials": {
+        "_description": "Security audit: passwords, PGP keys, credit cards, SSNs — pipeline-safe with severity gate",
+        "regex": True,
+        "ner": True,
+        "spacy_ner": False,
+        "pydantic_ai": False,
+        "deduplicate": True,
+        "fail_on_severity": "HIGH",
+        "mode": "fast",
     },
 }
 
