@@ -9,8 +9,9 @@ from __future__ import annotations
 import json
 import os
 
-import numpy as np
 import pytest
+
+np = pytest.importorskip("numpy", reason="numpy not installed; skipping vector feature tests")
 
 from core.indexer.document_indexer import DocumentIndexer, IndexedChunk
 
