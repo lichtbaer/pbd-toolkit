@@ -3,7 +3,7 @@ beautifulsoup4
 gliner~=0.2.24
 # Security: keep pinned to a patched version (pip-audit blocking in CI).
 pdfminer.six==20251230
-pytest~=8.0.0
+pytest~=9.0.2
 pytest-cov~=4.1.0
 pytest-mock~=3.15.1
 tqdm~=4.66.0
