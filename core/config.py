@@ -248,6 +248,15 @@ class Config:
     # Minimum confidence threshold for all engines (0.0 = accept all, 1.0 = only perfect matches)
     min_confidence: float = 0.0
 
+    # Output severity filter: only include findings at or above this level in output
+    min_severity: str | None = None
+
+    # CI/CD: exit with non-zero code when findings at or above this level are present
+    fail_on_severity: str | None = None
+
+    # Path exclusion: glob patterns for files/directories to skip during scanning
+    exclude_patterns: list[str] = field(default_factory=list)
+
     # Resource limits
     max_file_size_mb: float = 500.0
     max_processing_time_seconds: int = 300

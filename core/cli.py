@@ -401,11 +401,30 @@ def scan(
         "--analytics-db",
         help="Path to the analytics database file (default: .pbd_analytics.db)",
     ),
+    # Severity filtering and CI/CD gate
+    min_severity: str | None = typer.Option(
+        None,
+        "--min-severity",
+        help="Only include findings at or above this severity in output: LOW, MEDIUM, HIGH, CRITICAL",
+        case_sensitive=False,
+    ),
+    fail_on_severity: str | None = typer.Option(
+        None,
+        "--fail-on-severity",
+        help="Exit with code 5 if any finding at or above this severity is found (for CI/CD pipelines): LOW, MEDIUM, HIGH, CRITICAL",
+        case_sensitive=False,
+    ),
+    # Path exclusion
+    exclude: list[str] = typer.Option(
+        [],
+        "--exclude",
+        help="Glob pattern to exclude from scanning (can be repeated). E.g. 'tests/', '**/*.bak'",
+    ),
     # Scan profile
     profile: str | None = typer.Option(
         None,
         "--profile",
-        help="Load a built-in scan profile (quick, standard, deep, gdpr-audit, ci). CLI arguments override profile values.",
+        help="Load a built-in scan profile (quick, standard, deep, gdpr-audit, ci, medical, credentials). CLI arguments override profile values.",
         case_sensitive=False,
     ),
 ) -> None:
@@ -501,6 +520,9 @@ def scan(
         "min_confidence": min_confidence,
         "analytics": analytics,
         "analytics_db": analytics_db,
+        "min_severity": min_severity.upper() if min_severity else None,
+        "fail_on_severity": fail_on_severity.upper() if fail_on_severity else None,
+        "exclude": list(exclude),
     }
 
     args = _create_argparse_namespace_from_typer_args(**typer_args)
@@ -657,6 +679,15 @@ def scan(
     _min_conf = getattr(args, "min_confidence", 0.0)
     if isinstance(_min_conf, (int, float)):
         config_obj.min_confidence = float(_min_conf)
+    _min_sev = getattr(args, "min_severity", None)
+    if _min_sev:
+        config_obj.min_severity = _min_sev.upper()
+    _fail_sev = getattr(args, "fail_on_severity", None)
+    if _fail_sev:
+        config_obj.fail_on_severity = _fail_sev.upper()
+    _exclude = getattr(args, "exclude", [])
+    if _exclude:
+        config_obj.exclude_patterns = list(_exclude)
 
     # Validate configuration
     is_valid, error_msg = config_obj.validate_path()
@@ -702,6 +733,7 @@ def scan(
         enable_deduplication=_dedup_enabled or _fusion_enabled,
         enable_confidence_fusion=_fusion_enabled,
         min_confidence=_min_conf_val,
+        min_severity=config_obj.min_severity,
         dedup_max_entries=config_obj.dedup_max_entries,
         max_whitelist_regex_len=config_obj.max_whitelist_regex_len,
     )
@@ -1076,6 +1108,24 @@ def scan(
             summary_format=summary_fmt,
         )
 
+    # CI/CD severity gate: exit with code 5 if threshold is exceeded
+    _fail_sev = getattr(args, "fail_on_severity", None)
+    if _fail_sev:
+        from core.severity import _LEVEL_WEIGHT
+
+        _threshold_weight = _LEVEL_WEIGHT.get(_fail_sev.upper(), 2)
+        _triggered = any(
+            _LEVEL_WEIGHT.get(m.severity or "", 0) >= _threshold_weight
+            for m in context.match_container.pii_matches
+        )
+        if _triggered:
+            if not (hasattr(args, "quiet") and args.quiet):
+                typer.echo(
+                    f"\n[fail-on-severity] Findings at or above {_fail_sev.upper()} detected. Exiting with code {constants.EXIT_FINDINGS_ABOVE_THRESHOLD}.",
+                    err=True,
+                )
+            raise typer.Exit(code=constants.EXIT_FINDINGS_ABOVE_THRESHOLD)
+
 
 @app.command()
 def query(
@@ -1303,6 +1353,117 @@ def diff(
                 )
 
         typer.echo("=" * 50 + "\n")
+
+
+@app.command()
+def report(
+    db: str = typer.Option(
+        ".pbd_analytics.db",
+        "--db",
+        help="Path to the analytics database (default: .pbd_analytics.db)",
+    ),
+    last: int = typer.Option(
+        10,
+        "--last",
+        help="Number of recent scan sessions to display (default: 10)",
+    ),
+    output_format: str = typer.Option(
+        "human",
+        "--format",
+        help="Output format: 'human' (default) or 'json'",
+        case_sensitive=False,
+    ),
+) -> None:
+    """Show historical scan statistics from the analytics database.
+
+    Requires a database populated with [bold]--analytics[/bold] during scanning.
+
+    [bold]Examples:[/bold]
+
+        pbd-toolkit report
+
+        pbd-toolkit report --db /path/to/.pbd_analytics.db --last 20
+
+        pbd-toolkit report --format json
+    """
+    import json as _json
+    import os as _os
+
+    if not _os.path.isfile(db):
+        typer.echo(
+            f"Error: Analytics database not found: {db}\n"
+            "Run a scan with --analytics to create one.",
+            err=True,
+        )
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+
+    try:
+        from analytics.database import AnalyticsDatabase
+        from analytics.queries import AnalyticsQueries
+    except ImportError as exc:
+        typer.echo(f"Error: could not load analytics module: {exc}", err=True)
+        raise typer.Exit(code=constants.EXIT_GENERAL_ERROR)
+
+    db_obj = AnalyticsDatabase(db_path=db)
+    queries = AnalyticsQueries(db=db_obj)
+
+    sessions_result = queries.get_sessions(limit=last)
+    sessions = sessions_result.get("sessions", [])
+    total_sessions = sessions_result.get("total", 0)
+    severity_overall = queries.get_severity_breakdown()
+    top_types = queries.get_pii_type_distribution()[:5]
+
+    if output_format.lower() == "json":
+        output = {
+            "database": db,
+            "total_sessions": total_sessions,
+            "sessions": sessions,
+            "overall_severity_breakdown": severity_overall,
+            "top_pii_types": top_types,
+        }
+        typer.echo(_json.dumps(output, indent=2, ensure_ascii=False))
+        return
+
+    # Human-readable output
+    typer.echo("\n" + "=" * 60)
+    typer.echo("Analytics Report")
+    typer.echo("=" * 60)
+    typer.echo(f"  Database:       {db}")
+    typer.echo(f"  Total sessions: {total_sessions}")
+    typer.echo()
+
+    if not sessions:
+        typer.echo("  No scan sessions found.")
+    else:
+        typer.echo(f"  Last {min(last, len(sessions))} session(s):")
+        typer.echo()
+        for s in sessions:
+            started = (s.get("started_at") or "")[:16]
+            scan_path = s.get("scan_path") or "?"
+            total_findings = s.get("total_findings") or 0
+            critical = s.get("critical_findings") or 0
+            high = s.get("high_findings") or 0
+            duration = s.get("duration_seconds")
+            dur_str = f"{duration:.1f}s" if duration is not None else "?"
+            typer.echo(
+                f"  {started}  {scan_path:<30}  "
+                f"{total_findings:>4} findings  "
+                f"({critical} CRITICAL, {high} HIGH)  {dur_str}"
+            )
+
+    if severity_overall:
+        typer.echo()
+        typer.echo("  Overall severity distribution (all sessions):")
+        for row in severity_overall:
+            typer.echo(f"    {row['severity']:<10} {row['count']:>6}")
+
+    if top_types:
+        typer.echo()
+        typer.echo("  Top PII types (all sessions):")
+        for row in top_types:
+            typer.echo(f"    {row['pii_type']:<35} {row['count']:>6}")
+
+    typer.echo("=" * 60 + "\n")
 
 
 @app.command()

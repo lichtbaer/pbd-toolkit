@@ -112,7 +112,13 @@ def write_output(
     """Write findings to the output writer and finalize."""
     if context.output_writer:
         if not context.output_writer.supports_streaming:
+            from core.severity import _LEVEL_WEIGHT as _SW
+
+            _min_sev = getattr(context.config, "min_severity", None)
+            _threshold = _SW.get(_min_sev, 0) if _min_sev else 0
             for pm in context.match_container.pii_matches:
+                if _threshold and _SW.get(pm.severity or "", 0) < _threshold:
+                    continue
                 context.output_writer.write_match(pm)
         try:
             context.output_writer.finalize(metadata=output_metadata)
