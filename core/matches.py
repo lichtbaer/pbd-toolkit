@@ -19,6 +19,9 @@ _MAX_WHITELIST_REGEX_LEN = 500
 
 _logger = logging.getLogger("pbd-toolkit")
 
+# Track unknown NER labels already warned about to avoid log spam
+_warned_unknown_ner_labels: set[str] = set()
+
 # configure support match types
 config = load_config_types()
 config_ainer = config["ai-ner"]
@@ -239,23 +242,31 @@ class PiiMatchContainer:
                     self._whitelist_pattern = re.compile("|".join(valid))
 
     def _is_whitelisted(self, text: str) -> bool:
-        """Check if text matches whitelist pattern with timeout protection."""
-        import concurrent.futures
+        """Check if text matches whitelist pattern with timeout protection.
 
-        try:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(self._whitelist_pattern.search, text)
-                result = future.result(timeout=2)
-                return result is not None
-        except concurrent.futures.TimeoutError:
+        Uses a daemon thread instead of ThreadPoolExecutor to avoid the overhead
+        of creating and tearing down a thread-pool on every match check.
+        """
+        result: list = [None, False]  # [match_result, completed_flag]
+
+        def _check() -> None:
+            try:
+                result[0] = self._whitelist_pattern.search(text)
+            except re.error as exc:
+                _logger.warning("Whitelist regex error: %s", exc)
+            finally:
+                result[1] = True
+
+        t = threading.Thread(target=_check, daemon=True)
+        t.start()
+        t.join(timeout=2)
+        if not result[1]:
             _logger.warning(
                 "Whitelist regex timed out on text of %d chars",
                 len(text),
             )
             return False
-        except re.error as exc:
-            _logger.warning("Whitelist regex error: %s", exc)
-            return False
+        return result[0] is not None
 
     """ Helper function for adding matches to the matches container. This generic, internal method is
         called by the other methods intended for public use, its aim is to reduce redundancy. """
@@ -389,11 +400,7 @@ class PiiMatchContainer:
                 if callable(record):
                     record(analytics_session_id, pm)
             except Exception:
-                import logging
-
-                logging.getLogger("pbd-toolkit").debug(
-                    "Analytics recording failed", exc_info=True
-                )
+                _logger.debug("Analytics recording failed", exc_info=True)
 
     """ Helper function for adding regex-based matches to the matches container. """
 
@@ -433,6 +440,13 @@ class PiiMatchContainer:
 
                 config_entry = config_ainer_sorted.get(match["label"])
                 if config_entry is None:
+                    label = match["label"]
+                    if label not in _warned_unknown_ner_labels:
+                        _warned_unknown_ner_labels.add(label)
+                        _logger.warning(
+                            "Unknown NER label '%s' not in config; matches with this label will be skipped.",
+                            label,
+                        )
                     continue  # unknown NER label, skip
                 type = config_entry["label"]
 

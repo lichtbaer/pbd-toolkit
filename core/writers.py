@@ -608,13 +608,41 @@ class SarifWriter(OutputWriter):
         return False
 
 
+def _validate_output_path(file_path: str) -> None:
+    """Raise OutputError early if the output path cannot be written.
+
+    Checks are performed before any scan work begins so the user gets
+    immediate feedback rather than a failure after a potentially long scan.
+    """
+    import os
+
+    parent = os.path.dirname(os.path.abspath(file_path)) or "."
+    if not os.path.isdir(parent):
+        raise OutputError(
+            f"Output directory does not exist: {parent}. "
+            "Create the directory first or choose a different output path."
+        )
+    if not os.access(parent, os.W_OK):
+        raise OutputError(
+            f"Output directory is not writable: {parent}. "
+            "Check permissions or choose a different output path."
+        )
+
+
 def create_output_writer(
     output_format: str,
     file_path: str,
     include_header: bool = True,
     json_memory_warning_threshold: int = _JSON_MEMORY_WARNING_THRESHOLD,
 ) -> OutputWriter:
-    """Factory function to create the appropriate output writer."""
+    """Factory function to create the appropriate output writer.
+
+    Validates that the output directory exists and is writable before
+    creating the writer, so failures surface immediately rather than
+    after a potentially long scan.
+    """
+    _validate_output_path(file_path)
+
     if output_format == "json":
         return JsonWriter(file_path, include_header, json_memory_warning_threshold)
     elif output_format == "streaming-json":

@@ -17,6 +17,9 @@ from core.matches import config_regex_sorted
 
 _logger = logging.getLogger(__name__)
 
+# Track which missing-validator warnings have already been emitted to avoid log spam
+_warned_missing_validators: set[str] = set()
+
 # ReDoS protection constants
 _REGEX_CHUNK_SIZE = 1_048_576  # 1 MB per chunk
 _REGEX_TIMEOUT_SECONDS = 10  # seconds per chunk
@@ -191,22 +194,50 @@ class RegexEngine:
 
         if validation_type == "luhn":
             if CreditCardValidator is None:
+                if "luhn" not in _warned_missing_validators:
+                    _warned_missing_validators.add("luhn")
+                    _logger.warning(
+                        "CreditCardValidator not available; skipping Luhn validation "
+                        "(all credit-card matches will be accepted). "
+                        "Install the validators package to enable validation."
+                    )
                 return True
             is_valid, _card_type = CreditCardValidator.validate(match.group())
             return is_valid
 
         if validation_type == "iban":
             if IbanValidator is None:
+                if "iban" not in _warned_missing_validators:
+                    _warned_missing_validators.add("iban")
+                    _logger.warning(
+                        "IbanValidator not available; skipping IBAN validation "
+                        "(all IBAN matches will be accepted). "
+                        "Install the validators package to enable validation."
+                    )
                 return True
             return IbanValidator.validate(match.group())
 
         if validation_type == "tax_id":
             if TaxIdValidator is None:
+                if "tax_id" not in _warned_missing_validators:
+                    _warned_missing_validators.add("tax_id")
+                    _logger.warning(
+                        "TaxIdValidator not available; skipping tax-ID validation "
+                        "(all tax-ID matches will be accepted). "
+                        "Install the validators package to enable validation."
+                    )
                 return True
             return TaxIdValidator.validate(match.group())
 
         if validation_type == "bic":
             if BicValidator is None:
+                if "bic" not in _warned_missing_validators:
+                    _warned_missing_validators.add("bic")
+                    _logger.warning(
+                        "BicValidator not available; skipping BIC validation "
+                        "(all BIC matches will be accepted). "
+                        "Install the validators package to enable validation."
+                    )
                 return True
             return BicValidator.validate(match.group())
 

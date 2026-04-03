@@ -347,8 +347,10 @@ class TextProcessor:
                             for _block in iter(lambda: _fh.read(65536), b""):
                                 _h.update(_block)
                         _file_hash = _h.hexdigest()
-                    except OSError:
-                        pass
+                    except OSError as _e:
+                        self.config.logger.debug(
+                            "Could not compute file hash for %s: %s", full_path, _e
+                        )
                     engine.set_current_file(full_path, _file_hash)
                     break
 
