@@ -1,4 +1,12 @@
-"""Custom exception types for PII Toolkit."""
+"""Custom exception hierarchy for the PII Toolkit.
+
+All toolkit-specific exceptions inherit from ``PiiToolkitError`` so that callers
+can catch the entire hierarchy with a single ``except PiiToolkitError`` clause while
+still being able to handle individual categories more specifically.
+
+The hierarchy is intentionally flat (one level deep) because the toolkit's error
+space is small and a deep hierarchy would add complexity without benefit.
+"""
 
 
 class PiiToolkitError(Exception):

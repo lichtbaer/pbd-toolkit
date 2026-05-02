@@ -3,13 +3,22 @@
 # Toolkit version (best-effort; CLI uses package metadata when installed).
 VERSION: str = "1.0.0"
 
-# Minimum text length for PDF processing (workaround for PDFs with messed-up text embeddings)
+# PDFs with broken text embeddings (e.g. scanned without OCR, or print-to-PDF with
+# embedded fonts not mapped to Unicode) produce garbled strings of a few characters.
+# Texts shorter than this threshold are silently skipped rather than polluting output
+# with meaningless matches.
 MIN_PDF_TEXT_LENGTH: int = 10
 
-# NER model threshold for entity prediction
+# 0.5 is the GLiNER default threshold: below it the model's self-assessed confidence
+# is too low to trust as a PII finding; above it, precision is acceptable for audits.
+# Operators can lower the threshold (–-ner-threshold) to increase recall at the cost
+# of more false positives, or raise it to reduce noise in clean datasets.
 NER_THRESHOLD: float = 0.5
 
-# NER model name
+# GLiNER medium model: multilingual, 125 M parameters, runs on CPU without GPU.
+# Chosen because it achieves a good precision/recall balance for European PII
+# (names, locations, organisations) without requiring a GPU or internet access at
+# scan time – critical for air-gapped GDPR audit environments.
 NER_MODEL_NAME: str = "urchade/gliner_medium-v2.1"
 
 # Configuration file path
