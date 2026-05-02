@@ -1,6 +1,18 @@
 """Reusable retry logic for LLM API calls with exponential backoff.
 
 Extracted from ``pydantic_ai_engine.py`` for reuse across LLM-based engines.
+
+Retry strategy: exponential backoff
+------------------------------------
+Exponential backoff (delay doubles each attempt: 1 s → 2 s → 4 s) is the standard
+strategy for rate-limited or overloaded APIs because it reduces thundering-herd
+pressure on the provider while still recovering quickly from brief hiccups.
+
+Only *transient* errors are retried – those that indicate a temporary server-side
+condition (rate limits, 5xx, timeouts, connection resets).  Permanent errors (401
+Unauthorized, 403 Forbidden, 404 model-not-found) are NOT in the retry list and
+are re-raised immediately to surface misconfiguration to the operator instead of
+wasting retry budget on errors that will never self-heal.
 """
 
 from __future__ import annotations
@@ -10,7 +22,10 @@ import time
 
 _logger = logging.getLogger(__name__)
 
-# Transient error indicators that warrant a retry
+# Substrings matched (case-insensitive) against the exception message to decide
+# whether to retry.  This list intentionally excludes "401", "403", "404"
+# (auth/not-found errors) so that misconfigured API keys or invalid model names
+# surface immediately rather than after three 4-second waits.
 RETRYABLE_EXCEPTION_SUBSTRINGS = (
     "rate limit",
     "ratelimit",

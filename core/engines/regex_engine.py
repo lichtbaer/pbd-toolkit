@@ -1,7 +1,23 @@
-"""Regex-based detection engine.
+"""Regex-based PII detection engine – the fastest and most deterministic engine.
 
-Patterns are loaded from ``config_types.json`` by default. Additional
-patterns can be loaded at runtime from an external YAML or JSON file via
+Regex is the primary engine and should be enabled in virtually all scan scenarios:
+
+- Zero ML overhead: no model loading, no GPU, no network.
+- Near-perfect recall for structured PII with fixed formats (IBANs, credit cards,
+  email addresses, phone numbers, German tax IDs, social security numbers, etc.).
+- Deterministic: the same text always produces the same result.
+
+The engine compiles all configured patterns into a single alternation to run one
+``finditer`` pass per text chunk rather than one pass per pattern.  This is critical
+for performance when scanning thousands of files.
+
+Post-match validation (Luhn, IBAN checksum, BIC structure, …) is applied to every
+structural match before it is recorded.  Raw regex matching without checksum validation
+produces an unacceptably high false-positive rate for financial identifiers – e.g. any
+16-digit number would look like a credit card without a Luhn check.
+
+Patterns are loaded from ``config_types.json`` by default. Additional patterns can be
+loaded at runtime from an external YAML or JSON file via
 ``RegexEngine.load_custom_patterns(path)``.
 """
 
@@ -57,8 +73,10 @@ except Exception as _exc:  # pragma: no cover
 class RegexEngine:
     """Regex-based detection engine.
 
-    Uses compiled regex patterns from config_types.json to detect PII.
-    This is a refactored version of the existing regex detection logic.
+    Runs a single compiled alternation of all configured patterns against each text
+    chunk with ReDoS protection (chunking + per-chunk timeout).  Post-validation
+    via checksum validators (Luhn, IBAN, BIC, tax ID) eliminates false positives
+    before results reach the match container.
     """
 
     name = "regex"
@@ -143,7 +161,10 @@ class RegexEngine:
             if config_entry and not self._validate_match(match, config_entry):
                 continue
 
-            # Assign synthetic confidence: 1.0 for validated patterns, 0.8 for unvalidated
+            # Validated patterns (Luhn, IBAN checksum, …) get confidence 1.0 because
+            # a checksum-passing match is almost certainly a real PII value.
+            # Unvalidated patterns get 0.8 to signal slightly lower certainty and to
+            # allow confidence-threshold filtering to distinguish them from validated ones.
             _confidence = (
                 1.0 if (config_entry and "validation" in config_entry) else 0.8
             )
