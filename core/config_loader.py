@@ -1,4 +1,19 @@
-"""Configuration file loader for CLI arguments."""
+"""Configuration file loader: merges YAML/JSON config files with CLI arguments.
+
+Override hierarchy (highest priority wins):
+  1. Explicit CLI flags  – the user typed ``--regex``, ``--ner``, etc. at runtime.
+  2. Config file values  – set via ``--config path/to/config.yaml``; acts as
+     operator-defined defaults for recurring scans (CI pipelines, cron jobs).
+  3. Environment variables – ``PBD_TOOLKIT_CONFIG``, ``PBD_LOG_LEVEL``, etc.
+  4. Hardcoded defaults in ``Config`` dataclass fields.
+
+The key design constraint is distinguishing *explicit* CLI flags from *default* CLI
+values.  Typer does not expose "was this flag set by the user or defaulted?", so
+``ConfigLoader`` keeps a copy of Typer's defaults in ``_TYPER_DEFAULTS`` and treats
+a CLI value that equals its default as if it were absent (i.e. the config file may
+override it).  A CLI value that differs from its Typer default is treated as explicit
+and takes priority over the config file.
+"""
 
 import argparse
 import json
@@ -13,10 +28,15 @@ except ImportError:
 
 
 class ConfigLoader:
-    """Loads configuration from YAML or JSON files."""
+    """Loads and merges YAML/JSON config files with parsed CLI arguments.
 
-    # Typer defaults (used to decide whether a CLI value was explicitly provided).
-    # If the CLI value equals the default, we allow the config file to override it.
+    Stateless: all methods are ``@staticmethod``.  The class is used as a namespace
+    to group the load → merge → env-override pipeline.
+    """
+
+    # Shadow of Typer's own defaults.  Used by ``merge_with_args`` to decide whether
+    # a CLI value was explicitly set by the user or is just the framework's default.
+    # Must be kept in sync when new CLI flags are added to cli.py.
     _TYPER_DEFAULTS: dict[str, Any] = {
         # Methods / engines
         "regex": False,
@@ -135,16 +155,19 @@ class ConfigLoader:
     def merge_with_args(
         config: dict[str, Any], args: argparse.Namespace
     ) -> argparse.Namespace:
-        """Merge configuration file values with CLI arguments.
+        """Merge config-file values into *args*, respecting CLI priority.
 
-        CLI arguments take precedence over config file values.
+        Only config-file values for which the corresponding CLI argument is still
+        at its Typer default (or ``None``) are applied.  This preserves the invariant
+        that an operator who explicitly passes ``--regex`` on the CLI always gets
+        regex scanning, regardless of what the config file says.
 
         Args:
-            config: Configuration dictionary from file
-            args: Parsed CLI arguments (argparse.Namespace)
+            config: Configuration dictionary loaded from a YAML/JSON file.
+            args: Parsed CLI arguments (argparse.Namespace); mutated in-place.
 
         Returns:
-            Modified args object with merged values
+            The mutated *args* object.
         """
         # Map config keys to argument names
         config_mapping = {

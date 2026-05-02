@@ -1,4 +1,25 @@
-"""Configuration management for PII Toolkit."""
+"""Configuration management for the PII Toolkit.
+
+Design rationale – sub-config grouping
+---------------------------------------
+``Config`` is the single dependency-injection object passed through the entire call
+stack (CLI → scanner → processor → engines → writers).  To keep it manageable it
+groups related fields into three typed sub-configs:
+
+  ``scan``   – file discovery and safety limits (paths, timeouts, size caps)
+  ``engine`` – detection engine selection and tuning (API URLs, models, thresholds)
+  ``output`` – result formatting and streaming (output path, deduplication, chunking)
+
+All fields remain accessible at the top level for backward compatibility; ``__post_init__``
+syncs them into the sub-config objects via ``_sync_sub_configs``.  This means callers
+that were written before the sub-config refactor continue to work unchanged.
+
+Configuration precedence (highest → lowest):
+  1. CLI flags  – explicit user intent; never overridden
+  2. Config file (--config) – operator defaults for recurring scans
+  3. Environment variables (PBD_TOOLKIT_*, PBD_LOG_LEVEL, PBD_OUTPUT_DIR)
+  4. Hardcoded defaults below – safe for first-run without any configuration
+"""
 
 from __future__ import annotations
 
@@ -32,7 +53,7 @@ class NerStats:
 
 @dataclass
 class ScanConfig:
-    """Configuration related to file scanning and discovery."""
+    """File discovery and safety-limit parameters for a scan run."""
 
     path: str = ""
     whitelist_path: str | None = None
@@ -41,8 +62,15 @@ class ScanConfig:
     magic_detection_fallback: bool = True
     use_incremental: bool = False
     cache_path: str | None = None
+    # 500 MB: prevents OOM on memory-constrained systems while still covering
+    # large database dumps and mail archives common in GDPR audit scenarios.
+    # Can be raised via config file for environments with sufficient RAM.
     max_file_size_mb: float = 500.0
+    # 5-minute hard timeout per file prevents infinite loops caused by
+    # malformed archives (e.g. recursive ZIPs, cyclic XML includes, corrupt PDFs).
     max_processing_time_seconds: int = 300
+    # Backpressure cap: limits the number of in-flight async file callbacks so
+    # that the scanner does not exhaust OS file descriptors on deep directory trees.
     max_pending_futures: int = 512
 
 
@@ -65,15 +93,17 @@ class EngineConfig:
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.2"
-    ollama_timeout: int = 30
+    ollama_timeout: int = 30  # seconds; generous for local inference on CPU
 
     # OpenAI-compatible
     openai_api_base: str = "https://api.openai.com/v1"
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o-mini"
-    openai_timeout: int = 30
+    openai_timeout: int = 30  # seconds; network API; 30 s is P99 for most providers
 
-    # Multimodal
+    # Multimodal gets 2× the text timeout because image payloads are sent as
+    # base64-encoded data URLs, which are substantially larger than text prompts
+    # and cause higher network and server processing latency.
     multimodal_api_base: str | None = None
     multimodal_api_key: str | None = None
     multimodal_model: str = "gpt-4-vision-preview"
@@ -211,7 +241,10 @@ class Config:
     pydantic_ai_api_key: str | None = None
     pydantic_ai_base_url: str | None = None
 
-    # LLM retry configuration (transient error backoff)
+    # Exponential backoff for transient LLM errors (rate limits, 503s).
+    # 3 retries with 1 s base delay → waits 1 s, 2 s, 4 s before giving up.
+    # Not applied to auth errors (401/403) or model-not-found errors (404),
+    # which are permanent and should surface immediately to the operator.
     llm_max_retries: int = 3
     llm_retry_base_delay: float = 1.0
 
