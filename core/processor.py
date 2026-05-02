@@ -1,4 +1,34 @@
-"""Text and file processing for PII detection."""
+"""Text and file processing orchestration for PII detection.
+
+Architecture – multi-engine pipeline
+-------------------------------------
+Each file is processed by a chain of detection engines selected at runtime from
+the user's configuration.  The engines are deliberately independent and additive:
+
+  1. Regex engine  – fast, zero-dependency, catches structured PII (IBANs, emails,
+     phone numbers) with near-perfect recall on well-formatted data.
+  2. GLiNER / spaCy – local NER models that recognise named entities (persons,
+     organisations, locations) and free-form sensitive categories.  Catches PII that
+     has no fixed format.
+  3. Vector engine – semantic similarity search using sentence-transformers and FAISS;
+     useful as a triage pre-filter to skip expensive LLM calls on irrelevant chunks.
+  4. PydanticAI (LLM) – catches context-dependent PII that rule-based engines miss
+     (e.g. pseudonymous references, implicit health information).  Used last because
+     it is the slowest and most expensive engine.
+
+This "defense in depth" approach is intentional: no single engine is 100% accurate
+across all document types and languages, so combining them maximises recall while
+allowing operators to tune the precision/cost trade-off by enabling only the engines
+they need.
+
+Thread model
+------------
+``TextProcessor`` is not shared across threads.  Each scanner worker creates its own
+instance.  However, the underlying ML models (GLiNER, spaCy, vector embedder) are
+expensive to load and are cached at the class level by their respective engine
+implementations.  Per-engine locks inside this processor serialise access to engines
+that do not support concurrent inference (``thread_safe=False``).
+"""
 
 import re
 import threading
@@ -26,13 +56,17 @@ _ASCII_CONTROL_TRANSLATION = {
 
 
 class TextProcessor:
-    """Processes text content for PII detection using multiple engines.
+    """Orchestrates PII detection across all enabled engines for a single scan session.
 
-    This class handles:
-    - Multiple detection engines (regex, GLiNER, spaCy, LLMs, etc.)
-    - Statistics tracking
-    - Error handling
-    - Thread-safe operations
+    One ``TextProcessor`` instance per scanner worker thread.  The instance owns
+    references to the shared ``PiiMatchContainer`` (thread-safe) and the per-thread
+    ``Statistics`` tracker.
+
+    Engine lifecycle: engines are initialised lazily from ``EngineRegistry`` on first
+    use and re-initialised if ``Config`` flags change (supports test scenarios where
+    config is mutated post-construction).  ML model weights are cached at the engine
+    class level, so constructing multiple ``TextProcessor`` instances does not reload
+    models.
     """
 
     def __init__(
@@ -78,8 +112,9 @@ class TextProcessor:
                         f"Engine '{engine_name}' loaded and enabled"
                     )
 
-        # Locks only for engines that are not thread-safe. Thread-safe engines
-        # (e.g., regex) should run concurrently across file workers.
+        # Only create locks for engines that are *not* thread-safe (e.g. spaCy, GLiNER).
+        # Thread-safe engines (regex, vector search) run without serialisation so that
+        # multiple worker threads can call them concurrently for better throughput.
         self._engine_locks = {
             engine.name: threading.Lock()
             for engine in self.engines
@@ -111,8 +146,10 @@ class TextProcessor:
             engines.append("spacy-ner")
         if self.config.use_vector_search:
             engines.append("vector-search")
-        # Use PydanticAI unified engine if explicitly enabled or if any legacy LLM engine is enabled
-        # PydanticAI engine automatically handles ollama, openai-compatible, and multimodal
+        # PydanticAI is the unified LLM backend: it wraps Ollama, OpenAI-compatible APIs,
+        # and multimodal detection behind a single engine interface.  All three legacy CLI
+        # flags funnel into the same engine so that only one LLM connection is opened per
+        # scan and engine-registry complexity stays low.
         if (
             self.config.use_pydantic_ai
             or self.config.use_ollama
@@ -156,9 +193,14 @@ class TextProcessor:
     def _split_into_chunks(text: str, chunk_size: int, overlap: int) -> list[str]:
         """Split *text* into overlapping segments of at most *chunk_size* characters.
 
-        Adjacent chunks share *overlap* characters so that entities near a
-        boundary are not cut off. If the text is shorter than *chunk_size*,
-        it is returned as-is in a single-element list.
+        Adjacent chunks share *overlap* characters to prevent NLP models from missing
+        entities that straddle a chunk boundary.  For example, a person's full name
+        split across two chunks would be invisible to a model that sees each chunk
+        independently.  The overlap ensures at least one chunk contains the entity whole.
+
+        The overlap also matters for LLMs with context-window limits: a sentence that
+        starts near the end of one chunk appears again at the start of the next, giving
+        the model the surrounding context it needs for accurate classification.
 
         Args:
             text: The text to chunk.

@@ -82,6 +82,10 @@ _LEVEL_WEIGHT: dict[str, int] = {
 
 _WEIGHT_LEVEL: dict[int, str] = {v: k for k, v in _LEVEL_WEIGHT.items()}
 
+# Fail-safe default: unknown PII types are treated as MEDIUM rather than LOW.
+# This ensures that new types added to config_types.yaml (but not yet mapped here)
+# are never silently under-classified in compliance reports.  Operators who disagree
+# can override via --severity-config.
 DEFAULT_SEVERITY = "MEDIUM"
 
 
@@ -104,7 +108,9 @@ def classify(pii_type: str) -> str:
 # Combination-risk escalation
 # ---------------------------------------------------------------------------
 
-# Labels that indicate a named individual is present in the document
+# Labels that anchor a document to a named individual.  When any of these appears
+# alongside a HIGH-severity type, the combination becomes linkable (re-identifiable),
+# which GDPR Art. 4(1) treats as personal data regardless of pseudonymisation.
 _PERSON_LABELS: frozenset[str] = frozenset(
     {"NER_PERSON", "OLLAMA_PERSON", "REGEX_PASSPORT", "REGEX_PERSONALAUSWEIS"}
 )
@@ -163,7 +169,10 @@ def combined_file_risk(pii_types: Collection[str]) -> str:
     if has_person and (types_set & _ESCALATE_WITH_PERSON_TO_CRITICAL):
         return "CRITICAL"
 
-    # Rule 3: three or more distinct HIGH types (profile aggregation)
+    # Rule 3: profile aggregation – three or more distinct HIGH types in one file
+    # creates a comprehensive personal profile even if no single type is CRITICAL.
+    # Example: IBAN + health data + tax ID together uniquely identify and expose a person
+    # far more than any one of those alone.
     if len(high_types) >= 3:
         return "CRITICAL"
 
