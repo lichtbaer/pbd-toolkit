@@ -1,8 +1,21 @@
 """Predefined analytical queries for the analytics database.
 
-These queries power the REST API analytics endpoints and can also be used
-directly from Python for ad-hoc analysis.  All methods return plain
-dictionaries / lists suitable for JSON serialisation.
+Business purpose – GDPR audit analytics
+-----------------------------------------
+The analytics layer answers operational questions for data-privacy officers:
+
+- Which directories contain the most PII?  (``get_top_files``)
+- What types of sensitive data are most common?  (``get_pii_type_distribution``)
+- Has the risk profile improved between scans?  (``get_session_detail`` + comparison)
+- Which engines are contributing findings?  (``get_engine_performance``)
+
+Storage: SQLite is used as the analytics backend.  It is embedded, requires no
+external database server, and is sufficient for the expected data volume (thousands
+of findings per scan, not millions).  This keeps the toolkit self-contained and
+suitable for air-gapped compliance environments.
+
+All query methods return plain dicts / lists so that the REST API layer can
+serialise them directly to JSON without a separate ORM mapping step.
 """
 
 from __future__ import annotations
@@ -14,7 +27,12 @@ from analytics.database import AnalyticsDatabase
 
 
 class AnalyticsQueries:
-    """Read-only query interface for the analytics database."""
+    """Read-only query interface for the analytics database.
+
+    All methods are read-only (SELECT only); writes go through ``AnalyticsStore``.
+    This separation keeps the query interface free of side effects and makes it
+    safe to expose via the REST API without authentication risk of data mutation.
+    """
 
     def __init__(
         self,

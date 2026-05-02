@@ -1,3 +1,26 @@
+"""PII match data structures, deduplication, confidence fusion, and output streaming.
+
+This module is the central aggregation point for all findings produced by detection
+engines.  Every engine result flows through ``PiiMatchContainer.__add_match``, which
+enforces:
+
+- Whitelist filtering (plain, wildcard, and raw-regex entries)
+- Confidence thresholding (discard findings below ``min_confidence``)
+- Deduplication: the same (text, file, type) triple found by multiple engines is
+  stored only once; the highest-confidence occurrence wins.
+- Confidence fusion: when deduplication is *off*, multiple-engine confirmation of the
+  same triple raises the fused score slightly to reflect corroborating evidence.
+- Severity-level output filtering (``min_severity``) without discarding matches from
+  the in-memory list, which is needed for post-scan operations such as redaction and
+  ``--fail-on-severity``.
+
+Business context:
+  PII detection is inherently noisy.  Deduplication and confidence fusion are GDPR
+  audit hygiene features: they reduce duplicate report rows without losing any actual
+  finding.  The whitelist lets operators exclude known-safe strings (e.g. demo data,
+  test fixtures) from compliance reports.
+"""
+
 from __future__ import annotations
 
 import csv
@@ -14,7 +37,13 @@ from core.severity import classify as _classify_severity
 if TYPE_CHECKING:
     from core.protocols import AnalyticsStoreProtocol, OutputWriterProtocol
 
+# FIFO cap prevents unbounded memory growth during large directory scans.
+# At ~400 bytes per key tuple, 500 k entries ≈ 200 MB worst-case overhead.
 _DEDUP_MAX_ENTRIES = 500_000
+
+# Protect against ReDoS: whitelist patterns with very long alternations can cause
+# catastrophic backtracking.  Entries exceeding this limit are silently skipped and
+# a warning is logged so operators can fix their whitelist configuration.
 _MAX_WHITELIST_REGEX_LEN = 500
 
 _logger = logging.getLogger("pbd-toolkit")
@@ -26,27 +55,29 @@ config_regex = config["regex"]
 
 config_regex_sorted: dict[str, dict] = {}
 
-""" Since we use a concatenated regex that contains multiple types of checks (e. g. bank account, email all in one)
-    for efficiency reasons, we now have to figure out exactly which type of match it actually is. This is only possible
-    by looking at the position of the group storing the match within the overall regex.
-    Sort the regex configuration by position accordingly. """
-
+# The regex engine compiles all patterns into a single alternation (e.g. bank account |
+# email | phone | …) for performance: one pass over the text matches every type at once.
+# The trade-off is that the matched capture-group *position* is the only way to determine
+# which PII type fired.  This dict maps group position → config entry for O(1) lookup.
 for conf in config_regex:
     config_regex_sorted[conf["regex_compiled_pos"]] = conf
 
-""" And sort the AI NER configuration by matching terms. """
+# NER engines return a label string (e.g. "PERSON", "IBAN") rather than a group index,
+# so a term → config entry mapping is sufficient.
 config_ainer_sorted: dict[str, dict] = {}
 
 for conf in config_ainer:
     config_ainer_sorted[conf["term"]] = conf
 
-""" Class for holding a singular found PII match.
-
-    An __init__ method is implied by the @dataclass decorator. """
-
 
 @dataclass
 class PiiMatch:
+    """A single PII finding produced by any detection engine.
+
+    Instances are immutable after creation (engines must not mutate them).
+    The ``severity`` field is auto-populated from the type label at creation
+    time so that output writers always have a pre-classified value.
+    """
     # The text that represents PII
     text: str
     # The file in which the represented PII was found
@@ -67,14 +98,18 @@ class PiiMatch:
     char_offset: int | None = None
 
 
-""" Class for holding all PII matches found. The aim is to provide helpful functions for processing
-    and managing these matches.
-
-    An __init__ method is implied by the @dataclass decorator. """
-
-
 @dataclass
 class PiiMatchContainer:
+    """Thread-safe container for all PII matches collected during a scan.
+
+    Centralises filtering, deduplication, confidence fusion, and output streaming
+    so that callers (TextProcessor, scanner workers) only need to call ``add_*``
+    methods without knowing the downstream format or storage backend.
+
+    Thread safety: all public mutating methods acquire ``_lock``.  The lock is
+    intentionally coarse-grained (one per container) because match writes are fast
+    compared to the I/O and ML inference happening on worker threads.
+    """
     pii_matches: list[PiiMatch] = field(default_factory=list)
     # Whitelist used for excluding strings from being identified as PII
     whitelist: list[str] = field(default_factory=list)
@@ -82,8 +117,10 @@ class PiiMatchContainer:
     # The first match (highest confidence if available) wins.
     enable_deduplication: bool = False
     # When True, fuse confidence scores from multiple engines for the same
-    # (text, file, type) triple. The fused score is max(scores) + bonus based
-    # on the number of confirming engines, capped at 1.0.
+    # (text, file, type) triple.  Formula: max(all_scores) + 0.05 * (n_engines – 1),
+    # capped at 1.0.  The bonus is deliberately small because engine scores are not
+    # statistically independent (both see the same text), so simple addition would
+    # over-estimate confidence.
     enable_confidence_fusion: bool = False
     # Minimum confidence threshold (0.0 = accept all)
     min_confidence: float = 0.0
@@ -257,9 +294,6 @@ class PiiMatchContainer:
             _logger.warning("Whitelist regex error: %s", exc)
             return False
 
-    """ Helper function for adding matches to the matches container. This generic, internal method is
-        called by the other methods intended for public use, its aim is to reduce redundancy. """
-
     def __add_match(
         self,
         text: str,
@@ -272,6 +306,12 @@ class PiiMatchContainer:
         context_after: str | None = None,
         char_offset: int | None = None,
     ) -> None:
+        """Internal entry point for all match additions; enforces all filtering rules.
+
+        Caller does NOT need to hold ``_lock`` – this method acquires it internally.
+        The analytics store write is intentionally done *outside* the lock to avoid
+        blocking other threads while waiting on I/O.
+        """
         pm: PiiMatch | None = None
         analytics_store = None
         analytics_session_id = None
@@ -395,9 +435,15 @@ class PiiMatchContainer:
                     "Analytics recording failed", exc_info=True
                 )
 
-    """ Helper function for adding regex-based matches to the matches container. """
-
     def add_matches_regex(self, matches: re.Match | None, path: str) -> None:
+        """Add a match from the combined regex engine.
+
+        The combined regex matches multiple PII types in a single pass (email, phone,
+        IBAN, …).  The capture-group index identifies which type fired; ``config_regex_sorted``
+        maps that index to the config entry.  Post-match validation (Luhn, IBAN checksum,
+        etc.) is applied before recording to eliminate false positives common in raw regex
+        matching.
+        """
         if matches is not None:
             type: str | None = None
             config_entry: dict | None = None
@@ -424,9 +470,13 @@ class PiiMatchContainer:
 
             self.__add_match(text=matches.group(), file=path, type=type, engine="regex")
 
-    """ Helper function for adding AI-based NER matches to the matches container. """
-
     def add_matches_ner(self, matches: list[dict] | None, path: str) -> None:
+        """Add matches from the GLiNER NER engine.
+
+        GLiNER returns a label string (e.g. "PERSON") rather than a group index, so
+        ``config_ainer_sorted`` maps label → config entry.  Unknown labels (not in the
+        config) are silently skipped to avoid polluting output with unsupported types.
+        """
         if matches is not None:
             for match in matches:
                 type: str | None = None
@@ -444,8 +494,6 @@ class PiiMatchContainer:
                     engine="gliner",
                     metadata={"gliner_label": match.get("label", "")},
                 )
-
-    """ Helper function for adding detection results from engines. """
 
     def add_detection_results(
         self,

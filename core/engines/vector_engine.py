@@ -42,6 +42,18 @@ from core.indexer.document_indexer import DocumentIndexer
 class VectorEngine:
     """Semantic-similarity PII detection engine.
 
+    Uses an exemplar-based approach rather than a fine-tuned classifier: a small
+    set of representative PII example texts (defined in ``pii_queries.py``) is
+    embedded once at startup and compared against each incoming chunk at runtime.
+    This design was chosen over fine-tuning because:
+
+    - New PII categories can be added by editing a YAML file, with no model
+      retraining or GPU required.
+    - The default model (``all-MiniLM-L6-v2``) is a 22 MB multilingual model
+      that runs entirely locally, preserving the privacy-by-design guarantee.
+    - Exemplar similarity provides interpretable output (the matched exemplar
+      is included in metadata) which aids audit review.
+
     Attributes:
         name: Engine identifier used in ``EngineRegistry`` and output.
         thread_safe: True – the underlying model is shared via class-level

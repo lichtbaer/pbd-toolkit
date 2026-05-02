@@ -1,4 +1,19 @@
-"""Base classes and protocols for detection engines."""
+"""Base classes and protocols for detection engines.
+
+Engine contract
+---------------
+All detection engines implement the ``DetectionEngine`` Protocol (structural subtyping).
+Using a Protocol rather than an ABC has two benefits:
+
+1. Engines can be unit-tested with simple mock objects that satisfy the interface
+   without inheriting from a base class.
+2. Engines that ship as optional extras (GLiNER, PydanticAI) do not need to import
+   this module, avoiding circular import issues.
+
+Engines may optionally expose a ``thread_safe`` class attribute (bool).  When
+``True``, ``TextProcessor`` omits the per-engine lock and allows concurrent calls
+from multiple worker threads.  When absent or ``False``, calls are serialised.
+"""
 
 from abc import abstractmethod
 from dataclasses import dataclass, field
