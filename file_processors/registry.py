@@ -1,4 +1,24 @@
-"""File processor registry for automatic registration and discovery of processors."""
+"""File processor registry: automatic discovery and routing to format-specific processors.
+
+Design rationale – dynamic registration vs. static import list
+--------------------------------------------------------------
+New file formats are added by creating a processor class and registering it in
+``file_processors/__init__.py``.  The registry itself never needs to be modified.
+This avoids the ``if ext == ".pdf": ... elif ext == ".docx": ...`` anti-pattern and
+keeps the core scanner decoupled from individual format dependencies.
+
+Registration order matters for priority: when multiple processors claim the same
+extension (e.g. both a generic text processor and a specialised markdown processor
+handle ``.md``), the first registered processor wins.  Specialised processors should
+therefore be registered before generic fallbacks.
+
+Extension caching
+-----------------
+``get_processor`` caches extension → processor mappings after the first lookup.
+The cache is keyed on extension only (MIME type lookups bypass the cache) so that
+magic-number-detected files are always re-dispatched to the full processor list.
+The cache is cleared whenever a new processor is registered.
+"""
 
 from __future__ import annotations
 
@@ -20,8 +40,15 @@ class _CanProcessMeta:
 class FileProcessorRegistry:
     """Registry for file processors with automatic registration.
 
-    This registry allows processors to be automatically discovered and registered,
-    making it easy to add new file format support without modifying main.py.
+    Class-level state (``_processors``, ``_extension_cache``) is shared across all
+    call sites without instantiation.  This is intentional: there is exactly one
+    global processor list per Python process, matching the single-registry pattern.
+
+    Thread safety: registration (``register``) is not thread-safe and is only called
+    during module import (before any worker threads are spawned), so no lock is needed.
+    ``get_processor`` reads are thread-safe because CPython's GIL protects list/dict
+    reads, and the cache is only written when a new processor is first seen for an
+    extension (which happens at most once per extension in practice).
     """
 
     _processors: list[BaseFileProcessor] = []

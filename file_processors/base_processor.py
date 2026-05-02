@@ -1,4 +1,24 @@
-"""Base class for file processors."""
+"""Base abstractions for file format processors.
+
+Every file format (PDF, DOCX, CSV, …) has a corresponding processor that knows how
+to extract plain text from that format.  All processors share the same interface
+(``BaseFileProcessor``) so the scanner can treat them uniformly.
+
+Iterator vs. string return type
+--------------------------------
+``extract_text`` returns either a ``str`` or an ``Iterator[str]``.  The Iterator
+variant is preferred for large files (PDFs, mailboxes, ZIP archives, databases)
+because it allows the scanner to process text chunk by chunk without loading the
+entire file into memory.  Processors that return a single string are fine for small,
+memory-safe formats (HTML, Markdown, plain text).
+
+Exception hierarchy
+-------------------
+The specialised exception classes (``CorruptedFileError``, ``PasswordProtectedError``,
+``UnsupportedFormatError``) exist so the scanner can log meaningful error messages and
+update statistics by failure category.  Using a flat ``Exception`` everywhere would
+hide whether a file was skipped due to corruption or encryption.
+"""
 
 import logging
 from abc import ABC, abstractmethod
@@ -102,7 +122,11 @@ class BaseFileProcessor(ABC):
 
 _logger = logging.getLogger(__name__)
 
-# Standard encoding fallback chain used across all file processors.
+# Standard encoding fallback chain used across all text-based file processors.
+# Order reflects European document corpus prevalence:
+# - utf-8 / utf-8-sig: modern documents and BOM-prefixed Windows files
+# - cp1252: Windows-1252 (common in legacy German/Western European Office docs)
+# - iso-8859-1 / latin-1: older Unix-generated files and email attachments
 _ENCODING_FALLBACK_CHAIN = ("utf-8", "utf-8-sig", "cp1252", "iso-8859-1", "latin-1")
 
 
