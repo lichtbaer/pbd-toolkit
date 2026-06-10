@@ -3,6 +3,8 @@
 import re
 from types import SimpleNamespace
 
+import pytest
+
 from core.matches import PiiMatch, PiiMatchContainer
 
 
@@ -217,8 +219,43 @@ class TestCrossEngineNormalization:
         pm = container.pii_matches[0]
         assert sorted(pm.metadata["fused_engines"]) == ["regex", "vector-search"]
         assert pm.metadata["canonical_type"] == "CREDIT_CARD"
-        # max(1.0, 0.82) + 0.05 corroboration bonus, capped at 1.0
+        # First engine (regex) enters at full weight 1.0 -> Noisy-OR stays 1.0.
         assert pm.ner_score == 1.0
+
+    def test_fusion_noisy_or_boosts_corroborated_score(self):
+        """Two non-certain engines agreeing must raise the score above either alone."""
+        container = PiiMatchContainer(enable_confidence_fusion=True)
+        r_gliner = self._result("Max Mustermann", "NER_PERSON", "gliner", score=0.70)
+        r_vector = self._result(
+            "Max Mustermann", "VECTOR_PERSON", "vector-search", 0.60
+        )
+        container.add_detection_results([r_gliner, r_vector], "/f.txt")
+        assert len(container.pii_matches) == 1
+        score = container.pii_matches[0].ner_score
+        # 1 - (1-0.70)*(1 - 0.55*0.60) = 1 - 0.30*0.67 = 0.799
+        assert score == pytest.approx(0.799, abs=1e-3)
+        assert score > 0.70  # corroboration raised it above the best single score
+
+    def test_fusion_single_engine_score_unchanged(self):
+        """A lone finding keeps its raw score (fusion only acts on corroboration)."""
+        container = PiiMatchContainer(enable_confidence_fusion=True)
+        r = self._result("Max Mustermann", "NER_PERSON", "gliner", score=0.73)
+        container.add_detection_results([r], "/f.txt")
+        assert container.pii_matches[0].ner_score == 0.73
+
+    def test_fusion_custom_weights(self):
+        """Per-engine weights are configurable and affect the fused score."""
+        container = PiiMatchContainer(
+            enable_confidence_fusion=True,
+            engine_fusion_weights={"vector-search": 0.0},
+        )
+        r_gliner = self._result("Max Mustermann", "NER_PERSON", "gliner", score=0.70)
+        r_vector = self._result(
+            "Max Mustermann", "VECTOR_PERSON", "vector-search", 0.60
+        )
+        container.add_detection_results([r_gliner, r_vector], "/f.txt")
+        # weight 0 -> vector contributes nothing -> score stays at the gliner value
+        assert container.pii_matches[0].ner_score == pytest.approx(0.70, abs=1e-3)
 
     def test_fusion_disabled_normalization_keeps_separate(self):
         """With cross_engine_normalization off, raw labels no longer fuse."""

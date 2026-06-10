@@ -52,6 +52,20 @@ _DEDUP_MAX_ENTRIES = 500_000
 # a warning is logged so operators can fix their whitelist configuration.
 _MAX_WHITELIST_REGEX_LEN = 500
 
+# Default per-engine reliability weights for confidence fusion (weighted Noisy-OR).
+# They scale how much an additional engine's score contributes when it corroborates a
+# finding already reported by another engine.  Regex (checksum-validated structured
+# types) is the most reliable; coarse vector-similarity the least.  Values are rough
+# priors meant to be tuned against the evaluation harness, not exact probabilities.
+_DEFAULT_FUSION_WEIGHTS: dict[str, float] = {
+    "regex": 0.95,
+    "pydantic-ai": 0.85,
+    "gliner": 0.80,
+    "spacy-ner": 0.70,
+    "vector-search": 0.55,
+}
+_DEFAULT_FUSION_WEIGHT = 0.70
+
 _logger = logging.getLogger("pbd-toolkit")
 
 # configure support match types
@@ -125,11 +139,17 @@ class PiiMatchContainer:
     # The first match (highest confidence if available) wins.
     enable_deduplication: bool = False
     # When True, fuse confidence scores from multiple engines for the same
-    # (text, file, type) triple.  Formula: max(all_scores) + 0.05 * (n_engines – 1),
-    # capped at 1.0.  The bonus is deliberately small because engine scores are not
-    # statistically independent (both see the same text), so simple addition would
-    # over-estimate confidence.
+    # (text, file, type) triple via weighted Noisy-OR: the first engine contributes at
+    # full weight and each corroborating engine raises the score by
+    # 1 - Π(1 - wᵢ·sᵢ), capped at 1.0.  This rewards agreement monotonically (more than
+    # a flat bonus) while the per-engine weights (engine_fusion_weights) dampen
+    # unreliable engines — engine scores are not statistically independent (all see the
+    # same text), so weights below 1.0 avoid over-counting corroboration.  A single
+    # engine's score is left unchanged.
     enable_confidence_fusion: bool = False
+    # Per-engine reliability weights for the Noisy-OR fusion above.  Empty -> defaults
+    # (_DEFAULT_FUSION_WEIGHTS); unknown engines fall back to _DEFAULT_FUSION_WEIGHT.
+    engine_fusion_weights: dict = field(default_factory=dict)
     # Minimum confidence threshold (0.0 = accept all)
     min_confidence: float = 0.0
     # Minimum severity level for output (None = no filter). Does not affect pii_matches storage.
@@ -329,6 +349,12 @@ class PiiMatchContainer:
         type_key = canonical_for(type) if self.cross_engine_normalization else type
         return (text.lower(), file, type_key)
 
+    def _fusion_weight(self, engine: str | None) -> float:
+        """Reliability weight for *engine* in Noisy-OR confidence fusion."""
+        if engine and engine in self.engine_fusion_weights:
+            return float(self.engine_fusion_weights[engine])
+        return _DEFAULT_FUSION_WEIGHTS.get(engine or "", _DEFAULT_FUSION_WEIGHT)
+
     def __add_match(
         self,
         text: str,
@@ -373,24 +399,25 @@ class PiiMatchContainer:
                 if ner_score < self.min_confidence:
                     return
 
-            # Confidence fusion: when the same (text, file, type) is found by
-            # multiple engines, update the stored match's score instead of
-            # creating a new entry.  The fused score is:
-            #   max(all_scores) + 0.05 * (n_engines - 1), capped at 1.0
+            # Confidence fusion: when the same (text, file, type) is found by multiple
+            # engines, update the stored match's score (weighted Noisy-OR) instead of
+            # creating a new entry.  ``comp`` tracks Π(1 - wᵢ·sᵢ); the fused score is
+            # 1 - comp.  The first engine is folded in at full weight (so a single
+            # engine keeps its raw score); corroborating engines are weighted.
             if self.enable_confidence_fusion:
                 fusion_key = self._grouping_key(text, file, type)
                 if fusion_key in self._fusion_index:
-                    idx, engines_seen = self._fusion_index[fusion_key]
+                    idx, engines_seen, comp = self._fusion_index[fusion_key]
                     if engine not in engines_seen:
                         engines_seen.add(engine)
-                        existing = self.pii_matches[idx]
-                        scores = [
-                            s for s in [existing.ner_score, ner_score] if s is not None
-                        ]
-                        if scores:
-                            bonus = 0.05 * (len(engines_seen) - 1)
-                            existing.ner_score = min(1.0, max(scores) + bonus)
-                        existing.metadata["fused_engines"] = sorted(engines_seen)
+                        if ner_score is not None:
+                            comp *= 1.0 - self._fusion_weight(engine) * ner_score
+                            existing = self.pii_matches[idx]
+                            existing.ner_score = round(min(1.0, 1.0 - comp), 4)
+                        self.pii_matches[idx].metadata["fused_engines"] = sorted(
+                            engines_seen
+                        )
+                        self._fusion_index[fusion_key] = (idx, engines_seen, comp)
                     return
 
             # Deduplication: skip if an identical (text, file, type) match is already stored
@@ -422,10 +449,17 @@ class PiiMatchContainer:
             )
             self.pii_matches.append(pm)
 
-            # Register in fusion index for future multi-engine matches
+            # Register in fusion index for future multi-engine matches.  The first
+            # engine enters at full weight (comp = 1 - s) so a lone finding keeps its
+            # raw score; corroborating engines are folded in weighted (see above).
             if self.enable_confidence_fusion:
                 fusion_key = self._grouping_key(text, file, type)
-                self._fusion_index[fusion_key] = (len(self.pii_matches) - 1, {engine})
+                comp = (1.0 - ner_score) if ner_score is not None else 1.0
+                self._fusion_index[fusion_key] = (
+                    len(self.pii_matches) - 1,
+                    {engine},
+                    comp,
+                )
 
             # Check min_severity output filter before writing to output streams.
             # pii_matches always keeps all matches for post-scan processing (fail_on_severity, redaction).
