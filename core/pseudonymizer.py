@@ -23,30 +23,89 @@ from core.matches import PiiMatch
 # ---------------------------------------------------------------------------
 
 _FIRST_NAMES = [
-    "Anna", "Ben", "Clara", "David", "Eva", "Felix", "Greta", "Hans",
-    "Ida", "Jan", "Klara", "Lukas", "Mia", "Noah", "Olivia", "Paul",
-    "Quinn", "Rosa", "Stefan", "Tina", "Uwe", "Vera", "Walter", "Xara",
-    "Yara", "Zoe",
+    "Anna",
+    "Ben",
+    "Clara",
+    "David",
+    "Eva",
+    "Felix",
+    "Greta",
+    "Hans",
+    "Ida",
+    "Jan",
+    "Klara",
+    "Lukas",
+    "Mia",
+    "Noah",
+    "Olivia",
+    "Paul",
+    "Quinn",
+    "Rosa",
+    "Stefan",
+    "Tina",
+    "Uwe",
+    "Vera",
+    "Walter",
+    "Xara",
+    "Yara",
+    "Zoe",
 ]
 
 _LAST_NAMES = [
-    "Bauer", "Fischer", "Hoffmann", "Koch", "Lange", "Maier", "Müller",
-    "Neumann", "Otto", "Peters", "Richter", "Schmitt", "Schneider",
-    "Schulz", "Schwarz", "Wagner", "Weber", "Werner", "Wolf", "Zimmermann",
+    "Bauer",
+    "Fischer",
+    "Hoffmann",
+    "Koch",
+    "Lange",
+    "Maier",
+    "Müller",
+    "Neumann",
+    "Otto",
+    "Peters",
+    "Richter",
+    "Schmitt",
+    "Schneider",
+    "Schulz",
+    "Schwarz",
+    "Wagner",
+    "Weber",
+    "Werner",
+    "Wolf",
+    "Zimmermann",
 ]
 
 _STREET_NAMES = [
-    "Hauptstraße", "Bahnhofstraße", "Gartenweg", "Bergstraße", "Kirchgasse",
-    "Lindenallee", "Rosenweg", "Schillerstraße", "Mozartstraße", "Beethovenplatz",
+    "Hauptstraße",
+    "Bahnhofstraße",
+    "Gartenweg",
+    "Bergstraße",
+    "Kirchgasse",
+    "Lindenallee",
+    "Rosenweg",
+    "Schillerstraße",
+    "Mozartstraße",
+    "Beethovenplatz",
 ]
 
 _CITIES = [
-    "Musterstadt", "Neustadt", "Kleinburg", "Großfeld", "Waldheim",
-    "Seebach", "Bergdorf", "Talheim", "Wiesenau", "Steinbach",
+    "Musterstadt",
+    "Neustadt",
+    "Kleinburg",
+    "Großfeld",
+    "Waldheim",
+    "Seebach",
+    "Bergdorf",
+    "Talheim",
+    "Wiesenau",
+    "Steinbach",
 ]
 
 _DOMAINS = [
-    "example.com", "testmail.de", "sample.org", "fakeemail.net", "demo.io",
+    "example.com",
+    "testmail.de",
+    "sample.org",
+    "fakeemail.net",
+    "demo.io",
 ]
 
 _COUNTRIES = ["DE", "AT", "CH", "NL", "FR"]
@@ -57,7 +116,9 @@ _IBAN_LENGTHS = {"DE": 22, "AT": 20, "CH": 21, "NL": 18, "FR": 27}
 
 def _seed_rng(text: str) -> random.Random:
     """Return a seeded Random instance deterministic for *text*."""
-    digest = int(hashlib.md5(text.encode("utf-8"), usedforsecurity=False).hexdigest(), 16)  # noqa: S324
+    digest = int(
+        hashlib.md5(text.encode("utf-8"), usedforsecurity=False).hexdigest(), 16
+    )  # noqa: S324
     return random.Random(digest)
 
 
@@ -89,8 +150,12 @@ def _fake_iban(rng: random.Random) -> str:
 
 def _fake_credit_card(rng: random.Random) -> str:
     # Fake Visa-style number (starts with 4, 16 digits) – fails Luhn on purpose
-    digits = "4" + "".join(str(rng.randint(0, 9)) for _ in range(14)) + str(rng.randint(0, 9))
-    return " ".join(digits[i:i+4] for i in range(0, 16, 4))
+    digits = (
+        "4"
+        + "".join(str(rng.randint(0, 9)) for _ in range(14))
+        + str(rng.randint(0, 9))
+    )
+    return " ".join(digits[i : i + 4] for i in range(0, 16, 4))
 
 
 def _fake_date(rng: random.Random) -> str:
@@ -101,7 +166,7 @@ def _fake_date(rng: random.Random) -> str:
 
 
 def _fake_ip(rng: random.Random) -> str:
-    return f"10.{rng.randint(0,255)}.{rng.randint(0,255)}.{rng.randint(1,254)}"
+    return f"10.{rng.randint(0, 255)}.{rng.randint(0, 255)}.{rng.randint(1, 254)}"
 
 
 def _fake_address(rng: random.Random) -> str:
@@ -147,7 +212,9 @@ def _fake_for_type(pii_type: str, rng: random.Random) -> str:
         if pattern.search(pii_type):
             return generator(rng)
     # Fallback: short random alphanumeric token
-    return "FAKE-" + "".join(rng.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") for _ in range(8))
+    return "FAKE-" + "".join(
+        rng.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") for _ in range(8)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -239,9 +306,23 @@ def pseudonymize_files(
     pseudonymizer = Pseudonymizer()
 
     TEXT_EXTENSIONS = {
-        ".txt", ".csv", ".json", ".xml", ".html", ".htm", ".md",
-        ".markdown", ".yaml", ".yml", ".eml", ".properties", ".ini",
-        ".cfg", ".conf", ".env", ".rtf",
+        ".txt",
+        ".csv",
+        ".json",
+        ".xml",
+        ".html",
+        ".htm",
+        ".md",
+        ".markdown",
+        ".yaml",
+        ".yml",
+        ".eml",
+        ".properties",
+        ".ini",
+        ".cfg",
+        ".conf",
+        ".env",
+        ".rtf",
     }
 
     for file_path, file_matches in matches_by_file.items():
