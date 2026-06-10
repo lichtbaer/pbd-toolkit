@@ -108,6 +108,9 @@ class SpacyNEREngine:
                             "start_char": ent.start_char,
                             "end_char": ent.end_char,
                         },
+                        # Propagate the character offset so the match container can
+                        # capture context, apply context gating, and redact precisely.
+                        offset=ent.start_char,
                     )
                 )
 

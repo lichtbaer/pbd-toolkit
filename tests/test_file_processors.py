@@ -3,6 +3,7 @@
 import os
 import sqlite3
 import zipfile
+from unittest.mock import patch
 
 import pytest
 
@@ -91,6 +92,78 @@ class TestPdfProcessor:
         from file_processors.pdf_processor import _ocr_available
 
         assert isinstance(_ocr_available(), bool)
+
+    def test_ocr_page_passes_language_dpi_and_grayscale(self):
+        """_ocr_page forwards configured DPI, greyscale and language to the OCR stack."""
+        import sys
+        import types
+
+        from core import constants
+        from file_processors import pdf_processor
+
+        captured = {}
+
+        def fake_convert_from_path(path, first_page, last_page, dpi, grayscale):
+            captured["dpi"] = dpi
+            captured["grayscale"] = grayscale
+            return ["img1"]
+
+        def fake_image_to_string(img, lang):
+            captured["lang"] = lang
+            return "Gescannter Text"
+
+        fake_pdf2image = types.ModuleType("pdf2image")
+        fake_pdf2image.convert_from_path = fake_convert_from_path
+        fake_pytesseract = types.ModuleType("pytesseract")
+        fake_pytesseract.image_to_string = fake_image_to_string
+
+        with patch.dict(
+            sys.modules,
+            {"pdf2image": fake_pdf2image, "pytesseract": fake_pytesseract},
+        ):
+            with patch.dict(os.environ, {}, clear=False):
+                os.environ.pop("PBD_OCR_LANG", None)
+                os.environ.pop("PBD_OCR_DPI", None)
+                result = pdf_processor._ocr_page("scan.pdf", 1)
+
+        assert result == "Gescannter Text"
+        assert captured["dpi"] == constants.OCR_DPI
+        assert captured["grayscale"] == constants.OCR_GRAYSCALE
+        assert captured["lang"] == constants.OCR_LANGUAGES
+
+    def test_ocr_page_env_overrides(self):
+        """PBD_OCR_LANG and PBD_OCR_DPI override the defaults."""
+        import sys
+        import types
+
+        from file_processors import pdf_processor
+
+        captured = {}
+
+        def fake_convert_from_path(path, first_page, last_page, dpi, grayscale):
+            captured["dpi"] = dpi
+            return ["img1"]
+
+        def fake_image_to_string(img, lang):
+            captured["lang"] = lang
+            return "text"
+
+        fake_pdf2image = types.ModuleType("pdf2image")
+        fake_pdf2image.convert_from_path = fake_convert_from_path
+        fake_pytesseract = types.ModuleType("pytesseract")
+        fake_pytesseract.image_to_string = fake_image_to_string
+
+        with patch.dict(
+            sys.modules,
+            {"pdf2image": fake_pdf2image, "pytesseract": fake_pytesseract},
+        ):
+            with patch.dict(
+                os.environ, {"PBD_OCR_LANG": "fra", "PBD_OCR_DPI": "150"}, clear=False
+            ):
+                pdf_processor._ocr_page("scan.pdf", 1)
+
+        assert captured["lang"] == "fra"
+        assert captured["dpi"] == 150
 
 
 class TestDocxProcessor:

@@ -22,6 +22,9 @@ class TestSetup:
         assert hasattr(constants, "CONFIG_FILE")
         assert hasattr(constants, "OUTPUT_DIR")
         assert hasattr(constants, "VERSION")
+        assert hasattr(constants, "OCR_LANGUAGES")
+        assert hasattr(constants, "OCR_DPI")
+        assert hasattr(constants, "OCR_GRAYSCALE")
 
         # Check types
         assert isinstance(constants.MIN_PDF_TEXT_LENGTH, int)
@@ -30,6 +33,9 @@ class TestSetup:
         assert isinstance(constants.CONFIG_FILE, str)
         assert isinstance(constants.OUTPUT_DIR, str)
         assert isinstance(constants.VERSION, str)
+        assert isinstance(constants.OCR_LANGUAGES, str)
+        assert isinstance(constants.OCR_DPI, int)
+        assert isinstance(constants.OCR_GRAYSCALE, bool)
 
     def test_config_file_exists(self):
         """Test that config file exists."""

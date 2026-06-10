@@ -21,6 +21,22 @@ NER_THRESHOLD: float = 0.5
 # scan time – critical for air-gapped GDPR audit environments.
 NER_MODEL_NAME: str = "urchade/gliner_medium-v2.1"
 
+# OCR settings (only used when the optional ``[ocr]`` extra is installed and a scanned
+# PDF page has no embedded text). Tesseract language string – "deu+eng" recognises both
+# German and English text, matching the toolkit's primary (German) document focus.
+# Requires the matching Tesseract language packs (e.g. ``tesseract-ocr-deu``) to be
+# installed on the system. Overridable per deployment via the ``PBD_OCR_LANG`` env var.
+OCR_LANGUAGES: str = "deu+eng"
+
+# Rasterisation resolution for OCR. 300 DPI markedly improves recognition accuracy over
+# pdf2image's ~200 DPI default at the cost of more memory/time per page. Overridable via
+# the ``PBD_OCR_DPI`` env var.
+OCR_DPI: int = 300
+
+# Convert rasterised pages to greyscale before OCR. Generally neutral-to-positive for
+# Tesseract accuracy and reduces memory; no extra dependency.
+OCR_GRAYSCALE: bool = True
+
 # Configuration file path
 CONFIG_FILE: str = "config_types.json"
 

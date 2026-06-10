@@ -446,12 +446,12 @@ class PydanticAIEngine:
                     output = result.data
 
                 if isinstance(output, PIIDetectionResponse):
-                    return self._convert_results(output)
+                    return self._convert_results(output, source_text=text)
 
                 if isinstance(output, dict):
                     try:
                         parsed = PIIDetectionResponse.model_validate(output)
-                        return self._convert_results(parsed)
+                        return self._convert_results(parsed, source_text=text)
                     except Exception:
                         pass
 
@@ -461,7 +461,7 @@ class PydanticAIEngine:
                         try:
                             payload = json.loads(json_text)
                             parsed = PIIDetectionResponse.model_validate(payload)
-                            return self._convert_results(parsed)
+                            return self._convert_results(parsed, source_text=text)
                         except Exception:
                             pass
 
@@ -836,18 +836,29 @@ Look for:
 Extract all PII entities and return them in the structured format."""
 
     def _convert_results(
-        self, response: PIIDetectionResponse, image_path: str | None = None
+        self,
+        response: PIIDetectionResponse,
+        image_path: str | None = None,
+        source_text: str | None = None,
     ) -> list[DetectionResult]:
         """Convert PydanticAI response to DetectionResult list.
 
         Args:
             response: PIIDetectionResponse from agent
             image_path: Optional image path for metadata
+            source_text: Optional analysed text used to locate each entity's character
+                offset.  The LLM does not return offsets, so they are recovered by a
+                forward-only ``str.find`` (a cursor advances past each located match so
+                repeated values map to successive positions).  When a value cannot be
+                located unambiguously the offset stays ``None`` — the engine never
+                guesses, which keeps context gating conservative.
 
         Returns:
             List of DetectionResult objects
         """
         results = []
+        # Forward-only cursor for offset recovery from source_text (text path only).
+        search_cursor = 0
         for entity in response.entities:
             # For image detection, we always use an OpenAI-compatible endpoint
             # (vLLM/LocalAI/OpenAI), even when text detection uses Ollama.
@@ -859,6 +870,13 @@ Extract all PII entities and return them in the structured format."""
                 if entity.location:
                     metadata["location"] = entity.location
 
+            offset = None
+            if source_text and entity.text:
+                pos = source_text.find(entity.text, search_cursor)
+                if pos != -1:
+                    offset = pos
+                    search_cursor = pos + len(entity.text)
+
             results.append(
                 DetectionResult(
                     text=entity.text,
@@ -866,6 +884,7 @@ Extract all PII entities and return them in the structured format."""
                     confidence=entity.confidence,
                     engine_name="pydantic-ai",
                     metadata=metadata,
+                    offset=offset,
                 )
             )
 

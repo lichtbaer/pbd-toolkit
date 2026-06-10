@@ -1,6 +1,7 @@
 """PDF file processor using pdfminer.six, with an optional OCR fallback."""
 
 import logging
+import os
 from collections.abc import Iterator
 
 from pdfminer.high_level import extract_pages
@@ -10,6 +11,24 @@ from core import constants
 from file_processors.base_processor import BaseFileProcessor
 
 _logger = logging.getLogger(__name__)
+
+
+def _ocr_language() -> str:
+    """Tesseract language string, overridable via the ``PBD_OCR_LANG`` env var."""
+    return os.environ.get("PBD_OCR_LANG", constants.OCR_LANGUAGES)
+
+
+def _ocr_dpi() -> int:
+    """OCR rasterisation DPI, overridable via the ``PBD_OCR_DPI`` env var."""
+    raw = os.environ.get("PBD_OCR_DPI")
+    if raw:
+        try:
+            return int(raw)
+        except ValueError:
+            _logger.debug(
+                "Invalid PBD_OCR_DPI=%r; using default %d", raw, constants.OCR_DPI
+            )
+    return constants.OCR_DPI
 
 
 def _ocr_available() -> bool:
@@ -28,17 +47,35 @@ def _ocr_available() -> bool:
 
 
 def _ocr_page(file_path: str, page_number: int) -> str:
-    """OCR a single (1-based) PDF page; returns "" on any failure or if OCR is absent."""
+    """OCR a single (1-based) PDF page; returns "" on any failure or if OCR is absent.
+
+    Pages are rasterised at ``OCR_DPI`` (greyscale when ``OCR_GRAYSCALE``) and read with
+    the configured ``OCR_LANGUAGES`` so German scans are recognised, not just English.
+    A missing Tesseract language pack (e.g. ``tesseract-ocr-deu``) surfaces here as an
+    exception and degrades to an empty result, so the failure is logged with a hint.
+    """
+    lang = _ocr_language()
     try:
         from pdf2image import convert_from_path
         from pytesseract import image_to_string
 
         images = convert_from_path(
-            file_path, first_page=page_number, last_page=page_number
+            file_path,
+            first_page=page_number,
+            last_page=page_number,
+            dpi=_ocr_dpi(),
+            grayscale=constants.OCR_GRAYSCALE,
         )
-        return "\n".join(image_to_string(img) for img in images)
+        return "\n".join(image_to_string(img, lang=lang) for img in images)
     except Exception as exc:  # pragma: no cover - depends on optional native libs
-        _logger.debug("OCR failed for %s page %d: %s", file_path, page_number, exc)
+        _logger.debug(
+            "OCR failed for %s page %d (lang=%r): %s. "
+            "If a language pack is missing, install it (e.g. tesseract-ocr-deu).",
+            file_path,
+            page_number,
+            lang,
+            exc,
+        )
         return ""
 
 

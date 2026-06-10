@@ -56,6 +56,7 @@ pip install -r requirements.txt
 - **Office/email/etc. processors (DOCX/XLSX/MSG/...)**: `pip install ".[office]"`
 - **Image validation/processing**: `pip install ".[images]"`
 - **Magic-number type detection (`--use-magic-detection`)**: `pip install ".[magic]"`
+- **OCR for scanned PDFs**: `pip install ".[ocr]"` (plus system packages, see below)
 
 ## Optional Features Setup
 
@@ -115,6 +116,36 @@ pip install filetype
 ```
 
 See [File Formats Guide](../user-guide/file-formats.md#magic-number-detection-optional) for usage.
+
+### OCR for Scanned PDFs
+
+Scanned (image-only) PDF pages have no embedded text. When the optional OCR stack is
+installed, such pages are automatically OCR'd as a fallback. This requires both the
+Python extra **and** system packages (Poppler for rasterisation, Tesseract for OCR):
+
+**Python extra**:
+```bash
+pip install ".[ocr]"
+```
+
+**Linux** (Debian/Ubuntu) — note the German language pack, used by default:
+```bash
+sudo apt-get install poppler-utils tesseract-ocr tesseract-ocr-deu
+```
+
+**macOS**:
+```bash
+brew install poppler tesseract tesseract-lang
+```
+
+By default pages are rasterised at 300 DPI (greyscale) and read with the `deu+eng`
+language string. If the matching Tesseract language pack (e.g. `tesseract-ocr-deu`) is
+not installed, OCR degrades silently to an empty result (logged at debug level). Tune
+the behaviour without code changes via environment variables:
+
+- `PBD_OCR_LANG` — Tesseract language string (default `deu+eng`), e.g. `PBD_OCR_LANG=eng`.
+- `PBD_OCR_DPI` — rasterisation DPI (default `300`); lower it (e.g. `200`) to speed up
+  large scanned documents at some accuracy cost.
 
 ### Multimodal Image Detection
 

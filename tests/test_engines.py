@@ -198,6 +198,58 @@ class TestGLiNEREngine:
             assert results[0].entity_type == "NER_PERSON"
             assert results[0].confidence == 0.95
 
+    def test_gliner_engine_propagates_offset(self):
+        """GLiNER's entity 'start' is propagated to DetectionResult.offset."""
+        mock_config = Mock(spec=Config)
+        mock_config.use_ner = True
+        mock_config.ner_model = Mock()
+        mock_config.ner_labels = ["Person's Name"]
+        mock_config.ner_threshold = 0.5
+        mock_config.logger = Mock()
+
+        mock_config.ner_model.predict_entities.return_value = [
+            {
+                "text": "John Doe",
+                "label": "Person's Name",
+                "score": 0.95,
+                "start": 5,
+                "end": 13,
+            }
+        ]
+
+        with patch(
+            "core.engines.gliner_engine.config_ainer_sorted",
+            {"Person's Name": {"label": "NER_PERSON"}},
+        ):
+            engine = GLiNEREngine(mock_config)
+            results = engine.detect("Hi   John Doe is here")
+
+        assert len(results) == 1
+        assert results[0].offset == 5
+
+    def test_gliner_engine_offset_none_when_absent(self):
+        """When the model omits 'start', offset stays None (robust fallback)."""
+        mock_config = Mock(spec=Config)
+        mock_config.use_ner = True
+        mock_config.ner_model = Mock()
+        mock_config.ner_labels = ["Person's Name"]
+        mock_config.ner_threshold = 0.5
+        mock_config.logger = Mock()
+
+        mock_config.ner_model.predict_entities.return_value = [
+            {"text": "John Doe", "label": "Person's Name", "score": 0.95}
+        ]
+
+        with patch(
+            "core.engines.gliner_engine.config_ainer_sorted",
+            {"Person's Name": {"label": "NER_PERSON"}},
+        ):
+            engine = GLiNEREngine(mock_config)
+            results = engine.detect("John Doe is here")
+
+        assert len(results) == 1
+        assert results[0].offset is None
+
     def test_gliner_per_label_threshold_filters(self):
         """A per-label threshold drops entities below it while keeping others."""
         mock_config = Mock(spec=Config)
@@ -293,3 +345,35 @@ class TestSpacyNEREngine:
 
         assert len(results) == 0
         mock_config.logger.warning.assert_called()
+
+    def test_spacy_engine_propagates_offset(self):
+        """spaCy's ent.start_char is propagated to DetectionResult.offset."""
+        from core.engines.spacy_engine import SpacyNEREngine
+
+        mock_config = Mock(spec=Config)
+        # Keep _load_model a no-op by disabling, then inject a fake model.
+        mock_config.use_spacy_ner = False
+        mock_config.spacy_model_name = "de_core_news_sm"
+        mock_config.logger = Mock()
+
+        class _Ent:
+            def __init__(self, text, label_, start_char, end_char):
+                self.text = text
+                self.label_ = label_
+                self.label = 0
+                self.start_char = start_char
+                self.end_char = end_char
+
+        class _Doc:
+            ents = [_Ent("Anna Schmidt", "PER", 7, 19)]
+
+        engine = SpacyNEREngine(mock_config)
+        engine.enabled = True
+        engine.model = Mock(return_value=_Doc())
+
+        results = engine.detect("Hallo, Anna Schmidt!")
+
+        assert len(results) == 1
+        assert results[0].entity_type == "NER_PERSON"
+        assert results[0].offset == 7
+        assert results[0].metadata["start_char"] == 7
