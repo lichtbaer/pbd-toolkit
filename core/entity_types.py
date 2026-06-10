@@ -215,6 +215,38 @@ _VALIDATION_RULES: dict[str, tuple[str, str, int, int]] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Context-required canonical types
+# ---------------------------------------------------------------------------
+# Some structured types pass their (weak) structural validator on ordinary text.
+# The worst offender is BIC: an uppercase dictionary word such as "DEUTSCHLAND"
+# satisfies the 8/11-char BIC shape *and* contains a valid ISO country code ("SC"),
+# so the checksum validator alone cannot reject it.  For these types a finding is
+# only kept when at least one of the listed (case-insensitive) keywords appears
+# within ``CONTEXT_REQUIREMENT_WINDOW`` characters of the match.  The check is a
+# no-op when the surrounding text is unavailable (conservative: keep the finding).
+#
+# This deliberately trades a little recall (a standalone BIC with no banking
+# context nearby is dropped) for a large precision gain on free-form documents.
+CONTEXT_REQUIREMENT_WINDOW = 40
+_CONTEXT_REQUIREMENTS: dict[str, tuple[str, ...]] = {
+    BIC: ("bic", "swift", "iban", "bank", "blz", "bankleitzahl", "kontoverbindung"),
+}
+
+
+def context_requirement_for(canonical_type: str) -> tuple[str, ...] | None:
+    """Return required context keywords for a canonical type, or None.
+
+    Args:
+        canonical_type: A canonical type string (e.g. ``"BIC"``).
+
+    Returns:
+        Tuple of lowercase keywords of which at least one must appear near the
+        match for it to be kept, or ``None`` if the type has no context gate.
+    """
+    return _CONTEXT_REQUIREMENTS.get(canonical_type)
+
+
 def validation_rule_for(canonical_type: str) -> tuple[str, str, int, int] | None:
     """Return the checksum-validation rule for a canonical type, or None.
 

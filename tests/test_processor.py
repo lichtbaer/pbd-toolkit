@@ -244,3 +244,44 @@ class TestTextChunking:
         # The regex engine should still find the email via chunking
         found_texts = [m.text for m in pmc.pii_matches]
         assert any("test@example.com" in t for t in found_texts)
+
+    def test_chunked_match_has_global_offset(self, mock_config):
+        """char_offset of a match in a later chunk is relative to the full text."""
+        import re as _re
+
+        mock_config.use_regex = True
+        mock_config.text_chunk_size = 50
+        mock_config.text_chunk_overlap = 10
+        mock_config.regex_pattern = _re.compile(r"(test@\w+\.\w+)")
+        mock_config.ner_labels = []
+        mock_config.context_chars = 0
+
+        pmc = PiiMatchContainer()
+        processor = TextProcessor(mock_config, pmc)
+
+        # Email sits well past the first 50-char chunk boundary.
+        text = ("x" * 55) + " test@example.com " + ("x" * 55)
+        expected_offset = text.index("test@example.com")
+        processor.process_text(text, "/test/file.txt")
+
+        offsets = [
+            m.char_offset for m in pmc.pii_matches if m.text == "test@example.com"
+        ]
+        assert offsets, "email not detected"
+        # The recorded offset must point at the email in the FULL text, not the chunk.
+        assert expected_offset in offsets
+        assert (
+            text[offsets[0] : offsets[0] + len("test@example.com")]
+            == "test@example.com"
+        )
+
+    def test_split_with_offsets_are_document_global(self):
+        """_split_into_chunks_with_offsets yields correct base offsets."""
+        text = "abcdefghij"  # 10 chars
+        chunks = TextProcessor._split_into_chunks_with_offsets(
+            text, chunk_size=6, overlap=2
+        )
+        assert chunks[0] == ("abcdef", 0)
+        assert chunks[1] == ("efghij", 4)
+        for chunk, off in chunks:
+            assert text[off : off + len(chunk)] == chunk

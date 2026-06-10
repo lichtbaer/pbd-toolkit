@@ -210,15 +210,32 @@ class TextProcessor:
         Returns:
             List of text segments.
         """
+        return [
+            chunk
+            for chunk, _offset in TextProcessor._split_into_chunks_with_offsets(
+                text, chunk_size, overlap
+            )
+        ]
+
+    @staticmethod
+    def _split_into_chunks_with_offsets(
+        text: str, chunk_size: int, overlap: int
+    ) -> list[tuple[str, int]]:
+        """Like :meth:`_split_into_chunks` but also returns each chunk's start offset.
+
+        The offset is the chunk's position in *text*, used to translate chunk-local
+        engine offsets back into document-global ones so that context extraction,
+        context-based gating, and redaction all point at the right characters.
+        """
         if chunk_size <= 0 or len(text) <= chunk_size:
-            return [text]
+            return [(text, 0)]
 
         overlap = max(0, min(overlap, chunk_size - 1))
         step = chunk_size - overlap
-        chunks = []
+        chunks: list[tuple[str, int]] = []
         start = 0
         while start < len(text):
-            chunks.append(text[start : start + chunk_size])
+            chunks.append((text[start : start + chunk_size], start))
             start += step
         return chunks
 
@@ -264,7 +281,9 @@ class TextProcessor:
         # text_chunk_size > 0 AND the text exceeds that size.
         chunk_size = self.config.text_chunk_size
         chunk_overlap = self.config.text_chunk_overlap
-        text_chunks = self._split_into_chunks(text, chunk_size, chunk_overlap)
+        text_chunks = self._split_into_chunks_with_offsets(
+            text, chunk_size, chunk_overlap
+        )
 
         # Run all enabled engines
         for engine in self.engines:
@@ -278,10 +297,17 @@ class TextProcessor:
             start_time = time.time()
             try:
                 results = []
-                for chunk in text_chunks:
+                for chunk, base_offset in text_chunks:
                     chunk_results = self._run_engine_detect(
                         engine, chunk, labels=self.config.ner_labels
                     )
+                    # Translate chunk-local offsets to document-global offsets so the
+                    # match container's context extraction and gating use source_text
+                    # (the full pre-chunk text) consistently.
+                    if base_offset:
+                        for r in chunk_results:
+                            if getattr(r, "offset", None) is not None:
+                                r.offset += base_offset
                     results.extend(chunk_results)
 
                 processing_time = time.time() - start_time
@@ -316,10 +342,14 @@ class TextProcessor:
         if all_results:
             _ctx_chars = self.config.context_chars
             with self._process_lock:
+                # Always pass source_text: it powers context-based gating
+                # (e.g. BIC keyword proximity) even when context snippet capture
+                # (context_chars) is disabled.  context_chars only controls whether
+                # surrounding snippets are *stored* on the match.
                 self.match_container.add_detection_results(
                     all_results,
                     file_path,
-                    source_text=text if _ctx_chars > 0 else None,
+                    source_text=text,
                     context_chars=_ctx_chars,
                 )
                 if self.statistics:

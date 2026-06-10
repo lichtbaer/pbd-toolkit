@@ -59,17 +59,44 @@ Reported figures: per-type precision/recall/F1, plus `micro` (pooled) and `macro
 
 ## Findings surfaced by the bundled `synthetic_de.json`
 
-The regex-only baseline scores **F1 = 1.0 for IBAN, EMAIL and IP_ADDRESS** but reveals
-several genuine engine gaps that the harness now makes visible and trackable:
+The regex-only baseline now scores **precision = 1.0 and micro F1 ≈ 0.81** on the curated
+dataset (the remaining recall gap is `PERSON`/`LOCATION`/`HEALTH`, which require an NER or
+LLM engine and are intentionally out of regex scope). Earlier the harness surfaced several
+regex gaps that have since been fixed and are guarded by the CI quality gate
+(`--fail-under 0.80`) and `tests/test_eval.py`:
 
-- **Grouped credit-card numbers are missed.** `REGEX_CREDIT_CARD` only matches digits
-  with no separators, and the very broad `REGEX_PHONE` pattern shadows the 4-digit
-  groups of a spaced card (`4111 1111 1111 1111`).
-- **`REGEX_PHONE` is over-broad** (`\b(?:\+?[1-9]\d{1,14}|0[1-9]\d{1,13})\b`), matching
-  almost any multi-digit run and inflating false positives.
-- **`REGEX_BIC` is compiled case-insensitively** and matches ordinary German words. The
-  new cross-engine checksum validation (`--structured-validation`, on by default) now
-  filters roughly half of these — a measurable precision win — but a tighter pattern
-  would be better.
+- **Grouped credit-card numbers** (`4111 1111 1111 1111`) are now matched: the pattern
+  allows space/dash separators and is Luhn-validated, so false positives are filtered.
+- **`REGEX_PHONE`** was tightened to require an international (`+`/`00`) or national (`0…`)
+  prefix, so it no longer shadows the 4-digit groups of a spaced card or matches arbitrary
+  multi-digit runs.
+- **`REGEX_BIC`** is compiled case-sensitively (`(?-i:…)`) and is checksum-validated. Because
+  uppercase dictionary words can still satisfy the weak BIC shape *and* a valid ISO country
+  code (e.g. `DEUTSCHLAND` → `SC`), a **context gate** additionally requires a banking
+  keyword (`BIC`, `SWIFT`, `IBAN`, …) near the match. Disable with
+  `PiiMatchContainer(require_context_for_ambiguous=False)`.
+- **`REGEX_IBAN`** is country-agnostic (its BBAN groups are alphanumeric, so IBANs that
+  contain letters such as `GB29 NWBK …` are matched, not just all-digit German ones) and
+  carries an explicit checksum validator at the regex stage; **`REGEX_TAX_ID`** validates
+  at the regex stage too.
 
-These are tracked in `docs/about/roadmap.md`.
+A second dataset, `eval/datasets/synthetic_en.json`, exercises non-German formats and is
+gated separately in CI.
+
+Remaining and future work is tracked in `docs/about/roadmap.md`.
+
+## Extraction-quality harness
+
+Detection metrics assume the text was already extracted correctly.  A separate harness
+measures **extraction recall** — whether the file processors actually pull the expected
+text out of a document (a missed DOCX table cell or fused paragraph silently caps recall
+before any engine runs):
+
+```bash
+pbd-toolkit eval-extraction eval/datasets/extraction/manifest.json
+pbd-toolkit eval-extraction eval/datasets/extraction/manifest.json --fail-under 1.0 --format json
+```
+
+The manifest lists source files with `expected` (and optional `forbidden`) snippets;
+extraction runs through the real `FileProcessorRegistry`.  Shipped fixtures are
+plain-text formats so the gate is hermetic and CI-friendly.

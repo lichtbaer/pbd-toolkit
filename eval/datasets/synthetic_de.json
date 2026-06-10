@@ -70,6 +70,12 @@
     "text": "Die Rechnung ging an buchhaltung@musterfirma.de heute raus.",
     "annotations": [
       {
+        "type": "SIGNAL_WORD",
+        "start": 4,
+        "end": 12,
+        "text": "Rechnung"
+      },
+      {
         "type": "EMAIL",
         "start": 21,
         "end": 47,
@@ -130,6 +136,12 @@
     "text": "Patient Hans Schmidt erhielt die Diagnose Diabetes mellitus Typ 2.",
     "annotations": [
       {
+        "type": "SIGNAL_WORD",
+        "start": 0,
+        "end": 7,
+        "text": "Patient"
+      },
+      {
         "type": "PERSON",
         "start": 8,
         "end": 20,
@@ -137,6 +149,12 @@
       },
       {
         "type": "HEALTH",
+        "start": 33,
+        "end": 41,
+        "text": "Diagnose"
+      },
+      {
+        "type": "SIGNAL_WORD",
         "start": 33,
         "end": 41,
         "text": "Diagnose"
@@ -326,5 +344,63 @@
         "text": "datenschutz@example.com"
       }
     ]
+  },
+  {
+    "id": "doc-025",
+    "text": "Bankverbindung BIC COBADEFFXXX bei der Hausbank.",
+    "annotations": [
+      {
+        "type": "BIC",
+        "start": 19,
+        "end": 30,
+        "text": "COBADEFFXXX"
+      }
+    ]
+  },
+  {
+    "id": "doc-026",
+    "text": "Die Region DEUTSCHLAND wird oft erwaehnt.",
+    "annotations": []
+  },
+  {
+    "id": "doc-027",
+    "text": "Erreichbar unter +49 30 12345678 tagsueber.",
+    "annotations": [
+      {
+        "type": "PHONE",
+        "start": 17,
+        "end": 32,
+        "text": "+49 30 12345678"
+      }
+    ]
+  },
+  {
+    "id": "doc-028",
+    "text": "Hotline 0151 23456789 fuer Rueckfragen.",
+    "annotations": [
+      {
+        "type": "PHONE",
+        "start": 8,
+        "end": 21,
+        "text": "0151 23456789"
+      }
+    ]
+  },
+  {
+    "id": "doc-029",
+    "text": "Steuerliche Identifikationsnummer 42857613967 im Bescheid.",
+    "annotations": [
+      {
+        "type": "TAX_ID",
+        "start": 34,
+        "end": 45,
+        "text": "42857613967"
+      }
+    ]
+  },
+  {
+    "id": "doc-030",
+    "text": "Bestellnummer 4444 5555 nicht relevant hier.",
+    "annotations": []
   }
 ]

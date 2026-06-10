@@ -50,6 +50,48 @@ class TestPdfProcessor:
         assert processor.can_process(".PDF")
         assert processor.can_process(".Pdf")
 
+    def test_finalize_page_keeps_short_values_via_accumulation(self):
+        """Short standalone values survive because the whole page is yielded together.
+
+        Previously each text container was filtered independently, so a short line
+        like a postal code ('50667') in its own container was dropped.  Accumulating
+        the page first keeps it whenever the page as a whole has content.
+        """
+        page = "Kunde Max Mustermann\n50667 Koeln"
+        result = PdfProcessor._finalize_page(page, ocr_callable=None)
+        assert result == page
+        assert "50667" in result
+
+    def test_finalize_page_empty_without_ocr(self):
+        """An (almost) empty page yields nothing when OCR is unavailable."""
+        assert PdfProcessor._finalize_page("  \n ", ocr_callable=None) == ""
+        assert PdfProcessor._finalize_page("x", ocr_callable=None) == ""
+
+    def test_finalize_page_uses_ocr_fallback(self):
+        """When a page has no embedded text, the OCR callable result is used."""
+        result = PdfProcessor._finalize_page(
+            "", ocr_callable=lambda: "Gescannter Text DE89 3704 0044 0532 0130 00"
+        )
+        assert "DE89 3704 0044 0532 0130 00" in result
+
+    def test_finalize_page_prefers_embedded_text_over_ocr(self):
+        """OCR is not invoked when the page already has enough embedded text."""
+        calls = []
+
+        def ocr():
+            calls.append(1)
+            return "should-not-be-used"
+
+        page = "Eingebetteter Text auf dieser Seite"
+        assert PdfProcessor._finalize_page(page, ocr_callable=ocr) == page
+        assert calls == []  # OCR must not run when embedded text is sufficient
+
+    def test_ocr_available_returns_bool(self):
+        """The OCR availability probe never raises and returns a bool."""
+        from file_processors.pdf_processor import _ocr_available
+
+        assert isinstance(_ocr_available(), bool)
+
 
 class TestDocxProcessor:
     """Tests for DOCX processor."""
@@ -61,6 +103,35 @@ class TestDocxProcessor:
         assert processor.can_process(".DOCX")
         assert not processor.can_process(".pdf")
         assert not processor.can_process(".txt")
+
+    def test_extract_paragraphs_tables_headers(self, temp_dir):
+        """Paragraphs, table cells and header/footer text are all extracted."""
+        docx = pytest.importorskip("docx")
+        path = os.path.join(temp_dir, "sample.docx")
+
+        document = docx.Document()
+        document.add_paragraph("Max Mustermann")
+        document.add_paragraph("max.mustermann@example.com")
+        table = document.add_table(rows=2, cols=2)
+        table.cell(0, 0).text = "IBAN"
+        table.cell(0, 1).text = "Wert"
+        table.cell(1, 0).text = "DE89 3704 0044 0532 0130 00"
+        table.cell(1, 1).text = "Hauptkonto"
+        section = document.sections[0]
+        section.header.paragraphs[0].text = "Vertraulich Kopfzeile"
+        section.footer.paragraphs[0].text = "Seite Fusszeile"
+        document.save(path)
+
+        text = DocxProcessor().extract_text(path)
+
+        # Paragraphs are newline-separated so adjacent entities do not fuse.
+        assert "Max Mustermann\nmax.mustermann@example.com" in text
+        # Table cells (incl. the IBAN that only lives in a table) are present.
+        assert "DE89 3704 0044 0532 0130 00" in text
+        assert "IBAN" in text
+        # Header and footer text is captured.
+        assert "Vertraulich Kopfzeile" in text
+        assert "Seite Fusszeile" in text
 
 
 class TestHtmlProcessor:
@@ -162,6 +233,20 @@ class TestCsvProcessor:
         text = processor.extract_text(file_path)
         assert "John Doe" in text
         assert "john@example.com" in text
+
+    def test_extract_preserves_column_context(self, temp_dir):
+        """Each value is paired with its column header and rows stay separated."""
+        file_path = os.path.join(temp_dir, "context.csv")
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write("Name,IBAN\n")
+            f.write("Max Mustermann,DE89 3704 0044 0532 0130 00\n")
+            f.write("Erika Beispiel,DE02 1203 0000 0000 2020 51\n")
+
+        text = CsvProcessor().extract_text(file_path)
+        assert "IBAN: DE89 3704 0044 0532 0130 00" in text
+        assert "Name: Max Mustermann" in text
+        # Two data records -> two separate lines (plus the header line).
+        assert len(text.splitlines()) == 3
 
     def test_file_not_found(self, temp_dir):
         """Test that FileNotFoundError is raised for non-existent file."""
@@ -338,6 +423,33 @@ class TestEmlProcessor:
         assert processor.can_process(".EML")
         assert not processor.can_process(".txt")
         assert not processor.can_process(".msg")
+
+    def test_extract_text_from_attachment(self, temp_dir):
+        """Text inside a CSV attachment is extracted via the processor registry."""
+        from email.message import EmailMessage
+
+        msg = EmailMessage()
+        msg["From"] = "alice@example.com"
+        msg["To"] = "bob@example.com"
+        msg["Subject"] = "Stammdaten"
+        msg.set_content("Anbei die Kundendaten.")
+        msg.add_attachment(
+            b"Name,IBAN\nMax Mustermann,DE89 3704 0044 0532 0130 00\n",
+            maintype="text",
+            subtype="csv",
+            filename="kunden.csv",
+        )
+
+        file_path = os.path.join(temp_dir, "with_attachment.eml")
+        with open(file_path, "wb") as f:
+            f.write(msg.as_bytes())
+
+        text = EmlProcessor().extract_text(file_path)
+        # The IBAN only exists inside the attachment.
+        assert "DE89 3704 0044 0532 0130 00" in text
+        assert "[Attachment: kunden.csv]" in text
+        # Attachment is run through the CSV processor -> column context preserved.
+        assert "IBAN: DE89 3704 0044 0532 0130 00" in text
 
     def test_extract_text_from_eml(self, temp_dir):
         """Test text extraction from EML file."""
@@ -520,6 +632,27 @@ class TestXlsxProcessor:
         text = processor.extract_text(xlsx_path)
         assert "John Doe" in text
         assert "john@example.com" in text
+
+    def test_extract_preserves_column_context(self, temp_dir):
+        """Values are paired with their column header for context-aware detection."""
+        pytest.importorskip("openpyxl")
+        from openpyxl import Workbook
+
+        xlsx_path = os.path.join(temp_dir, "context.xlsx")
+        wb = Workbook()
+        ws = wb.active
+        ws.append(["Name", "IBAN"])
+        ws.append(["Max Mustermann", "DE89 3704 0044 0532 0130 00"])
+        ws.append(["Erika Beispiel", "DE02 1203 0000 0000 2020 51"])
+        wb.save(xlsx_path)
+
+        text = XlsxProcessor().extract_text(xlsx_path)
+        # Each value carries its column header.
+        assert "IBAN: DE89 3704 0044 0532 0130 00" in text
+        assert "Name: Max Mustermann" in text
+        # Records stay on separate lines so entities do not fuse across rows.
+        assert "Erika Beispiel" in text
+        assert "\n" in text
 
     def test_file_not_found(self, temp_dir):
         """Test that non-existent file raises an error (XlsxProcessor wraps as Exception)."""

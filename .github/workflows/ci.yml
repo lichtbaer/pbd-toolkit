@@ -27,6 +27,24 @@ jobs:
         run: |
           python -m pytest -q
 
+      - name: Detection-quality gate (regex, hermetic)
+        run: |
+          # Deterministic, offline regression gate on the synthetic ground truth.
+          # Regex-only requires no model downloads. A drop below the threshold means
+          # a regex pattern or the validation/context-gating pipeline regressed.
+          python -m core.cli evaluate eval/datasets/synthetic_de.json \
+            --engines regex --fail-under 0.80
+          # English dataset exercises non-DE formats (e.g. IBANs containing letters).
+          python -m core.cli evaluate eval/datasets/synthetic_en.json \
+            --engines regex --fail-under 0.95
+
+      - name: Extraction-quality gate
+        run: |
+          # Verifies the file processors still pull the expected text (e.g. CSV
+          # column-header context) out of the sample documents.
+          python -m core.cli eval-extraction eval/datasets/extraction/manifest.json \
+            --fail-under 1.0
+
   lint:
     runs-on: ubuntu-latest
     steps:

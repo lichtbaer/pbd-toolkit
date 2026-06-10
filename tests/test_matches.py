@@ -3,6 +3,8 @@
 import re
 from types import SimpleNamespace
 
+import pytest
+
 from core.matches import PiiMatch, PiiMatchContainer
 
 
@@ -217,8 +219,43 @@ class TestCrossEngineNormalization:
         pm = container.pii_matches[0]
         assert sorted(pm.metadata["fused_engines"]) == ["regex", "vector-search"]
         assert pm.metadata["canonical_type"] == "CREDIT_CARD"
-        # max(1.0, 0.82) + 0.05 corroboration bonus, capped at 1.0
+        # First engine (regex) enters at full weight 1.0 -> Noisy-OR stays 1.0.
         assert pm.ner_score == 1.0
+
+    def test_fusion_noisy_or_boosts_corroborated_score(self):
+        """Two non-certain engines agreeing must raise the score above either alone."""
+        container = PiiMatchContainer(enable_confidence_fusion=True)
+        r_gliner = self._result("Max Mustermann", "NER_PERSON", "gliner", score=0.70)
+        r_vector = self._result(
+            "Max Mustermann", "VECTOR_PERSON", "vector-search", 0.60
+        )
+        container.add_detection_results([r_gliner, r_vector], "/f.txt")
+        assert len(container.pii_matches) == 1
+        score = container.pii_matches[0].ner_score
+        # 1 - (1-0.70)*(1 - 0.55*0.60) = 1 - 0.30*0.67 = 0.799
+        assert score == pytest.approx(0.799, abs=1e-3)
+        assert score > 0.70  # corroboration raised it above the best single score
+
+    def test_fusion_single_engine_score_unchanged(self):
+        """A lone finding keeps its raw score (fusion only acts on corroboration)."""
+        container = PiiMatchContainer(enable_confidence_fusion=True)
+        r = self._result("Max Mustermann", "NER_PERSON", "gliner", score=0.73)
+        container.add_detection_results([r], "/f.txt")
+        assert container.pii_matches[0].ner_score == 0.73
+
+    def test_fusion_custom_weights(self):
+        """Per-engine weights are configurable and affect the fused score."""
+        container = PiiMatchContainer(
+            enable_confidence_fusion=True,
+            engine_fusion_weights={"vector-search": 0.0},
+        )
+        r_gliner = self._result("Max Mustermann", "NER_PERSON", "gliner", score=0.70)
+        r_vector = self._result(
+            "Max Mustermann", "VECTOR_PERSON", "vector-search", 0.60
+        )
+        container.add_detection_results([r_gliner, r_vector], "/f.txt")
+        # weight 0 -> vector contributes nothing -> score stays at the gliner value
+        assert container.pii_matches[0].ner_score == pytest.approx(0.70, abs=1e-3)
 
     def test_fusion_disabled_normalization_keeps_separate(self):
         """With cross_engine_normalization off, raw labels no longer fuse."""
@@ -299,6 +336,67 @@ class TestStructuredValidation:
         container = PiiMatchContainer(validate_structured_findings=True)
         container.add_detection_results(
             [self._result("Max Mustermann", "PERSON")], "/f.txt"
+        )
+        assert len(container.pii_matches) == 1
+
+
+class TestContextRequirement:
+    """Context-based gating of false-positive-prone types (BIC keyword proximity)."""
+
+    def _result(self, text, type_, offset):
+        return SimpleNamespace(
+            text=text,
+            entity_type=type_,
+            engine_name="regex",
+            confidence=1.0,
+            metadata={},
+            offset=offset,
+        )
+
+    # An uppercase dictionary word that satisfies the BIC shape and even carries a
+    # valid ISO country code ("SC" = Seychelles), so the checksum validator alone
+    # cannot reject it.
+    TRAP = "DEUTSCHLAND"
+
+    def test_bic_without_keyword_is_dropped(self):
+        text = "Die Region DEUTSCHLAND wird oft erwaehnt."
+        offset = text.index(self.TRAP)
+        container = PiiMatchContainer()
+        container.add_detection_results(
+            [self._result(self.TRAP, "REGEX_BIC", offset)],
+            "/f.txt",
+            source_text=text,
+        )
+        assert len(container.pii_matches) == 0
+
+    def test_bic_with_keyword_is_kept(self):
+        text = "Bankverbindung BIC COBADEFFXXX bei der Hausbank."
+        bic = "COBADEFFXXX"
+        offset = text.index(bic)
+        container = PiiMatchContainer()
+        container.add_detection_results(
+            [self._result(bic, "REGEX_BIC", offset)],
+            "/f.txt",
+            source_text=text,
+        )
+        assert len(container.pii_matches) == 1
+
+    def test_bic_kept_when_source_text_unavailable(self):
+        """Without surrounding text the gate cannot evaluate and keeps the finding."""
+        container = PiiMatchContainer()
+        container.add_detection_results(
+            [self._result("COBADEFFXXX", "REGEX_BIC", None)], "/f.txt"
+        )
+        assert len(container.pii_matches) == 1
+
+    def test_gate_can_be_disabled(self):
+        text = "Die Region DEUTSCHLAND wird oft erwaehnt."
+        offset = text.index(self.TRAP)
+        container = PiiMatchContainer(require_context_for_ambiguous=False)
+        container.add_detection_results(
+            [self._result(self.TRAP, "REGEX_BIC", offset)],
+            "/f.txt",
+            source_text=text,
         )
         assert len(container.pii_matches) == 1
 
