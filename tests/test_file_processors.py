@@ -382,6 +382,33 @@ class TestEmlProcessor:
         assert not processor.can_process(".txt")
         assert not processor.can_process(".msg")
 
+    def test_extract_text_from_attachment(self, temp_dir):
+        """Text inside a CSV attachment is extracted via the processor registry."""
+        from email.message import EmailMessage
+
+        msg = EmailMessage()
+        msg["From"] = "alice@example.com"
+        msg["To"] = "bob@example.com"
+        msg["Subject"] = "Stammdaten"
+        msg.set_content("Anbei die Kundendaten.")
+        msg.add_attachment(
+            b"Name,IBAN\nMax Mustermann,DE89 3704 0044 0532 0130 00\n",
+            maintype="text",
+            subtype="csv",
+            filename="kunden.csv",
+        )
+
+        file_path = os.path.join(temp_dir, "with_attachment.eml")
+        with open(file_path, "wb") as f:
+            f.write(msg.as_bytes())
+
+        text = EmlProcessor().extract_text(file_path)
+        # The IBAN only exists inside the attachment.
+        assert "DE89 3704 0044 0532 0130 00" in text
+        assert "[Attachment: kunden.csv]" in text
+        # Attachment is run through the CSV processor -> column context preserved.
+        assert "IBAN: DE89 3704 0044 0532 0130 00" in text
+
     def test_extract_text_from_eml(self, temp_dir):
         """Test text extraction from EML file."""
         file_path = os.path.join(temp_dir, "test.eml")

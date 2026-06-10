@@ -1,0 +1,23 @@
+From: sachbearbeiter@example.org
+To: kunde@example.com
+Subject: Ihre Unterlagen
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============3424816924694174908=="
+
+--===============3424816924694174908==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Sehr geehrte Damen und Herren,
+anbei Ihre Vertragsdaten als Anhang.
+
+--===============3424816924694174908==
+Content-Type: text/csv
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="vertragsdaten.csv"
+MIME-Version: 1.0
+
+TmFtZSxFbWFpbCxJQkFOCkVyaWthIEJlaXNwaWVsLGVyaWthLmJlaXNwaWVsQHdlYi5kZSxERTQ0
+IDUwMDEgMDUxNyA1NDA3IDMyNDkgMzEK
+
+--===============3424816924694174908==--

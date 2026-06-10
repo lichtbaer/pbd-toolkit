@@ -18,6 +18,15 @@
         "DE44 5001 0517 5407 3249 31"
       ],
       "forbidden": []
+    },
+    {
+      "file": "email_with_attachment.eml",
+      "expected": [
+        "sachbearbeiter@example.org",
+        "IBAN: DE44 5001 0517 5407 3249 31",
+        "erika.beispiel@web.de"
+      ],
+      "forbidden": []
     }
   ]
 }

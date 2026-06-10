@@ -1,26 +1,41 @@
 """EML file processor using Python's built-in email module."""
 
 import email
+import logging
+import os
+import tempfile
 from email.policy import default
 
 from file_processors.base_processor import BaseFileProcessor
+
+_logger = logging.getLogger(__name__)
+
+# Limits for recursive attachment extraction (defence against decompression bombs
+# and message/rfc822 loops).
+_MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024  # 50 MB per attachment
+_MAX_ATTACHMENTS = 50  # per message
+_MAX_ATTACHMENT_DEPTH = 3  # nested .eml within .eml within .eml
 
 
 class EmlProcessor(BaseFileProcessor):
     """Processor for EML (Email Message) files.
 
     Extracts text from EML files using Python's built-in email module.
-    Extracts headers (From, To, Subject, etc.) and body content (both plain text and HTML).
+    Extracts headers (From, To, Subject, etc.), body content (plain text and HTML),
+    and recursively extracts text from attachments by routing each attachment back
+    through the file-processor registry (so a PDF or spreadsheet attached to an email
+    is scanned for PII just like a standalone file).
     """
 
-    def extract_text(self, file_path: str) -> str:
+    def extract_text(self, file_path: str, *, _depth: int = 0) -> str:
         """Extract text from an EML file.
 
         Args:
             file_path: Path to the EML file
+            _depth: Internal recursion depth for nested .eml attachments.
 
         Returns:
-            Extracted text content from headers and body
+            Extracted text content from headers, body and attachments
 
         Raises:
             email.errors.MessageError: If file is not a valid email message
@@ -58,6 +73,9 @@ class EmlProcessor(BaseFileProcessor):
             if body_text:
                 text_parts.append(body_text)
 
+            # Recursively extract text from attachments
+            text_parts.extend(self._extract_attachments(msg, _depth))
+
         except FileNotFoundError:
             raise
         except PermissionError:
@@ -67,6 +85,101 @@ class EmlProcessor(BaseFileProcessor):
             raise Exception(f"Error processing EML file: {str(e)}") from e
 
         return " ".join(text_parts)
+
+    def _extract_attachments(
+        self, msg: email.message.EmailMessage, depth: int
+    ) -> list[str]:
+        """Extract text from attachments by routing them through the registry.
+
+        Body parts (text/plain, text/html) are already handled by
+        ``_extract_body_text`` and skipped here.  Each remaining attachment is written
+        to a temporary file and dispatched to the matching file processor, so attached
+        PDFs, spreadsheets, documents, etc. are scanned for PII as well.
+        """
+        if depth >= _MAX_ATTACHMENT_DEPTH:
+            return []
+
+        # Lazy import avoids a circular import (registry imports this module).
+        from file_processors.registry import FileProcessorRegistry
+
+        parts: list[str] = []
+        count = 0
+        for part in msg.walk():
+            if part.get_content_maintype() == "multipart":
+                continue
+            filename = part.get_filename()
+            disposition = (part.get_content_disposition() or "").lower()
+            is_attachment = disposition == "attachment" or filename is not None
+            if not is_attachment:
+                continue
+            # Body text parts are covered elsewhere; avoid double extraction.
+            if part.get_content_type() in ("text/plain", "text/html"):
+                continue
+
+            payload = part.get_payload(decode=True)
+            if not payload:
+                continue
+            if len(payload) > _MAX_ATTACHMENT_BYTES:
+                _logger.warning(
+                    "Skipping oversized email attachment (%d MB): %s",
+                    len(payload) // (1024 * 1024),
+                    filename or "<unnamed>",
+                )
+                continue
+
+            count += 1
+            if count > _MAX_ATTACHMENTS:
+                _logger.warning(
+                    "Too many attachments; stopping at %d", _MAX_ATTACHMENTS
+                )
+                break
+
+            text = self._extract_attachment_payload(
+                FileProcessorRegistry, payload, filename, part.get_content_type(), depth
+            )
+            if text and text.strip():
+                parts.append(f"[Attachment: {filename or 'unnamed'}]\n{text}")
+
+        return parts
+
+    def _extract_attachment_payload(
+        self,
+        registry,
+        payload: bytes,
+        filename: str | None,
+        content_type: str,
+        depth: int,
+    ) -> str:
+        """Write *payload* to a temp file and extract text via the matching processor."""
+        ext = os.path.splitext(filename)[1].lower() if filename else ""
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=ext or ".bin", delete=False) as tmp:
+                tmp.write(payload)
+                tmp_path = tmp.name
+
+            processor = registry.get_processor(ext, tmp_path, content_type)
+            if processor is None:
+                return ""
+
+            # Nested .eml: pass recursion depth to enforce the depth limit.
+            if isinstance(processor, EmlProcessor):
+                result = processor.extract_text(tmp_path, _depth=depth + 1)
+            else:
+                result = processor.extract_text(tmp_path)
+
+            if isinstance(result, str):
+                return result
+            return "\n".join(chunk for chunk in result)
+        except Exception as exc:
+            _logger.debug("Skipping unreadable email attachment %s: %s", filename, exc)
+            return ""
+        finally:
+            if tmp_path:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
 
     def _extract_body_text(self, msg: email.message.EmailMessage) -> str:
         """Extract text from email body, handling multipart messages.
