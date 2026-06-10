@@ -35,6 +35,13 @@ jobs:
           python -m core.cli evaluate eval/datasets/synthetic_de.json \
             --engines regex --fail-under 0.80
 
+      - name: Extraction-quality gate
+        run: |
+          # Verifies the file processors still pull the expected text (e.g. CSV
+          # column-header context) out of the sample documents.
+          python -m core.cli eval-extraction eval/datasets/extraction/manifest.json \
+            --fail-under 1.0
+
   lint:
     runs-on: ubuntu-latest
     steps:

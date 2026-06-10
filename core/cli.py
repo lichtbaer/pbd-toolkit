@@ -1378,6 +1378,90 @@ def evaluate(
         raise typer.Exit(code=constants.EXIT_GENERAL_ERROR)
 
 
+@app.command("eval-extraction")
+def eval_extraction(
+    manifest: str = typer.Argument(
+        ...,
+        help="Path to an extraction manifest (JSON). See eval/datasets/extraction/manifest.json.",
+    ),
+    output_format: str = typer.Option(
+        "human",
+        "--format",
+        help="Output format: 'human' (default) or 'json'",
+        case_sensitive=False,
+    ),
+    fail_under: float | None = typer.Option(
+        None,
+        "--fail-under",
+        help="Exit non-zero if extraction recall is below this value (0.0-1.0). Useful as a CI quality gate.",
+    ),
+) -> None:
+    """Measure text-extraction recall of the file processors against a manifest.
+
+    Runs the real FileProcessorRegistry extraction path over each listed file and
+    checks which expected snippets appear in the extracted text.  This catches
+    extraction regressions (e.g. a DOCX table or CSV column-header context going
+    missing) that detection metrics alone cannot see.
+
+    [bold]Examples:[/bold]
+
+        pbd-toolkit eval-extraction eval/datasets/extraction/manifest.json
+
+        pbd-toolkit eval-extraction eval/datasets/extraction/manifest.json --fail-under 1.0
+    """
+    import json as _json
+
+    from eval.extraction import run_extraction_eval
+
+    try:
+        result = run_extraction_eval(manifest)
+    except FileNotFoundError:
+        typer.echo(f"Error: manifest file not found: {manifest}", err=True)
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+    except ValueError as exc:
+        typer.echo(f"Error: invalid manifest: {exc}", err=True)
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+
+    report = result.as_dict()
+
+    if output_format.lower() == "json":
+        typer.echo(
+            _json.dumps({"manifest": manifest, **report}, indent=2, ensure_ascii=False)
+        )
+    else:
+        typer.echo(f"\nManifest:  {manifest}  ({len(report['per_file'])} files)\n")
+        header = f"{'File':<32}{'Found':>8}{'Exp':>6}"
+        typer.echo(header)
+        typer.echo("─" * len(header))
+        for r in report["per_file"]:
+            typer.echo(f"{r['file']:<32}{r['found']:>8}{r['expected']:>6}")
+            for miss in r["missing"]:
+                typer.echo(f"    MISSING: {miss!r}")
+            for hit in r["forbidden_hits"]:
+                typer.echo(f"    FORBIDDEN LEAKED: {hit!r}")
+        typer.echo("─" * len(header))
+        typer.echo(
+            f"Extraction recall: {report['recall']:.3f} "
+            f"({report['total_found']}/{report['total_expected']} snippets)"
+        )
+        if report["forbidden_hits"]:
+            typer.echo(f"Forbidden snippets leaked: {report['forbidden_hits']}")
+        typer.echo("")
+
+    if report["forbidden_hits"]:
+        typer.echo(
+            f"Extraction gate FAILED: {report['forbidden_hits']} forbidden snippet(s) leaked",
+            err=True,
+        )
+        raise typer.Exit(code=constants.EXIT_GENERAL_ERROR)
+    if fail_under is not None and result.recall < fail_under:
+        typer.echo(
+            f"Extraction gate FAILED: recall {result.recall:.4f} < --fail-under {fail_under}",
+            err=True,
+        )
+        raise typer.Exit(code=constants.EXIT_GENERAL_ERROR)
+
+
 @app.command()
 def diff(
     old_file: str = typer.Argument(

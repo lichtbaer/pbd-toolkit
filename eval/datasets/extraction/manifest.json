@@ -1,0 +1,23 @@
+{
+  "documents": [
+    {
+      "file": "contacts.csv",
+      "expected": [
+        "IBAN: DE89 3704 0044 0532 0130 00",
+        "Name: Max Mustermann",
+        "Email: erika.beispiel@web.de",
+        "IBAN: DE02 1203 0000 0000 2020 51"
+      ],
+      "forbidden": []
+    },
+    {
+      "file": "notes.md",
+      "expected": [
+        "hans.schmidt@example.org",
+        "buchhaltung@musterfirma.de",
+        "DE44 5001 0517 5407 3249 31"
+      ],
+      "forbidden": []
+    }
+  ]
+}

@@ -79,3 +79,19 @@ regex gaps that have since been fixed and are guarded by the CI quality gate
   stage as well, not only via cross-engine validation.
 
 Remaining and future work is tracked in `docs/about/roadmap.md`.
+
+## Extraction-quality harness
+
+Detection metrics assume the text was already extracted correctly.  A separate harness
+measures **extraction recall** — whether the file processors actually pull the expected
+text out of a document (a missed DOCX table cell or fused paragraph silently caps recall
+before any engine runs):
+
+```bash
+pbd-toolkit eval-extraction eval/datasets/extraction/manifest.json
+pbd-toolkit eval-extraction eval/datasets/extraction/manifest.json --fail-under 1.0 --format json
+```
+
+The manifest lists source files with `expected` (and optional `forbidden`) snippets;
+extraction runs through the real `FileProcessorRegistry`.  Shipped fixtures are
+plain-text formats so the gate is hermetic and CI-friendly.
