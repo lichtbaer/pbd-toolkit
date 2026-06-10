@@ -31,6 +31,7 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from core.entity_types import canonical_for, validation_rule_for
 from core.resources import load_config_types
 from core.severity import classify as _classify_severity
 
@@ -78,6 +79,7 @@ class PiiMatch:
     The ``severity`` field is auto-populated from the type label at creation
     time so that output writers always have a pre-classified value.
     """
+
     # The text that represents PII
     text: str
     # The file in which the represented PII was found
@@ -110,6 +112,7 @@ class PiiMatchContainer:
     intentionally coarse-grained (one per container) because match writes are fast
     compared to the I/O and ML inference happening on worker threads.
     """
+
     pii_matches: list[PiiMatch] = field(default_factory=list)
     # Whitelist used for excluding strings from being identified as PII
     whitelist: list[str] = field(default_factory=list)
@@ -126,6 +129,16 @@ class PiiMatchContainer:
     min_confidence: float = 0.0
     # Minimum severity level for output (None = no filter). Does not affect pii_matches storage.
     min_severity: str | None = None
+    # When True, deduplication and confidence fusion group findings by their *canonical*
+    # entity type (see core.entity_types) instead of the raw engine label.  This is what
+    # lets a credit card found by both the regex engine (REGEX_CREDIT_CARD) and the vector
+    # engine (VECTOR_CREDITCARD) fuse into a single corroborated finding.
+    cross_engine_normalization: bool = True
+    # When True, structured findings whose canonical type carries a checksum validator
+    # (IBAN, credit card, tax ID, BIC) are checksum-validated regardless of which engine
+    # produced them; invalid candidates are discarded.  This extends the regex engine's
+    # existing validation to LLM/vector findings, cutting their false-positive rate.
+    validate_structured_findings: bool = True
     # Configurable limits (defaults match previous hardcoded values)
     dedup_max_entries: int = _DEDUP_MAX_ENTRIES
     max_whitelist_regex_len: int = _MAX_WHITELIST_REGEX_LEN
@@ -294,6 +307,17 @@ class PiiMatchContainer:
             _logger.warning("Whitelist regex error: %s", exc)
             return False
 
+    def _grouping_key(self, text: str, file: str, type: str) -> tuple[str, str, str]:
+        """Key used for deduplication and confidence fusion.
+
+        When ``cross_engine_normalization`` is on, the type component is the canonical
+        entity type so that the same real-world PII reported by different engines (with
+        different raw labels) groups together.  Otherwise the raw label is used, which
+        preserves the previous per-engine behaviour.
+        """
+        type_key = canonical_for(type) if self.cross_engine_normalization else type
+        return (text.lower(), file, type_key)
+
     def __add_match(
         self,
         text: str,
@@ -343,16 +367,14 @@ class PiiMatchContainer:
             # creating a new entry.  The fused score is:
             #   max(all_scores) + 0.05 * (n_engines - 1), capped at 1.0
             if self.enable_confidence_fusion:
-                fusion_key = (text.lower(), file, type)
+                fusion_key = self._grouping_key(text, file, type)
                 if fusion_key in self._fusion_index:
                     idx, engines_seen = self._fusion_index[fusion_key]
                     if engine not in engines_seen:
                         engines_seen.add(engine)
                         existing = self.pii_matches[idx]
                         scores = [
-                            s
-                            for s in [existing.ner_score, ner_score]
-                            if s is not None
+                            s for s in [existing.ner_score, ner_score] if s is not None
                         ]
                         if scores:
                             bonus = 0.05 * (len(engines_seen) - 1)
@@ -362,12 +384,18 @@ class PiiMatchContainer:
 
             # Deduplication: skip if an identical (text, file, type) match is already stored
             if self.enable_deduplication:
-                dedup_key = (text.lower(), file, type)
+                dedup_key = self._grouping_key(text, file, type)
                 if dedup_key in self._seen_keys:
                     return
                 self._seen_keys[dedup_key] = None
                 if len(self._seen_keys) > self.dedup_max_entries:
                     self._seen_keys.popitem(last=False)  # evict oldest
+
+            # Record the canonical type alongside the raw label so reports and the
+            # evaluation harness can group cross-engine findings without re-deriving it.
+            match_metadata = dict(metadata or {})
+            if type and "canonical_type" not in match_metadata:
+                match_metadata["canonical_type"] = canonical_for(type)
 
             pm = PiiMatch(
                 text=text,
@@ -375,7 +403,7 @@ class PiiMatchContainer:
                 type=type,
                 ner_score=ner_score,
                 engine=engine,
-                metadata=metadata or {},
+                metadata=match_metadata,
                 severity=_classify_severity(type) if type else None,
                 context_before=context_before,
                 context_after=context_after,
@@ -385,7 +413,7 @@ class PiiMatchContainer:
 
             # Register in fusion index for future multi-engine matches
             if self.enable_confidence_fusion:
-                fusion_key = (text.lower(), file, type)
+                fusion_key = self._grouping_key(text, file, type)
                 self._fusion_index[fusion_key] = (len(self.pii_matches) - 1, {engine})
 
             # Check min_severity output filter before writing to output streams.
@@ -495,6 +523,46 @@ class PiiMatchContainer:
                     metadata={"gliner_label": match.get("label", "")},
                 )
 
+    def _passes_structured_validation(self, text: str, entity_type: str) -> bool:
+        """Checksum-validate a structured finding from *any* engine.
+
+        Extends the regex engine's checksum validation (Luhn, IBAN mod-97, German tax
+        ID, BIC) to findings produced by NER / vector / LLM engines, which otherwise
+        emit unvalidated structured identifiers and inflate the false-positive rate.
+
+        A length guard ensures this only fires on tight single-value candidates: coarse
+        engines (vector search) report whole text chunks, and running a checksum over a
+        chunk would spuriously fail and discard a legitimate finding.  Out-of-range
+        candidates and types without a validator are accepted unchanged.
+
+        Returns:
+            True if the finding should be kept, False if it failed checksum validation.
+        """
+        if not self.validate_structured_findings:
+            return True
+        rule = validation_rule_for(canonical_for(entity_type))
+        if rule is None:
+            return True  # not a checksum-validatable type
+        validator_name, clean_mode, min_len, max_len = rule
+        if clean_mode == "digits":
+            cleaned = re.sub(r"\D", "", text)
+        else:  # alnum
+            cleaned = re.sub(r"[^0-9A-Za-z]", "", text)
+        if not (min_len <= len(cleaned) <= max_len):
+            return True  # not a tight single-value candidate -> do not checksum
+
+        from validators import get_validator
+
+        validator = get_validator(validator_name)
+        if validator is None:
+            return True  # validator unavailable -> do not discard
+        try:
+            result = validator.validate(text)
+        except Exception:  # pragma: no cover - defensive
+            return True
+        is_valid = result[0] if isinstance(result, tuple) else result
+        return bool(is_valid)
+
     def add_detection_results(
         self,
         results: list,
@@ -511,6 +579,11 @@ class PiiMatchContainer:
             context_chars: Number of surrounding chars to capture (0 = disabled)
         """
         for result in results:
+            # Drop structured findings (IBAN, credit card, …) that fail checksum
+            # validation regardless of which engine produced them.
+            if not self._passes_structured_validation(result.text, result.entity_type):
+                continue
+
             ctx_before = None
             ctx_after = None
             offset = getattr(result, "offset", None)

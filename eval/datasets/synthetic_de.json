@@ -1,0 +1,330 @@
+[
+  {
+    "id": "doc-001",
+    "text": "Kunde Max Mustermann hat die IBAN DE89 3704 0044 0532 0130 00 angegeben.",
+    "annotations": [
+      {
+        "type": "PERSON",
+        "start": 6,
+        "end": 20,
+        "text": "Max Mustermann"
+      },
+      {
+        "type": "IBAN",
+        "start": 34,
+        "end": 61,
+        "text": "DE89 3704 0044 0532 0130 00"
+      }
+    ]
+  },
+  {
+    "id": "doc-002",
+    "text": "Bitte ueberweisen Sie auf IBAN DE02 1203 0000 0000 2020 51 bei der Bank.",
+    "annotations": [
+      {
+        "type": "IBAN",
+        "start": 31,
+        "end": 58,
+        "text": "DE02 1203 0000 0000 2020 51"
+      }
+    ]
+  },
+  {
+    "id": "doc-003",
+    "text": "Die Kreditkartennummer lautet 4111 1111 1111 1111 und ist gueltig.",
+    "annotations": [
+      {
+        "type": "CREDIT_CARD",
+        "start": 30,
+        "end": 49,
+        "text": "4111 1111 1111 1111"
+      }
+    ]
+  },
+  {
+    "id": "doc-004",
+    "text": "Zahlung per Visa 4012 8888 8888 1881 wurde akzeptiert.",
+    "annotations": [
+      {
+        "type": "CREDIT_CARD",
+        "start": 17,
+        "end": 36,
+        "text": "4012 8888 8888 1881"
+      }
+    ]
+  },
+  {
+    "id": "doc-005",
+    "text": "Kontaktieren Sie uns unter max.mustermann@example.com fuer Rueckfragen.",
+    "annotations": [
+      {
+        "type": "EMAIL",
+        "start": 27,
+        "end": 53,
+        "text": "max.mustermann@example.com"
+      }
+    ]
+  },
+  {
+    "id": "doc-006",
+    "text": "Die Rechnung ging an buchhaltung@musterfirma.de heute raus.",
+    "annotations": [
+      {
+        "type": "EMAIL",
+        "start": 21,
+        "end": 47,
+        "text": "buchhaltung@musterfirma.de"
+      }
+    ]
+  },
+  {
+    "id": "doc-007",
+    "text": "Erreichbar per E-Mail unter erika.beispiel@web.de oder telefonisch.",
+    "annotations": [
+      {
+        "type": "EMAIL",
+        "start": 28,
+        "end": 49,
+        "text": "erika.beispiel@web.de"
+      }
+    ]
+  },
+  {
+    "id": "doc-008",
+    "text": "Frau Erika Beispiel wohnt in Berlin und arbeitet in Muenchen.",
+    "annotations": [
+      {
+        "type": "PERSON",
+        "start": 5,
+        "end": 19,
+        "text": "Erika Beispiel"
+      },
+      {
+        "type": "LOCATION",
+        "start": 29,
+        "end": 35,
+        "text": "Berlin"
+      },
+      {
+        "type": "LOCATION",
+        "start": 52,
+        "end": 60,
+        "text": "Muenchen"
+      }
+    ]
+  },
+  {
+    "id": "doc-009",
+    "text": "Der Server hat die IP-Adresse 192.168.10.25 im internen Netz.",
+    "annotations": [
+      {
+        "type": "IP_ADDRESS",
+        "start": 30,
+        "end": 43,
+        "text": "192.168.10.25"
+      }
+    ]
+  },
+  {
+    "id": "doc-010",
+    "text": "Patient Hans Schmidt erhielt die Diagnose Diabetes mellitus Typ 2.",
+    "annotations": [
+      {
+        "type": "PERSON",
+        "start": 8,
+        "end": 20,
+        "text": "Hans Schmidt"
+      },
+      {
+        "type": "HEALTH",
+        "start": 33,
+        "end": 41,
+        "text": "Diagnose"
+      }
+    ]
+  },
+  {
+    "id": "doc-011",
+    "text": "Steuerliche Angaben: IBAN DE44 5001 0517 5407 3249 31 fuer Erstattung.",
+    "annotations": [
+      {
+        "type": "IBAN",
+        "start": 26,
+        "end": 53,
+        "text": "DE44 5001 0517 5407 3249 31"
+      }
+    ]
+  },
+  {
+    "id": "doc-012",
+    "text": "Neue Mastercard 5500 0000 0000 0004 wurde dem Konto hinzugefuegt.",
+    "annotations": [
+      {
+        "type": "CREDIT_CARD",
+        "start": 16,
+        "end": 35,
+        "text": "5500 0000 0000 0004"
+      }
+    ]
+  },
+  {
+    "id": "doc-013",
+    "text": "Support-Anfrage von kunde123@beispiel-shop.de eingegangen.",
+    "annotations": [
+      {
+        "type": "EMAIL",
+        "start": 20,
+        "end": 45,
+        "text": "kunde123@beispiel-shop.de"
+      }
+    ]
+  },
+  {
+    "id": "doc-014",
+    "text": "Der Gutachter Thomas Mueller bewertete den Fall in Hamburg.",
+    "annotations": [
+      {
+        "type": "PERSON",
+        "start": 14,
+        "end": 28,
+        "text": "Thomas Mueller"
+      },
+      {
+        "type": "LOCATION",
+        "start": 51,
+        "end": 58,
+        "text": "Hamburg"
+      }
+    ]
+  },
+  {
+    "id": "doc-015",
+    "text": "Notiz: keine personenbezogenen Daten in diesem Absatz enthalten.",
+    "annotations": []
+  },
+  {
+    "id": "doc-016",
+    "text": "Reine Produktbeschreibung ohne jegliche sensible Information hier.",
+    "annotations": []
+  },
+  {
+    "id": "doc-017",
+    "text": "Antrag von anna.test@example.org mit IBAN DE89 3704 0044 0532 0130 00.",
+    "annotations": [
+      {
+        "type": "EMAIL",
+        "start": 11,
+        "end": 32,
+        "text": "anna.test@example.org"
+      },
+      {
+        "type": "IBAN",
+        "start": 42,
+        "end": 69,
+        "text": "DE89 3704 0044 0532 0130 00"
+      }
+    ]
+  },
+  {
+    "id": "doc-018",
+    "text": "Die Amex-Karte 3782 822463 10005 wurde fuer die Buchung verwendet.",
+    "annotations": [
+      {
+        "type": "CREDIT_CARD",
+        "start": 15,
+        "end": 32,
+        "text": "3782 822463 10005"
+      }
+    ]
+  },
+  {
+    "id": "doc-019",
+    "text": "Mitarbeiterin Julia Wagner meldete sich aus Koeln krank.",
+    "annotations": [
+      {
+        "type": "PERSON",
+        "start": 14,
+        "end": 26,
+        "text": "Julia Wagner"
+      },
+      {
+        "type": "LOCATION",
+        "start": 44,
+        "end": 49,
+        "text": "Koeln"
+      }
+    ]
+  },
+  {
+    "id": "doc-020",
+    "text": "Bestellbestaetigung an info@muster-handel.de versendet.",
+    "annotations": [
+      {
+        "type": "EMAIL",
+        "start": 23,
+        "end": 44,
+        "text": "info@muster-handel.de"
+      }
+    ]
+  },
+  {
+    "id": "doc-021",
+    "text": "Zugangsdaten: IBAN DE02 1203 0000 0000 2020 51 und Karte 4111 1111 1111 1111.",
+    "annotations": [
+      {
+        "type": "IBAN",
+        "start": 19,
+        "end": 46,
+        "text": "DE02 1203 0000 0000 2020 51"
+      },
+      {
+        "type": "CREDIT_CARD",
+        "start": 57,
+        "end": 76,
+        "text": "4111 1111 1111 1111"
+      }
+    ]
+  },
+  {
+    "id": "doc-022",
+    "text": "Der Termin mit Peter Klein findet in Stuttgart statt.",
+    "annotations": [
+      {
+        "type": "PERSON",
+        "start": 15,
+        "end": 26,
+        "text": "Peter Klein"
+      },
+      {
+        "type": "LOCATION",
+        "start": 37,
+        "end": 46,
+        "text": "Stuttgart"
+      }
+    ]
+  },
+  {
+    "id": "doc-023",
+    "text": "Loopback-Test gegen 127.0.0.1 erfolgreich abgeschlossen.",
+    "annotations": [
+      {
+        "type": "IP_ADDRESS",
+        "start": 20,
+        "end": 29,
+        "text": "127.0.0.1"
+      }
+    ]
+  },
+  {
+    "id": "doc-024",
+    "text": "Frage an datenschutz@example.com zur Verarbeitung gesendet.",
+    "annotations": [
+      {
+        "type": "EMAIL",
+        "start": 9,
+        "end": 32,
+        "text": "datenschutz@example.com"
+      }
+    ]
+  }
+]

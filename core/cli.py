@@ -301,6 +301,11 @@ def scan(
         "--confidence-fusion",
         help="When multiple engines detect the same PII, merge their confidence scores (max + corroboration bonus). Implies deduplication.",
     ),
+    structured_validation: bool = typer.Option(
+        True,
+        "--structured-validation/--no-structured-validation",
+        help="Checksum-validate structured findings (IBAN, credit card, tax ID, BIC) from all engines, not just regex, discarding invalid ones (default: on).",
+    ),
     text_chunk_size: int = typer.Option(
         0,
         "--text-chunk-size",
@@ -501,6 +506,7 @@ def scan(
         "no_header": no_header,
         "deduplicate": deduplicate,
         "confidence_fusion": confidence_fusion,
+        "structured_validation": structured_validation,
         "text_chunk_size": text_chunk_size,
         "text_chunk_overlap": text_chunk_overlap,
         "statistics_mode": statistics_mode,
@@ -666,7 +672,9 @@ def scan(
 
     # Apply extra CLI flags to config object
     _use_fusion = bool(getattr(args, "confidence_fusion", False))
-    config_obj.enable_deduplication = bool(getattr(args, "deduplicate", False)) or _use_fusion
+    config_obj.enable_deduplication = (
+        bool(getattr(args, "deduplicate", False)) or _use_fusion
+    )
     _chunk_size = getattr(args, "text_chunk_size", 0)
     if isinstance(_chunk_size, int) and _chunk_size >= 0:
         config_obj.text_chunk_size = _chunk_size
@@ -729,9 +737,11 @@ def scan(
     _dedup_enabled = bool(getattr(args, "deduplicate", False))
     _fusion_enabled = bool(getattr(args, "confidence_fusion", False))
     _min_conf_val = config_obj.min_confidence
+    _structured_validation = bool(getattr(args, "structured_validation", True))
     pmc: PiiMatchContainer = PiiMatchContainer(
         enable_deduplication=_dedup_enabled or _fusion_enabled,
         enable_confidence_fusion=_fusion_enabled,
+        validate_structured_findings=_structured_validation,
         min_confidence=_min_conf_val,
         min_severity=config_obj.min_severity,
         dedup_max_entries=config_obj.dedup_max_entries,
@@ -1267,6 +1277,108 @@ def query(
 
 
 @app.command()
+def evaluate(
+    dataset: str = typer.Argument(
+        ...,
+        help="Path to an annotated ground-truth dataset (JSON). See eval/datasets/synthetic_de.json.",
+    ),
+    engines: str = typer.Option(
+        "regex",
+        "--engines",
+        help="Comma-separated engines to evaluate: regex,gliner,spacy-ner,vector-search,pydantic-ai. Default 'regex' (offline, no model downloads).",
+    ),
+    output_format: str = typer.Option(
+        "human",
+        "--format",
+        help="Output format: 'human' (default) or 'json'",
+        case_sensitive=False,
+    ),
+    fail_under: float | None = typer.Option(
+        None,
+        "--fail-under",
+        help="Exit non-zero if the micro-averaged F1 is below this value (0.0-1.0). Useful as a CI quality gate.",
+    ),
+) -> None:
+    """Measure detection precision/recall/F1 against an annotated ground-truth dataset.
+
+    Findings are produced through the real detection pipeline (canonical type
+    normalisation + structured checksum validation), then matched to gold annotations
+    by canonical entity type and span overlap.
+
+    [bold]Examples:[/bold]
+
+        pbd-toolkit evaluate eval/datasets/synthetic_de.json
+
+        pbd-toolkit evaluate eval/datasets/synthetic_de.json --engines regex --format json
+
+        pbd-toolkit evaluate eval/datasets/synthetic_de.json --fail-under 0.9
+    """
+    import json as _json
+
+    from eval.dataset import load_dataset
+    from eval.runner import run_evaluation
+
+    engine_list = [e.strip() for e in engines.split(",") if e.strip()]
+
+    try:
+        documents = load_dataset(dataset)
+    except FileNotFoundError:
+        typer.echo(f"Error: dataset file not found: {dataset}", err=True)
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+    except ValueError as exc:
+        typer.echo(f"Error: invalid dataset: {exc}", err=True)
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+
+    try:
+        result = run_evaluation(documents, engine_list)
+    except ValueError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+
+    report = result.as_dict()
+    micro_f1 = report["micro"]["f1"]
+
+    if output_format.lower() == "json":
+        typer.echo(
+            _json.dumps(
+                {
+                    "dataset": dataset,
+                    "engines": engine_list,
+                    "documents": len(documents),
+                    **report,
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+    else:
+        typer.echo(f"\nDataset:   {dataset}  ({len(documents)} documents)")
+        typer.echo(f"Engines:   {', '.join(engine_list)}\n")
+        header = f"{'Type':<20}{'P':>8}{'R':>8}{'F1':>8}{'TP':>6}{'FP':>6}{'FN':>6}"
+        typer.echo(header)
+        typer.echo("─" * len(header))
+        for typ, m in report["per_type"].items():
+            typer.echo(
+                f"{typ:<20}{m['precision']:>8.3f}{m['recall']:>8.3f}"
+                f"{m['f1']:>8.3f}{m['tp']:>6}{m['fp']:>6}{m['fn']:>6}"
+            )
+        typer.echo("─" * len(header))
+        micro = report["micro"]
+        typer.echo(
+            f"{'micro':<20}{micro['precision']:>8.3f}{micro['recall']:>8.3f}"
+            f"{micro['f1']:>8.3f}{micro['tp']:>6}{micro['fp']:>6}{micro['fn']:>6}"
+        )
+        typer.echo(f"{'macro F1':<20}{report['macro_f1']:>8.3f}\n")
+
+    if fail_under is not None and micro_f1 < fail_under:
+        typer.echo(
+            f"Quality gate FAILED: micro F1 {micro_f1:.4f} < --fail-under {fail_under}",
+            err=True,
+        )
+        raise typer.Exit(code=constants.EXIT_GENERAL_ERROR)
+
+
+@app.command()
 def diff(
     old_file: str = typer.Argument(
         ..., help="Path to the baseline (old) findings file (JSON or JSONL)"
@@ -1663,7 +1775,9 @@ def test_pattern(
         "-t",
         help="Text to scan for PII. If omitted, reads from stdin.",
     ),
-    regex: bool = typer.Option(True, "--regex/--no-regex", help="Use regex engine (default: on)"),
+    regex: bool = typer.Option(
+        True, "--regex/--no-regex", help="Use regex engine (default: on)"
+    ),
     ner: bool = typer.Option(False, "--ner", help="Use GLiNER NER engine"),
     show_all: bool = typer.Option(
         False,
@@ -1744,7 +1858,9 @@ def test_pattern(
 
     matches = container.pii_matches
     if not show_all:
-        matches = [m for m in matches if (m.ner_score or 0) >= 0.3 or m.engine == "regex"]
+        matches = [
+            m for m in matches if (m.ner_score or 0) >= 0.3 or m.engine == "regex"
+        ]
 
     if output_format.lower() == "json":
         typer.echo(
@@ -1813,7 +1929,7 @@ def export_config(
     import dataclasses
     import json as _json
 
-    from core.config import Config, EngineConfig, OutputConfig, ScanConfig
+    from core.config import Config
 
     # Build a default Config (optionally merged from file)
     cfg = Config()
