@@ -303,6 +303,67 @@ class TestStructuredValidation:
         assert len(container.pii_matches) == 1
 
 
+class TestContextRequirement:
+    """Context-based gating of false-positive-prone types (BIC keyword proximity)."""
+
+    def _result(self, text, type_, offset):
+        return SimpleNamespace(
+            text=text,
+            entity_type=type_,
+            engine_name="regex",
+            confidence=1.0,
+            metadata={},
+            offset=offset,
+        )
+
+    # An uppercase dictionary word that satisfies the BIC shape and even carries a
+    # valid ISO country code ("SC" = Seychelles), so the checksum validator alone
+    # cannot reject it.
+    TRAP = "DEUTSCHLAND"
+
+    def test_bic_without_keyword_is_dropped(self):
+        text = "Die Region DEUTSCHLAND wird oft erwaehnt."
+        offset = text.index(self.TRAP)
+        container = PiiMatchContainer()
+        container.add_detection_results(
+            [self._result(self.TRAP, "REGEX_BIC", offset)],
+            "/f.txt",
+            source_text=text,
+        )
+        assert len(container.pii_matches) == 0
+
+    def test_bic_with_keyword_is_kept(self):
+        text = "Bankverbindung BIC COBADEFFXXX bei der Hausbank."
+        bic = "COBADEFFXXX"
+        offset = text.index(bic)
+        container = PiiMatchContainer()
+        container.add_detection_results(
+            [self._result(bic, "REGEX_BIC", offset)],
+            "/f.txt",
+            source_text=text,
+        )
+        assert len(container.pii_matches) == 1
+
+    def test_bic_kept_when_source_text_unavailable(self):
+        """Without surrounding text the gate cannot evaluate and keeps the finding."""
+        container = PiiMatchContainer()
+        container.add_detection_results(
+            [self._result("COBADEFFXXX", "REGEX_BIC", None)], "/f.txt"
+        )
+        assert len(container.pii_matches) == 1
+
+    def test_gate_can_be_disabled(self):
+        text = "Die Region DEUTSCHLAND wird oft erwaehnt."
+        offset = text.index(self.TRAP)
+        container = PiiMatchContainer(require_context_for_ambiguous=False)
+        container.add_detection_results(
+            [self._result(self.TRAP, "REGEX_BIC", offset)],
+            "/f.txt",
+            source_text=text,
+        )
+        assert len(container.pii_matches) == 1
+
+
 class TestSetWhitelistAtomicity:
     """Tests for atomic whitelist compilation in set_whitelist."""
 

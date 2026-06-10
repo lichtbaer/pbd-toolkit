@@ -316,10 +316,14 @@ class TextProcessor:
         if all_results:
             _ctx_chars = self.config.context_chars
             with self._process_lock:
+                # Always pass source_text: it powers context-based gating
+                # (e.g. BIC keyword proximity) even when context snippet capture
+                # (context_chars) is disabled.  context_chars only controls whether
+                # surrounding snippets are *stored* on the match.
                 self.match_container.add_detection_results(
                     all_results,
                     file_path,
-                    source_text=text if _ctx_chars > 0 else None,
+                    source_text=text,
                     context_chars=_ctx_chars,
                 )
                 if self.statistics:

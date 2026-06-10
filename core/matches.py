@@ -31,7 +31,12 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from core.entity_types import canonical_for, validation_rule_for
+from core.entity_types import (
+    CONTEXT_REQUIREMENT_WINDOW,
+    canonical_for,
+    context_requirement_for,
+    validation_rule_for,
+)
 from core.resources import load_config_types
 from core.severity import classify as _classify_severity
 
@@ -139,6 +144,12 @@ class PiiMatchContainer:
     # produced them; invalid candidates are discarded.  This extends the regex engine's
     # existing validation to LLM/vector findings, cutting their false-positive rate.
     validate_structured_findings: bool = True
+    # When True, findings of context-required canonical types (see
+    # core.entity_types._CONTEXT_REQUIREMENTS, currently BIC) are only kept when a
+    # related keyword appears near the match.  This rejects uppercase dictionary words
+    # that satisfy the weak BIC shape but are not bank codes.  Requires the surrounding
+    # text to be available; when it is not, the finding is kept (conservative).
+    require_context_for_ambiguous: bool = True
     # Configurable limits (defaults match previous hardcoded values)
     dedup_max_entries: int = _DEDUP_MAX_ENTRIES
     max_whitelist_regex_len: int = _MAX_WHITELIST_REGEX_LEN
@@ -563,6 +574,33 @@ class PiiMatchContainer:
         is_valid = result[0] if isinstance(result, tuple) else result
         return bool(is_valid)
 
+    def _passes_context_requirement(
+        self,
+        entity_type: str,
+        source_text: str | None,
+        offset: int | None,
+        text: str,
+    ) -> bool:
+        """Return True unless a context-required finding lacks a nearby keyword.
+
+        For canonical types listed in ``core.entity_types._CONTEXT_REQUIREMENTS``
+        (currently BIC), at least one related keyword must appear within
+        ``CONTEXT_REQUIREMENT_WINDOW`` characters of the match.  The check is skipped
+        (returns True) when gating is disabled or the surrounding text/offset is
+        unavailable, so it never drops a finding it cannot evaluate.
+        """
+        if not self.require_context_for_ambiguous:
+            return True
+        keywords = context_requirement_for(canonical_for(entity_type))
+        if not keywords:
+            return True
+        if source_text is None or offset is None:
+            return True  # cannot evaluate context -> keep (conservative)
+        start = max(0, offset - CONTEXT_REQUIREMENT_WINDOW)
+        end = min(len(source_text), offset + len(text) + CONTEXT_REQUIREMENT_WINDOW)
+        window = source_text[start:end].lower()
+        return any(kw in window for kw in keywords)
+
     def add_detection_results(
         self,
         results: list,
@@ -584,9 +622,18 @@ class PiiMatchContainer:
             if not self._passes_structured_validation(result.text, result.entity_type):
                 continue
 
+            offset = getattr(result, "offset", None)
+
+            # Drop context-required findings (e.g. BIC) that lack a related keyword
+            # nearby.  Cheaply rejects uppercase dictionary words that pass the weak
+            # BIC structural check.  Skipped when surrounding text is unavailable.
+            if not self._passes_context_requirement(
+                result.entity_type, source_text, offset, result.text
+            ):
+                continue
+
             ctx_before = None
             ctx_after = None
-            offset = getattr(result, "offset", None)
 
             if context_chars > 0 and source_text and offset is not None:
                 start = max(0, offset - context_chars)

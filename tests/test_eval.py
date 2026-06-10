@@ -113,7 +113,31 @@ class TestRegexQualityGate:
         result = run_evaluation(docs, ["regex"])
         # These structured types are unambiguously regex-detectable; a drop below 1.0
         # signals a regression in the regex patterns or the validation pipeline.
-        for canonical in ("IBAN", "EMAIL", "IP_ADDRESS"):
+        # CREDIT_CARD/PHONE/BIC/TAX_ID/SIGNAL_WORD were hardened to remove the
+        # separated-card miss, the over-broad phone matches, and the BIC/word and
+        # phone/card-group false positives — they must stay at F1 1.0.
+        for canonical in (
+            "IBAN",
+            "EMAIL",
+            "IP_ADDRESS",
+            "CREDIT_CARD",
+            "PHONE",
+            "BIC",
+            "TAX_ID",
+            "SIGNAL_WORD",
+        ):
             assert result.f1_for(canonical) == 1.0, (
                 f"{canonical} F1 regressed: {result.per_type.get(canonical)}"
             )
+
+    def test_regex_precision_is_perfect(self):
+        """Regex must not emit any false positive on the curated dataset.
+
+        The dataset includes traps (uppercase dictionary words that satisfy the BIC
+        shape, bare digit groups, checksum-invalid numbers).  Any FP means a pattern
+        or the validation/context-gating pipeline regressed.
+        """
+        docs = load_dataset(DATASET)
+        result = run_evaluation(docs, ["regex"])
+        assert result.micro.fp == 0, f"regex produced false positives: {result.micro}"
+        assert result.micro.precision == 1.0

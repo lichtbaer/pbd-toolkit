@@ -60,12 +60,14 @@ This roadmap reflects the current direction of this fork. Items are grouped by t
 
 ## Later (mid-term)
 
-- **Regex pattern quality** (surfaced by the new evaluation harness):
-  - `REGEX_CREDIT_CARD` does not match space/dash-separated card numbers, and the very
-    broad `REGEX_PHONE` pattern shadows the digit groups of a spaced card. Tighten the
-    card pattern to allow separators and constrain phone matching.
-  - `REGEX_BIC` is compiled case-insensitively and matches ordinary words; the new
-    cross-engine checksum validation mitigates this but a stricter pattern is preferable.
+- **Regex pattern quality** (surfaced by the evaluation harness):
+  - ✅ `REGEX_CREDIT_CARD` now matches space/dash-separated card numbers (Luhn-validated),
+    and `REGEX_PHONE` was constrained to international/national prefixes so it no longer
+    shadows spaced-card digit groups or matches arbitrary digit runs.
+  - ✅ `REGEX_BIC` is compiled case-sensitively and checksum-validated; a context gate
+    (`require_context_for_ambiguous`) drops BIC-shaped dictionary words that lack a nearby
+    banking keyword. `REGEX_IBAN`/`REGEX_TAX_ID` also validate at the regex stage.
+  - ✅ A hermetic per-run quality gate (`evaluate --fail-under 0.80`) guards regex F1 in CI.
   - Grow `eval/datasets/` with more languages/domains and add per-engine accuracy gates.
 - **Extraction quality** (not yet started):
   - DOCX tables, headers and footers are not extracted; paragraphs are also concatenated
