@@ -198,6 +198,39 @@ class TestGLiNEREngine:
             assert results[0].entity_type == "NER_PERSON"
             assert results[0].confidence == 0.95
 
+    def test_gliner_per_label_threshold_filters(self):
+        """A per-label threshold drops entities below it while keeping others."""
+        mock_config = Mock(spec=Config)
+        mock_config.use_ner = True
+        mock_config.ner_model = Mock()
+        mock_config.ner_labels = ["Person's Name", "Health Data"]
+        mock_config.ner_threshold = 0.3
+        # Person must clear 0.9; health keeps the global 0.3.
+        mock_config.ner_label_thresholds = {"Person's Name": 0.9}
+        mock_config.logger = Mock()
+
+        mock_config.ner_model.predict_entities.return_value = [
+            {"text": "Maybe Name", "label": "Person's Name", "score": 0.55},
+            {"text": "Diabetes", "label": "Health Data", "score": 0.40},
+        ]
+
+        with patch(
+            "core.engines.gliner_engine.config_ainer_sorted",
+            {
+                "Person's Name": {"label": "NER_PERSON"},
+                "Health Data": {"label": "NER_HEALTH"},
+            },
+        ):
+            engine = GLiNEREngine(mock_config)
+            results = engine.detect("text")
+
+        # The model is queried at the lowest relevant threshold (0.3).
+        _, kwargs = mock_config.ner_model.predict_entities.call_args
+        assert kwargs["threshold"] == 0.3
+        # Person 0.55 < 0.9 -> dropped; Health 0.40 >= 0.3 -> kept.
+        types = {r.entity_type for r in results}
+        assert types == {"NER_HEALTH"}
+
     def test_gliner_engine_error_handling(self):
         """Test GLiNER engine error handling."""
         mock_config = Mock(spec=Config)

@@ -214,6 +214,11 @@ class Config:
     ner_model: GLiNER | None = field(default=None)
     ner_labels: list[str] = field(default_factory=list)
     ner_threshold: float = field(default=constants.NER_THRESHOLD)
+    # Optional per-label confidence thresholds for GLiNER, keyed by the GLiNER label
+    # (e.g. {"Person's Name": 0.7, "Health Data": 0.4}).  Labels not listed fall back
+    # to ner_threshold.  Lets operators tighten high-precision categories while keeping
+    # recall on harder ones.
+    ner_label_thresholds: dict = field(default_factory=dict)
     ner_stats: NerStats = field(default_factory=NerStats)
 
     # Ollama configuration
@@ -656,9 +661,19 @@ class Config:
             # Load threshold from config, fallback to constant
             settings = config_data.get("settings", {})
             self.ner_threshold = settings.get("ner_threshold", constants.NER_THRESHOLD)
+            # Optional per-label thresholds (keyed by GLiNER label) for finer control.
+            _label_thresholds = settings.get("ner_label_thresholds", {})
+            if isinstance(_label_thresholds, dict):
+                self.ner_label_thresholds = {
+                    str(k): float(v) for k, v in _label_thresholds.items()
+                }
 
             if self.verbose:
                 self.logger.debug(f"NER threshold: {self.ner_threshold}")
+                if self.ner_label_thresholds:
+                    self.logger.debug(
+                        f"NER per-label thresholds: {self.ner_label_thresholds}"
+                    )
                 self.logger.debug(f"NER labels: {self.ner_labels}")
 
             # Warm-up: First call to initialize model (reduces latency on first real use)
