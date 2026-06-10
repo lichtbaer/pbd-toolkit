@@ -1089,7 +1089,7 @@ def scan(
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
-            with _urllib_req.urlopen(_req, timeout=10) as _resp:  # noqa: S310
+            with _urllib_req.urlopen(_req, timeout=10) as _resp:  # noqa: S310  # nosec B310
                 _status = _resp.status
             if not (hasattr(args, "quiet") and args.quiet):
                 typer.echo(f"\nWebhook delivered (HTTP {_status}): {_webhook_url}")
