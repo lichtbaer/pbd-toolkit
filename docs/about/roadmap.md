@@ -69,11 +69,26 @@ This roadmap reflects the current direction of this fork. Items are grouped by t
     banking keyword. `REGEX_IBAN`/`REGEX_TAX_ID` also validate at the regex stage.
   - ✅ A hermetic per-run quality gate (`evaluate --fail-under 0.80`) guards regex F1 in CI.
   - Grow `eval/datasets/` with more languages/domains and add per-engine accuracy gates.
-- **Extraction quality** (not yet started):
-  - DOCX tables, headers and footers are not extracted; paragraphs are also concatenated
-    without separators (`file_processors/docx_processor.py`), which can fuse entities
-    across paragraph boundaries.
-  - No OCR for scanned PDFs/images; email attachments are not recursively extracted.
+- **Extraction quality**:
+  - ✅ DOCX now extracts tables and section headers/footers, and joins paragraphs with
+    newlines so entities no longer fuse across paragraph boundaries.
+  - ✅ XLSX/XLS/CSV preserve column-header context (`Header: value`, one record per line).
+  - ✅ Email attachments are recursively extracted by routing each attachment through the
+    file-processor registry (size/count/depth limited).
+  - ✅ PDF text is accumulated per page (short standalone values are no longer dropped),
+    with an optional OCR fallback for scanned pages (`pip install ".[ocr]"`, auto-enabled
+    when installed).
+  - ✅ A hermetic extraction-recall gate (`eval-extraction --fail-under`) guards this in CI.
+  - Remaining: OCR for standalone image files; recursive extraction of non-text files
+    nested inside ZIP archives (currently decoded as text only).
+- **Detection quality (engines)**:
+  - ✅ Confidence fusion uses weighted Noisy-OR (calibratable per-engine weights) instead
+    of a flat corroboration bonus.
+  - ✅ GLiNER supports per-label confidence thresholds (`ner_label_thresholds`).
+  - ✅ Engine offsets are translated to document-global positions across chunk boundaries
+    (correct context windows / gating / redaction).
+  - Remaining: span-localised vector findings (return the matching sentence, not the whole
+    chunk); confidence-calibration report (reliability/ECE) in the eval harness.
 - **Performance**:
   - spaCy `nlp.pipe` batching, incremental scanning/caching, and async I/O.
 - **Better multimodal UX**

@@ -50,6 +50,48 @@ class TestPdfProcessor:
         assert processor.can_process(".PDF")
         assert processor.can_process(".Pdf")
 
+    def test_finalize_page_keeps_short_values_via_accumulation(self):
+        """Short standalone values survive because the whole page is yielded together.
+
+        Previously each text container was filtered independently, so a short line
+        like a postal code ('50667') in its own container was dropped.  Accumulating
+        the page first keeps it whenever the page as a whole has content.
+        """
+        page = "Kunde Max Mustermann\n50667 Koeln"
+        result = PdfProcessor._finalize_page(page, ocr_callable=None)
+        assert result == page
+        assert "50667" in result
+
+    def test_finalize_page_empty_without_ocr(self):
+        """An (almost) empty page yields nothing when OCR is unavailable."""
+        assert PdfProcessor._finalize_page("  \n ", ocr_callable=None) == ""
+        assert PdfProcessor._finalize_page("x", ocr_callable=None) == ""
+
+    def test_finalize_page_uses_ocr_fallback(self):
+        """When a page has no embedded text, the OCR callable result is used."""
+        result = PdfProcessor._finalize_page(
+            "", ocr_callable=lambda: "Gescannter Text DE89 3704 0044 0532 0130 00"
+        )
+        assert "DE89 3704 0044 0532 0130 00" in result
+
+    def test_finalize_page_prefers_embedded_text_over_ocr(self):
+        """OCR is not invoked when the page already has enough embedded text."""
+        calls = []
+
+        def ocr():
+            calls.append(1)
+            return "should-not-be-used"
+
+        page = "Eingebetteter Text auf dieser Seite"
+        assert PdfProcessor._finalize_page(page, ocr_callable=ocr) == page
+        assert calls == []  # OCR must not run when embedded text is sufficient
+
+    def test_ocr_available_returns_bool(self):
+        """The OCR availability probe never raises and returns a bool."""
+        from file_processors.pdf_processor import _ocr_available
+
+        assert isinstance(_ocr_available(), bool)
+
 
 class TestDocxProcessor:
     """Tests for DOCX processor."""
