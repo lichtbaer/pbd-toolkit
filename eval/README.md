@@ -75,8 +75,13 @@ regex gaps that have since been fixed and are guarded by the CI quality gate
   code (e.g. `DEUTSCHLAND` → `SC`), a **context gate** additionally requires a banking
   keyword (`BIC`, `SWIFT`, `IBAN`, …) near the match. Disable with
   `PiiMatchContainer(require_context_for_ambiguous=False)`.
-- **`REGEX_IBAN` / `REGEX_TAX_ID`** now carry explicit checksum validators at the regex
-  stage as well, not only via cross-engine validation.
+- **`REGEX_IBAN`** is country-agnostic (its BBAN groups are alphanumeric, so IBANs that
+  contain letters such as `GB29 NWBK …` are matched, not just all-digit German ones) and
+  carries an explicit checksum validator at the regex stage; **`REGEX_TAX_ID`** validates
+  at the regex stage too.
+
+A second dataset, `eval/datasets/synthetic_en.json`, exercises non-German formats and is
+gated separately in CI.
 
 Remaining and future work is tracked in `docs/about/roadmap.md`.
 

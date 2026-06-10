@@ -1,0 +1,97 @@
+[
+  {
+    "id": "en-001",
+    "text": "Please contact John Smith at john.smith@example.com regarding the invoice.",
+    "annotations": [
+      {
+        "type": "EMAIL",
+        "start": 29,
+        "end": 51,
+        "text": "john.smith@example.com"
+      }
+    ]
+  },
+  {
+    "id": "en-002",
+    "text": "Wire the funds to IBAN GB29 NWBK 6016 1331 9268 19 before Friday.",
+    "annotations": [
+      {
+        "type": "IBAN",
+        "start": 23,
+        "end": 50,
+        "text": "GB29 NWBK 6016 1331 9268 19"
+      }
+    ]
+  },
+  {
+    "id": "en-003",
+    "text": "The customer paid with card 4111 1111 1111 1111 last week.",
+    "annotations": [
+      {
+        "type": "CREDIT_CARD",
+        "start": 28,
+        "end": 47,
+        "text": "4111 1111 1111 1111"
+      }
+    ]
+  },
+  {
+    "id": "en-004",
+    "text": "Server reachable at 10.0.0.138 on the internal network.",
+    "annotations": [
+      {
+        "type": "IP_ADDRESS",
+        "start": 20,
+        "end": 30,
+        "text": "10.0.0.138"
+      }
+    ]
+  },
+  {
+    "id": "en-005",
+    "text": "Send the report to compliance@acme-corp.com by end of day.",
+    "annotations": [
+      {
+        "type": "EMAIL",
+        "start": 19,
+        "end": 43,
+        "text": "compliance@acme-corp.com"
+      }
+    ]
+  },
+  {
+    "id": "en-006",
+    "text": "This paragraph contains no personal data at all.",
+    "annotations": []
+  },
+  {
+    "id": "en-007",
+    "text": "Reach the helpdesk at +1 415 555 0142 during business hours.",
+    "annotations": [
+      {
+        "type": "PHONE",
+        "start": 22,
+        "end": 37,
+        "text": "+1 415 555 0142"
+      }
+    ]
+  },
+  {
+    "id": "en-008",
+    "text": "Both admin@example.org and billing@example.org were notified.",
+    "annotations": [
+      {
+        "type": "EMAIL",
+        "start": 5,
+        "end": 22,
+        "text": "admin@example.org"
+      },
+      {
+        "type": "EMAIL",
+        "start": 27,
+        "end": 46,
+        "text": "billing@example.org"
+      }
+    ]
+  }
+]

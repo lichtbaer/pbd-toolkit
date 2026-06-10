@@ -34,6 +34,9 @@ jobs:
           # a regex pattern or the validation/context-gating pipeline regressed.
           python -m core.cli evaluate eval/datasets/synthetic_de.json \
             --engines regex --fail-under 0.80
+          # English dataset exercises non-DE formats (e.g. IBANs containing letters).
+          python -m core.cli evaluate eval/datasets/synthetic_en.json \
+            --engines regex --fail-under 0.95
 
       - name: Extraction-quality gate
         run: |

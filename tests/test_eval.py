@@ -11,6 +11,9 @@ from eval.runner import run_evaluation
 DATASET = (
     Path(__file__).resolve().parents[1] / "eval" / "datasets" / "synthetic_de.json"
 )
+DATASET_EN = (
+    Path(__file__).resolve().parents[1] / "eval" / "datasets" / "synthetic_en.json"
+)
 
 
 class TestMetrics:
@@ -141,3 +144,17 @@ class TestRegexQualityGate:
         result = run_evaluation(docs, ["regex"])
         assert result.micro.fp == 0, f"regex produced false positives: {result.micro}"
         assert result.micro.precision == 1.0
+
+    def test_regex_english_dataset_structured_types(self):
+        """The English dataset exercises non-DE formats (e.g. IBANs with letters).
+
+        Guards that the IBAN pattern stays country-agnostic (GB IBANs contain letters)
+        and that precision stays perfect on English text.
+        """
+        docs = load_dataset(DATASET_EN)
+        result = run_evaluation(docs, ["regex"])
+        assert result.micro.fp == 0, f"regex produced false positives: {result.micro}"
+        for canonical in ("IBAN", "EMAIL", "IP_ADDRESS", "CREDIT_CARD", "PHONE"):
+            assert result.f1_for(canonical) == 1.0, (
+                f"{canonical} F1 regressed: {result.per_type.get(canonical)}"
+            )
