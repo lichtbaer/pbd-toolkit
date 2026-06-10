@@ -86,6 +86,13 @@ class GLiNEREngine:
                         continue
                     entity_type = self._map_label(raw_label)
                     if entity_type:
+                        # GLiNER returns the character offset of each entity as "start".
+                        # Propagating it lets the match container capture surrounding
+                        # context, apply context-based gating, and record an accurate
+                        # char_offset for redaction.  Fall back to None when absent
+                        # (e.g. mocked predictions) so behaviour is unchanged.
+                        start = entity.get("start")
+                        offset = start if isinstance(start, int) else None
                         results.append(
                             DetectionResult(
                                 text=entity.get("text", ""),
@@ -93,6 +100,7 @@ class GLiNEREngine:
                                 confidence=score,
                                 engine_name="gliner",
                                 metadata={"gliner_label": raw_label},
+                                offset=offset,
                             )
                         )
 

@@ -183,3 +183,62 @@ def test_multimodal_ollama_provider_is_not_supported(minimal_config, tmp_path):
     results = engine.detect("", labels=["PERSON"], image_path=str(img_path))
     assert len(results) == 1
     assert results[0].text == "Bob"
+
+
+def test_convert_results_recovers_offsets_from_source_text(minimal_config):
+    """_convert_results locates each entity's offset in the source text (forward-only)."""
+    from core.engines.pydantic_ai_engine import (
+        PIIDetectionEntity,
+        PIIDetectionResponse,
+    )
+
+    engine = PydanticAIEngine(minimal_config)
+    source = "Kontakt: Max und spaeter nochmal Max bei der Firma."
+    response = PIIDetectionResponse(
+        entities=[
+            PIIDetectionEntity(text="Max", type="PERSON", confidence=0.9),
+            PIIDetectionEntity(text="Max", type="PERSON", confidence=0.9),
+            PIIDetectionEntity(text="Firma", type="ORGANIZATION", confidence=0.7),
+        ]
+    )
+
+    results = engine._convert_results(response, source_text=source)
+
+    # First "Max" at index 9, second "Max" at index 33 (forward-only cursor), Firma at 45.
+    assert results[0].offset == source.index("Max")
+    assert results[1].offset == source.index("Max", results[0].offset + 1)
+    assert results[2].offset == source.index("Firma")
+
+
+def test_convert_results_offset_none_when_not_found(minimal_config):
+    """An entity text absent from the source (e.g. LLM paraphrase) keeps offset None."""
+    from core.engines.pydantic_ai_engine import (
+        PIIDetectionEntity,
+        PIIDetectionResponse,
+    )
+
+    engine = PydanticAIEngine(minimal_config)
+    response = PIIDetectionResponse(
+        entities=[PIIDetectionEntity(text="Nonexistent", type="PERSON", confidence=0.9)]
+    )
+
+    results = engine._convert_results(response, source_text="No match here")
+
+    assert results[0].offset is None
+
+
+def test_convert_results_no_source_text_keeps_offset_none(minimal_config):
+    """Without source_text (e.g. image path) offsets remain None."""
+    from core.engines.pydantic_ai_engine import (
+        PIIDetectionEntity,
+        PIIDetectionResponse,
+    )
+
+    engine = PydanticAIEngine(minimal_config)
+    response = PIIDetectionResponse(
+        entities=[PIIDetectionEntity(text="Max", type="PERSON", confidence=0.9)]
+    )
+
+    results = engine._convert_results(response)
+
+    assert results[0].offset is None
