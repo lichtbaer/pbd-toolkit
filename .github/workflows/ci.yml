@@ -45,8 +45,8 @@ jobs:
 
       - name: Ruff
         run: |
-          python -m ruff check core file_processors validators api analytics scripts tests
-          python -m ruff format --check core file_processors validators api analytics scripts tests
+          python -m ruff check core file_processors validators api analytics scripts tests eval
+          python -m ruff format --check core file_processors validators api analytics scripts tests eval
 
   security:
     runs-on: ubuntu-latest

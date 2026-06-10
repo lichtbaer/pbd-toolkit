@@ -4,6 +4,22 @@ This roadmap reflects the current direction of this fork. Items are grouped by t
 
 ## Recently completed
 
+- **Detection quality: cross-engine corroboration & validation**:
+  - **Canonical entity-type taxonomy** (`core/entity_types.py`): every engine's raw label
+    (`REGEX_*`, `NER_*`, `VECTOR_*`, `OLLAMA_*`) maps to a shared canonical type so that
+    deduplication and confidence fusion actually group the *same* real-world PII found by
+    different engines (e.g. `REGEX_CREDIT_CARD` + `VECTOR_CREDITCARD`). Toggle with
+    `--no-` paths on dedup/fusion; raw labels are preserved in output.
+  - **Cross-engine checksum validation** (`--structured-validation`, default on): IBAN,
+    credit-card, tax-ID and BIC findings from *any* engine (LLM, vector, NER) are
+    checksum-validated and dropped if invalid — previously only the regex engine did this.
+    A length guard avoids penalising coarse chunk-level findings.
+- **Detection-quality evaluation harness** (`pbd-toolkit evaluate`, `eval/`):
+  - Precision / recall / F1 per canonical entity type, plus micro/macro averages, measured
+    through the real detection pipeline against an annotated, fully synthetic ground-truth
+    dataset (`eval/datasets/synthetic_de.json`).
+  - `--engines` to compare engine combinations, `--format json`, and `--fail-under` for use
+    as a CI quality gate. A hermetic regex-only regression test guards the structured types.
 - **Vector Search Extensions**:
   - **Post-scan `query` CLI** (`pii-toolkit query <index> <text>`): interactive FAISS index queries after a scan, with `--top-k`, `--threshold`, and `--format json` support
   - **Custom exemplars** (`--vector-custom-exemplars`): extend or override built-in PII categories with domain-specific YAML/JSON exemplar files
@@ -44,6 +60,20 @@ This roadmap reflects the current direction of this fork. Items are grouped by t
 
 ## Later (mid-term)
 
+- **Regex pattern quality** (surfaced by the new evaluation harness):
+  - `REGEX_CREDIT_CARD` does not match space/dash-separated card numbers, and the very
+    broad `REGEX_PHONE` pattern shadows the digit groups of a spaced card. Tighten the
+    card pattern to allow separators and constrain phone matching.
+  - `REGEX_BIC` is compiled case-insensitively and matches ordinary words; the new
+    cross-engine checksum validation mitigates this but a stricter pattern is preferable.
+  - Grow `eval/datasets/` with more languages/domains and add per-engine accuracy gates.
+- **Extraction quality** (not yet started):
+  - DOCX tables, headers and footers are not extracted; paragraphs are also concatenated
+    without separators (`file_processors/docx_processor.py`), which can fuse entities
+    across paragraph boundaries.
+  - No OCR for scanned PDFs/images; email attachments are not recursively extracted.
+- **Performance**:
+  - spaCy `nlp.pipe` batching, incremental scanning/caching, and async I/O.
 - **Better multimodal UX**
   - Support OpenAI “Responses API” where available (while keeping `chat/completions` compatibility)
   - Improve JSON robustness (function-calling / JSON schema constraints where supported by provider)

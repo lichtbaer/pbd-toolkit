@@ -190,6 +190,119 @@ class TestPiiMatchContainerDeduplication:
         assert len(container.pii_matches) == 1
 
 
+class TestCrossEngineNormalization:
+    """Confidence fusion and dedup must group cross-engine findings by canonical type."""
+
+    def _result(self, text, type_, engine, score=None, offset=None):
+        return SimpleNamespace(
+            text=text,
+            entity_type=type_,
+            engine_name=engine,
+            confidence=score,
+            metadata={},
+            offset=offset,
+        )
+
+    # A Luhn-valid synthetic test card so structured validation keeps it.
+    CARD = "4111 1111 1111 1111"
+
+    def test_fusion_groups_regex_and_vector_credit_card(self):
+        """REGEX_CREDIT_CARD and VECTOR_CREDITCARD must fuse into one finding."""
+        container = PiiMatchContainer(enable_confidence_fusion=True)
+        r_regex = self._result(self.CARD, "REGEX_CREDIT_CARD", "regex", score=1.0)
+        r_vector = self._result(self.CARD, "VECTOR_CREDITCARD", "vector-search", 0.82)
+        container.add_detection_results([r_regex, r_vector], "/f.txt")
+
+        assert len(container.pii_matches) == 1
+        pm = container.pii_matches[0]
+        assert sorted(pm.metadata["fused_engines"]) == ["regex", "vector-search"]
+        assert pm.metadata["canonical_type"] == "CREDIT_CARD"
+        # max(1.0, 0.82) + 0.05 corroboration bonus, capped at 1.0
+        assert pm.ner_score == 1.0
+
+    def test_fusion_disabled_normalization_keeps_separate(self):
+        """With cross_engine_normalization off, raw labels no longer fuse."""
+        container = PiiMatchContainer(
+            enable_confidence_fusion=True, cross_engine_normalization=False
+        )
+        r_regex = self._result(self.CARD, "REGEX_CREDIT_CARD", "regex", score=1.0)
+        r_vector = self._result(self.CARD, "VECTOR_CREDITCARD", "vector-search", 0.82)
+        container.add_detection_results([r_regex, r_vector], "/f.txt")
+        assert len(container.pii_matches) == 2
+
+    def test_dedup_groups_cross_engine_aliases(self):
+        """Deduplication also collapses cross-engine aliases of the same concept."""
+        container = PiiMatchContainer(enable_deduplication=True)
+        r_regex = self._result("Max Mustermann", "NER_PERSON", "gliner", score=0.9)
+        r_vector = self._result("Max Mustermann", "VECTOR_PERSON", "vector-search", 0.8)
+        container.add_detection_results([r_regex, r_vector], "/f.txt")
+        assert len(container.pii_matches) == 1
+
+    def test_canonical_type_recorded_in_metadata(self):
+        container = PiiMatchContainer()
+        r = self._result("user@example.com", "REGEX_EMAIL", "regex")
+        container.add_detection_results([r], "/f.txt")
+        assert container.pii_matches[0].metadata["canonical_type"] == "EMAIL"
+
+
+class TestStructuredValidation:
+    """Checksum validation of structured findings from non-regex engines (A2)."""
+
+    def _result(self, text, type_, engine="pydantic-ai"):
+        return SimpleNamespace(
+            text=text,
+            entity_type=type_,
+            engine_name=engine,
+            confidence=0.99,
+            metadata={},
+            offset=None,
+        )
+
+    VALID_IBAN = "DE89 3704 0044 0532 0130 00"
+    INVALID_IBAN = "DE00 0000 0000 0000 0000 00"
+
+    def test_invalid_iban_from_llm_is_discarded(self):
+        """An LLM-hallucinated IBAN that fails the checksum must be dropped."""
+        container = PiiMatchContainer(validate_structured_findings=True)
+        container.add_detection_results(
+            [self._result(self.INVALID_IBAN, "IBAN")], "/f.txt"
+        )
+        assert len(container.pii_matches) == 0
+
+    def test_valid_iban_from_llm_is_kept(self):
+        container = PiiMatchContainer(validate_structured_findings=True)
+        container.add_detection_results(
+            [self._result(self.VALID_IBAN, "IBAN")], "/f.txt"
+        )
+        assert len(container.pii_matches) == 1
+
+    def test_validation_can_be_disabled(self):
+        """With validation off, even an invalid IBAN is kept (legacy behaviour)."""
+        container = PiiMatchContainer(validate_structured_findings=False)
+        container.add_detection_results(
+            [self._result(self.INVALID_IBAN, "IBAN")], "/f.txt"
+        )
+        assert len(container.pii_matches) == 1
+
+    def test_coarse_chunk_is_not_discarded(self):
+        """A chunk-level finding (too long to be a single value) skips the checksum."""
+        container = PiiMatchContainer(validate_structured_findings=True)
+        chunk = (
+            "Kontoinformationen des Kunden inklusive vollstaendiger Bankverbindung "
+            "und weiterer personenbezogener Angaben in diesem Abschnitt."
+        )
+        container.add_detection_results([self._result(chunk, "IBAN")], "/f.txt")
+        assert len(container.pii_matches) == 1
+
+    def test_non_structured_type_is_untouched(self):
+        """Person names are never checksum-validated."""
+        container = PiiMatchContainer(validate_structured_findings=True)
+        container.add_detection_results(
+            [self._result("Max Mustermann", "PERSON")], "/f.txt"
+        )
+        assert len(container.pii_matches) == 1
+
+
 class TestSetWhitelistAtomicity:
     """Tests for atomic whitelist compilation in set_whitelist."""
 
