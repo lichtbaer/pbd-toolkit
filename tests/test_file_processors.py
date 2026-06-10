@@ -62,6 +62,35 @@ class TestDocxProcessor:
         assert not processor.can_process(".pdf")
         assert not processor.can_process(".txt")
 
+    def test_extract_paragraphs_tables_headers(self, temp_dir):
+        """Paragraphs, table cells and header/footer text are all extracted."""
+        docx = pytest.importorskip("docx")
+        path = os.path.join(temp_dir, "sample.docx")
+
+        document = docx.Document()
+        document.add_paragraph("Max Mustermann")
+        document.add_paragraph("max.mustermann@example.com")
+        table = document.add_table(rows=2, cols=2)
+        table.cell(0, 0).text = "IBAN"
+        table.cell(0, 1).text = "Wert"
+        table.cell(1, 0).text = "DE89 3704 0044 0532 0130 00"
+        table.cell(1, 1).text = "Hauptkonto"
+        section = document.sections[0]
+        section.header.paragraphs[0].text = "Vertraulich Kopfzeile"
+        section.footer.paragraphs[0].text = "Seite Fusszeile"
+        document.save(path)
+
+        text = DocxProcessor().extract_text(path)
+
+        # Paragraphs are newline-separated so adjacent entities do not fuse.
+        assert "Max Mustermann\nmax.mustermann@example.com" in text
+        # Table cells (incl. the IBAN that only lives in a table) are present.
+        assert "DE89 3704 0044 0532 0130 00" in text
+        assert "IBAN" in text
+        # Header and footer text is captured.
+        assert "Vertraulich Kopfzeile" in text
+        assert "Seite Fusszeile" in text
+
 
 class TestHtmlProcessor:
     """Tests for HTML processor."""
@@ -162,6 +191,20 @@ class TestCsvProcessor:
         text = processor.extract_text(file_path)
         assert "John Doe" in text
         assert "john@example.com" in text
+
+    def test_extract_preserves_column_context(self, temp_dir):
+        """Each value is paired with its column header and rows stay separated."""
+        file_path = os.path.join(temp_dir, "context.csv")
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write("Name,IBAN\n")
+            f.write("Max Mustermann,DE89 3704 0044 0532 0130 00\n")
+            f.write("Erika Beispiel,DE02 1203 0000 0000 2020 51\n")
+
+        text = CsvProcessor().extract_text(file_path)
+        assert "IBAN: DE89 3704 0044 0532 0130 00" in text
+        assert "Name: Max Mustermann" in text
+        # Two data records -> two separate lines (plus the header line).
+        assert len(text.splitlines()) == 3
 
     def test_file_not_found(self, temp_dir):
         """Test that FileNotFoundError is raised for non-existent file."""
@@ -520,6 +563,27 @@ class TestXlsxProcessor:
         text = processor.extract_text(xlsx_path)
         assert "John Doe" in text
         assert "john@example.com" in text
+
+    def test_extract_preserves_column_context(self, temp_dir):
+        """Values are paired with their column header for context-aware detection."""
+        pytest.importorskip("openpyxl")
+        from openpyxl import Workbook
+
+        xlsx_path = os.path.join(temp_dir, "context.xlsx")
+        wb = Workbook()
+        ws = wb.active
+        ws.append(["Name", "IBAN"])
+        ws.append(["Max Mustermann", "DE89 3704 0044 0532 0130 00"])
+        ws.append(["Erika Beispiel", "DE02 1203 0000 0000 2020 51"])
+        wb.save(xlsx_path)
+
+        text = XlsxProcessor().extract_text(xlsx_path)
+        # Each value carries its column header.
+        assert "IBAN: DE89 3704 0044 0532 0130 00" in text
+        assert "Name: Max Mustermann" in text
+        # Records stay on separate lines so entities do not fuse across rows.
+        assert "Erika Beispiel" in text
+        assert "\n" in text
 
     def test_file_not_found(self, temp_dir):
         """Test that non-existent file raises an error (XlsxProcessor wraps as Exception)."""

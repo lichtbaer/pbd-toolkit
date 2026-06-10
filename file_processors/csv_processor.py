@@ -4,6 +4,7 @@ import csv
 import io
 
 from file_processors.base_processor import BaseFileProcessor, read_text_with_fallback
+from file_processors.xlsx_processor import _format_sheet_rows
 
 
 class CsvProcessor(BaseFileProcessor):
@@ -18,7 +19,10 @@ class CsvProcessor(BaseFileProcessor):
         """Extract text from a CSV file.
 
         Attempts to detect the delimiter automatically by trying common delimiters.
-        Extracts all cell values and combines them into a single text string.
+        The first row is treated as a header when present, so each value is emitted
+        as ``"<column>: <value>"`` and downstream detection keeps the column context
+        (e.g. a value under an "IBAN" column).  One line per record preserves row
+        boundaries so entities from different records do not fuse.
 
         Args:
             file_path: Path to the CSV file
@@ -32,8 +36,6 @@ class CsvProcessor(BaseFileProcessor):
             FileNotFoundError: If file does not exist
             Exception: For other CSV processing errors
         """
-        text_parts: list[str] = []
-
         content = read_text_with_fallback(file_path)
 
         # Detect delimiter from first 1024 chars
@@ -45,12 +47,7 @@ class CsvProcessor(BaseFileProcessor):
             detected_delimiter = max(delimiter_counts, key=delimiter_counts.get)
 
         reader = csv.reader(io.StringIO(content), delimiter=detected_delimiter)
-        for row in reader:
-            for cell in row:
-                if cell and cell.strip():
-                    text_parts.append(cell.strip())
-
-        return " ".join(text_parts)
+        return "\n".join(_format_sheet_rows(reader))
 
     @staticmethod
     def can_process(extension: str) -> bool:

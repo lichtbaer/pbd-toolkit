@@ -1,13 +1,68 @@
 """XLSX/XLS file processor using openpyxl and xlrd libraries."""
 
+from collections.abc import Iterable
+
 from file_processors.base_processor import BaseFileProcessor
+
+
+def _format_sheet_rows(rows: Iterable[Iterable[object]]) -> list[str]:
+    """Turn raw sheet rows into context-preserving text lines.
+
+    The first row is treated as a header when it has at least two non-empty cells
+    and the sheet has more than one row.  Each subsequent data cell is then emitted
+    as ``"<header>: <value>"`` so that downstream NER/LLM detection sees the column
+    semantics — e.g. a value under an "IBAN" column keeps that association instead of
+    being flattened into an undifferentiated bag of words.  One line per row preserves
+    record boundaries so entities from different records do not fuse.
+
+    Args:
+        rows: Iterable of rows; each row is an iterable of cell values (may be None).
+
+    Returns:
+        List of text lines (one per non-empty row), header first when detected.
+    """
+    norm: list[list[str]] = []
+    for row in rows:
+        cells = ["" if v is None else str(v).strip() for v in row]
+        if any(cells):
+            norm.append(cells)
+
+    if not norm:
+        return []
+
+    header: list[str] | None = None
+    first = norm[0]
+    if len(norm) > 1 and sum(1 for c in first if c) >= 2:
+        header = first
+        data_rows = norm[1:]
+    else:
+        data_rows = norm
+
+    lines: list[str] = []
+    if header is not None:
+        lines.append(" | ".join(c for c in header if c))
+
+    for cells in data_rows:
+        pairs: list[str] = []
+        for i, val in enumerate(cells):
+            if not val:
+                continue
+            if header is not None and i < len(header) and header[i]:
+                pairs.append(f"{header[i]}: {val}")
+            else:
+                pairs.append(val)
+        if pairs:
+            lines.append(" | ".join(pairs))
+
+    return lines
 
 
 class XlsxProcessor(BaseFileProcessor):
     """Processor for XLSX (Excel 2007+) files.
 
     Extracts text from XLSX files using openpyxl library.
-    Extracts all cell values from all sheets for PII detection.
+    Extracts all cell values from all sheets for PII detection, preserving the
+    column-header context of each value (see :func:`_format_sheet_rows`).
     """
 
     def extract_text(self, file_path: str) -> str:
@@ -35,31 +90,22 @@ class XlsxProcessor(BaseFileProcessor):
                 "Install it with: pip install openpyxl"
             )
 
-        text_parts: list[str] = []
+        lines: list[str] = []
 
         try:
             # Load workbook (read-only mode for better performance)
             workbook = load_workbook(file_path, read_only=True, data_only=True)
 
-            # Process all sheets
             for sheet_name in workbook.sheetnames:
                 sheet = workbook[sheet_name]
-
-                # Iterate through all cells
-                for row in sheet.iter_rows(values_only=True):
-                    for cell_value in row:
-                        if cell_value is not None:
-                            # Convert to string and add if not empty
-                            cell_str = str(cell_value).strip()
-                            if cell_str:
-                                text_parts.append(cell_str)
+                lines.extend(_format_sheet_rows(sheet.iter_rows(values_only=True)))
 
             workbook.close()
 
         except Exception as e:
             raise Exception(f"Error processing XLSX file: {str(e)}") from e
 
-        return " ".join(text_parts)
+        return "\n".join(lines)
 
     @staticmethod
     def can_process(extension: str) -> bool:
@@ -71,7 +117,8 @@ class XlsProcessor(BaseFileProcessor):
     """Processor for XLS (Excel 97-2003) files.
 
     Extracts text from older XLS files using xlrd library.
-    Extracts all cell values from all sheets for PII detection.
+    Extracts all cell values from all sheets for PII detection, preserving the
+    column-header context of each value (see :func:`_format_sheet_rows`).
     """
 
     def extract_text(self, file_path: str) -> str:
@@ -98,32 +145,23 @@ class XlsProcessor(BaseFileProcessor):
                 "xlrd is required for XLS processing. Install it with: pip install xlrd"
             )
 
-        text_parts: list[str] = []
+        lines: list[str] = []
 
         try:
-            # Open workbook
             workbook = xlrd.open_workbook(file_path)
 
-            # Process all sheets
             for sheet_index in range(workbook.nsheets):
                 sheet = workbook.sheet_by_index(sheet_index)
-
-                # Iterate through all cells
-                for row_idx in range(sheet.nrows):
-                    for col_idx in range(sheet.ncols):
-                        cell = sheet.cell(row_idx, col_idx)
-                        cell_value = cell.value
-
-                        if cell_value is not None:
-                            # Convert to string and add if not empty
-                            cell_str = str(cell_value).strip()
-                            if cell_str:
-                                text_parts.append(cell_str)
+                rows = (
+                    [sheet.cell(r, c).value for c in range(sheet.ncols)]
+                    for r in range(sheet.nrows)
+                )
+                lines.extend(_format_sheet_rows(rows))
 
         except Exception as e:
             raise Exception(f"Error processing XLS file: {str(e)}") from e
 
-        return " ".join(text_parts)
+        return "\n".join(lines)
 
     @staticmethod
     def can_process(extension: str) -> bool:
