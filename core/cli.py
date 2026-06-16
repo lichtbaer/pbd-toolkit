@@ -10,13 +10,7 @@ from core import cli_setup as setup
 from core import constants
 from core.config import Config
 from core.config_loader import ConfigLoader
-from core.context import ApplicationContext
 from core.doctor import run_doctor
-from core.matches import PiiMatchContainer
-from core.processor import TextProcessor
-from core.scanner import FileInfo, FileScanner
-from core.statistics import Statistics
-from core.statistics_aggregator import StatisticsAggregator
 
 # Create Typer app
 app = typer.Typer(
@@ -733,46 +727,16 @@ def scan(
         )
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
 
-    # Initialize components
+    # Detection-flag interpretation. The shared :class:`~core.scan_runner.ScanRunner`
+    # builds the actual PiiMatchContainer / Statistics / ApplicationContext from
+    # these (and from the config + output wiring assembled above), so the CLI and
+    # the REST API share one orchestration path (issue #76).
     _dedup_enabled = bool(getattr(args, "deduplicate", False))
     _fusion_enabled = bool(getattr(args, "confidence_fusion", False))
     _min_conf_val = config_obj.min_confidence
     _structured_validation = bool(getattr(args, "structured_validation", True))
-    pmc: PiiMatchContainer = PiiMatchContainer(
-        enable_deduplication=_dedup_enabled or _fusion_enabled,
-        enable_confidence_fusion=_fusion_enabled,
-        validate_structured_findings=_structured_validation,
-        min_confidence=_min_conf_val,
-        min_severity=config_obj.min_severity,
-        dedup_max_entries=config_obj.dedup_max_entries,
-        max_whitelist_regex_len=config_obj.max_whitelist_regex_len,
-    )
-    pmc.set_csv_writer(csv_writer)
-    pmc.set_output_format(args.format if hasattr(args, "format") else "csv")
-    # Enable streaming writes for writers that support it (e.g. csv/jsonl/xlsx).
-    pmc.set_output_writer(output_writer)
-
-    statistics = Statistics()
-    statistics.start()  # Start timing before processing
-
-    # Initialize statistics aggregator if statistics mode is enabled
-    statistics_aggregator = None
-    if hasattr(args, "statistics_mode") and args.statistics_mode:
-        statistics_aggregator = StatisticsAggregator(
-            strict=bool(getattr(args, "statistics_strict", False))
-        )
-
-    # Create application context
-    context = ApplicationContext.from_cli_args(
-        args=args,
-        config=config_obj,
-        logger=logger,
-        statistics=statistics,
-        match_container=pmc,
-        output_writer=output_writer,
-        translate_func=translate_func,
-    )
-    context.output_file_path = output_file_path
+    _statistics_mode = bool(getattr(args, "statistics_mode", False))
+    _statistics_strict = bool(getattr(args, "statistics_strict", False))
 
     # Analytics database (optional)
     _analytics_enabled = getattr(args, "analytics", False)
@@ -807,226 +771,72 @@ def scan(
                 config_summary=config_summary,
                 source="cli",
             )
-            context.analytics_store = analytics_store
-            context.analytics_session_id = analytics_session_id
-            pmc.set_analytics_store(analytics_store, analytics_session_id)
             logger.info(
                 translate_func("Analytics database enabled: %s") % _analytics_db_path
             )
         except Exception as exc:
             logger.warning("Failed to initialize analytics database: %s", exc)
 
-    # Load whitelist if provided
-    if context.config.whitelist_path and os.path.isfile(context.config.whitelist_path):
-        with open(context.config.whitelist_path, encoding="utf-8") as file:
-            context.match_container.whitelist = file.read().splitlines()
-        # Pre-compile whitelist pattern for better performance
-        context.match_container._compile_whitelist_pattern()
-
-    context.logger.info(context._("Analysis"))
-    context.logger.info("====================\n")
-    context.logger.info(
-        context._("Analysis started at {}\n").format(context.statistics.start_time)
-    )
-
-    if context.config.use_regex:
-        context.logger.info(context._("Regex-based search is active."))
-    else:
-        context.logger.info(context._("Regex-based search is *not* active."))
-
-    if context.config.use_ner:
-        context.logger.info(context._("AI-based search is active."))
-        if context.config.verbose:
-            context.logger.debug(f"NER Model: {constants.NER_MODEL_NAME}")
-            context.logger.debug(f"NER Threshold: {context.config.ner_threshold}")
-            context.logger.debug(f"NER Labels: {context.config.ner_labels}")
-    else:
-        context.logger.info(context._("AI-based search is *not* active."))
-
-    if context.config.verbose:
-        context.logger.debug(f"Search path: {context.config.path}")
-        context.logger.debug(f"Output directory: {output_dir}")
-        if context.config.whitelist_path:
-            context.logger.debug(f"Whitelist file: {context.config.whitelist_path}")
-            context.logger.debug(f"Whitelist entries: {len(pmc.whitelist)}")
-
-    context.logger.info("\n")
-
-    # Error tracking (for backward compatibility)
-    errors: dict[str, list[str]] = {}
-    import threading
-
-    _error_lock = threading.Lock()
-
-    def add_error(msg: str, path: str) -> None:
-        """Add an error message for a specific file path.
-
-        Thread-safe error tracking.
-        """
-        with _error_lock:
-            if msg not in errors:
-                errors[msg] = [path]
-            else:
-                errors[msg].append(path)
-
-    # Initialize incremental scan cache (if requested)
-    _use_incremental = bool(getattr(args, "incremental", False))
-    scan_cache = None
-    if _use_incremental:
-        from core.scan_cache import ScanCache
-
-        _cache_path = getattr(args, "cache_path", None) or os.path.join(
-            output_dir, ".pbd_scan_cache.db"
-        )
-        scan_cache = ScanCache(cache_path=_cache_path, logger=logger)
-        _cache_stats = scan_cache.stats()
-        context.logger.info(
-            f"Incremental scanning enabled. Cache: {_cache_path} "
-            f"({_cache_stats['total_entries']} entries)"
-        )
-
-    # Initialize text processor for PII detection
-    text_processor = TextProcessor(
-        context.config, context.match_container, statistics=context.statistics
-    )
-
-    # Initialize scanner
-    scanner = FileScanner(context.config)
-
-    # Define callback function for processing each file
+    # Worker count: CLI mode/jobs flags decide concurrency; the runner owns the
+    # executor lifecycle (issue #79).
     mode_lower = (getattr(args, "mode", "balanced") or "balanced").lower()
     cpu_count = os.cpu_count() or 4
     if getattr(args, "jobs", None):
         worker_count = max(1, int(args.jobs))
+    elif mode_lower == "safe":
+        worker_count = 1
+    elif mode_lower == "fast":
+        worker_count = min(32, max(2, cpu_count * 4))
     else:
-        if mode_lower == "safe":
-            worker_count = 1
-        elif mode_lower == "fast":
-            worker_count = min(32, max(2, cpu_count * 4))
-        else:
-            worker_count = max(1, cpu_count)
+        worker_count = max(1, cpu_count)
 
-    # Keep aggregator thread-safe if used from workers
-    _stats_lock = threading.Lock()
-
-    def _process_file_impl(file_info: FileInfo) -> None:
-        """Process a single file: extract text and detect PII."""
-        # Incremental scan: skip unchanged files
-        if scan_cache is not None and scan_cache.is_unchanged(file_info.path):
-            if context.config.verbose:
-                context.logger.debug(
-                    f"Incremental: skipping unchanged file {file_info.path}"
-                )
-            return
-
-        text_processor.process_file(file_info, error_callback=add_error)
-
-        # Update incremental cache after successful processing
-        if scan_cache is not None:
-            scan_cache.mark_scanned(file_info.path)
-
-        # Track file for statistics aggregator
-        if statistics_aggregator:
-            with _stats_lock:
-                statistics_aggregator.add_file_scanned(
-                    file_info.path, was_analyzed=True
-                )
-                # Track which engines processed this file
-                if context.config.use_regex:
-                    statistics_aggregator.add_file_processed(file_info.path, "regex")
-                if context.config.use_ner:
-                    statistics_aggregator.add_file_processed(file_info.path, "gliner")
-                if getattr(context.config, "use_spacy_ner", False):
-                    statistics_aggregator.add_file_processed(
-                        file_info.path, "spacy-ner"
-                    )
-                if getattr(context.config, "use_pydantic_ai", False):
-                    statistics_aggregator.add_file_processed(
-                        file_info.path, "pydantic-ai"
-                    )
-
-    if worker_count <= 1:
-
-        def process_file(file_info: FileInfo) -> None:
-            _process_file_impl(file_info)
-    else:
-        import concurrent.futures
-
-        executor = concurrent.futures.ThreadPoolExecutor(max_workers=worker_count)
-
-        def process_file(file_info: FileInfo):
-            return executor.submit(_process_file_impl, file_info)
-
-    # Scan directory and process files
-    try:
-        scan_result = scanner.scan(
-            path=context.config.path,
-            file_callback=process_file,
-            stop_count=context.config.stop_count,
-        )
-    finally:
-        # Ensure worker threads are cleaned up even if scanning fails.
-        if worker_count > 1:
-            try:
-                executor.shutdown(wait=True)
-            except Exception:
-                pass
-        # Close cache connection
-        if scan_cache is not None:
-            scan_cache.close()
-
-    # Post-scan finalisation (e.g. persist FAISS index for vector engine)
-    text_processor.finalize()
-
-    # Update statistics from scan result
-    context.statistics.update_from_scan_result(
-        total_files=scan_result.total_files_found,
-        files_processed=scan_result.files_processed,
-        extension_counts=scan_result.extension_counts,
-        errors=scan_result.errors,
-    )
-
-    # Merge scanner errors with existing errors
-    for error_type, file_list in scan_result.errors.items():
-        if error_type not in errors:
-            errors[error_type] = []
-        errors[error_type].extend(file_list)
-
-    # Update match count in statistics
-    context.statistics.matches_found = len(context.match_container.pii_matches)
-
-    # --- Post-scan reporting (extracted to core.scan_reporting) ---
+    # --- Delegate the scan pipeline to the shared ScanRunner -------------------
     from core import scan_reporting
+    from core.scan_runner import ScanRequest, ScanRunner
 
-    file_risk_scores, matches_by_file = scan_reporting.compute_file_risk_scores(
-        context.match_container
+    run_result = ScanRunner().run(
+        ScanRequest(
+            config=config_obj,
+            logger=logger,
+            translate_func=translate_func,
+            output_writer=output_writer,
+            output_format=output_format,
+            output_file_path=output_file_path,
+            output_dir=output_dir,
+            outslug=outslug,
+            csv_writer=csv_writer,
+            csv_file_handle=csv_file_handle,
+            enable_deduplication=_dedup_enabled,
+            enable_confidence_fusion=_fusion_enabled,
+            validate_structured_findings=_structured_validation,
+            min_confidence=_min_conf_val,
+            worker_count=worker_count,
+            incremental=bool(getattr(args, "incremental", False)),
+            cache_path=getattr(args, "cache_path", None),
+            statistics_mode=_statistics_mode,
+            statistics_strict=_statistics_strict,
+            statistics_output=getattr(args, "statistics_output", None),
+            analytics_store=analytics_store,
+            analytics_session_id=analytics_session_id,
+            finalize_analytics_session=True,
+            fail_on_severity=getattr(args, "fail_on_severity", None),
+        )
     )
 
-    # Aggregate matches for statistics mode
-    if statistics_aggregator:
-        for match in context.match_container.pii_matches:
-            statistics_aggregator.add_match(match)
+    # Bind result objects for the CLI-owned post-scan side effects below.
+    context = run_result.context
+    errors = run_result.errors
+    file_risk_scores = run_result.file_risk_scores
+    matches_by_file = run_result.matches_by_file
 
-    # Stop timing
-    context.statistics.stop()
-
-    # Complete analytics session (if enabled)
-    scan_reporting.finalize_analytics(
-        analytics_store, analytics_session_id, context, logger
-    )
-
-    # Calculate total errors
-    total_errors = sum(len(v) for v in errors.values())
-    context.statistics.total_errors = total_errors
-
-    # Log results
-    scan_reporting.log_scan_results(context, errors, scan_result=scan_result)
-
-    # Build metadata and write output
-    output_metadata = scan_reporting.build_output_metadata(
-        context, errors, file_risk_scores, matches_by_file
-    )
-    scan_reporting.write_output(context, output_metadata, csv_file_handle)
+    # The runner writes output internally and translates OutputError into an
+    # exit code rather than raising ``typer.Exit``.  Surface write failures here
+    # before running side effects, mirroring the legacy ordering.
+    if run_result.exit_code not in (
+        constants.EXIT_SUCCESS,
+        constants.EXIT_FINDINGS_ABOVE_THRESHOLD,
+    ):
+        raise typer.Exit(code=run_result.exit_code)
 
     # Redaction: create redacted copies if requested
     if getattr(args, "redact", False) and matches_by_file:
@@ -1096,11 +906,6 @@ def scan(
         except Exception as _exc:
             typer.echo(f"\nWebhook delivery failed: {_exc}", err=True)
 
-    # Statistics output
-    scan_reporting.write_statistics_output(
-        context, args, statistics_aggregator, output_dir, outslug
-    )
-
     # Console summary
     if not (hasattr(args, "quiet") and args.quiet):
         summary_fmt = (
@@ -1118,23 +923,16 @@ def scan(
             summary_format=summary_fmt,
         )
 
-    # CI/CD severity gate: exit with code 5 if threshold is exceeded
+    # CI/CD severity gate: exit with code 5 if threshold is exceeded. The runner
+    # already computed the decision; the CLI owns the message + exit semantics.
     _fail_sev = getattr(args, "fail_on_severity", None)
-    if _fail_sev:
-        from core.severity import _LEVEL_WEIGHT
-
-        _threshold_weight = _LEVEL_WEIGHT.get(_fail_sev.upper(), 2)
-        _triggered = any(
-            _LEVEL_WEIGHT.get(m.severity or "", 0) >= _threshold_weight
-            for m in context.match_container.pii_matches
-        )
-        if _triggered:
-            if not (hasattr(args, "quiet") and args.quiet):
-                typer.echo(
-                    f"\n[fail-on-severity] Findings at or above {_fail_sev.upper()} detected. Exiting with code {constants.EXIT_FINDINGS_ABOVE_THRESHOLD}.",
-                    err=True,
-                )
-            raise typer.Exit(code=constants.EXIT_FINDINGS_ABOVE_THRESHOLD)
+    if _fail_sev and run_result.findings_above_threshold:
+        if not (hasattr(args, "quiet") and args.quiet):
+            typer.echo(
+                f"\n[fail-on-severity] Findings at or above {_fail_sev.upper()} detected. Exiting with code {constants.EXIT_FINDINGS_ABOVE_THRESHOLD}.",
+                err=True,
+            )
+        raise typer.Exit(code=constants.EXIT_FINDINGS_ABOVE_THRESHOLD)
 
 
 @app.command()
