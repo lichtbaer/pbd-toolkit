@@ -191,8 +191,7 @@ class ScannerService:
             scan_logger = logging.getLogger(f"scan.{session_id[:8]}")
 
             from core.config import Config
-            from core.matches import PiiMatchContainer
-            from core.statistics import Statistics
+            from core.scan_runner import ScanRequest, ScanRunner
 
             # Create config (this also loads regex patterns, NER models, etc.)
             config_obj = Config.from_args(
@@ -207,46 +206,27 @@ class ScannerService:
             config_obj.context_chars = context_chars
             config_obj.min_confidence = min_confidence
 
-            statistics = Statistics()
-            statistics.start()
-
-            pmc = PiiMatchContainer(
-                enable_deduplication=deduplicate,
-                min_confidence=min_confidence,
-                dedup_max_entries=config_obj.dedup_max_entries,
-                max_whitelist_regex_len=config_obj.max_whitelist_regex_len,
-            )
-            pmc.set_analytics_store(self._store, session_id)
-
-            # Build the text processor up front and process each file via the
-            # scanner callback, mirroring the CLI pipeline (core/cli.py). Scans
-            # already run inside the service ThreadPoolExecutor, so files are
-            # processed sequentially here without an extra executor.
-            from core.processor import TextProcessor
-            from core.scanner import FileInfo, FileScanner
-
-            processor = TextProcessor(config_obj, pmc, statistics=statistics)
-
-            def _process(file_info: FileInfo) -> None:
-                try:
-                    processor.process_file(file_info)
-                except Exception as exc:
-                    scan_logger.debug("Error processing %s: %s", file_info.path, exc)
-
-            scanner = FileScanner(config_obj)
-            scan_result = scanner.scan(path=path, file_callback=_process)
-
-            # Post-scan finalisation (e.g. persist vector index for vector engine)
-            processor.finalize()
-
-            statistics.update_from_scan_result(
-                total_files=scan_result.total_files_found,
-                files_processed=scan_result.files_processed,
-                extension_counts=scan_result.extension_counts,
-                errors=scan_result.errors,
+            # Delegate to the shared ScanRunner so the API and the CLI exercise
+            # one orchestration path (issue #76). The API runs each scan inside
+            # its own ThreadPoolExecutor, so the runner stays single-threaded
+            # (worker_count=1). The analytics store is shared and long-lived, so
+            # the API — not the runner — owns session completion/close.
+            run_result = ScanRunner().run(
+                ScanRequest(
+                    config=config_obj,
+                    logger=scan_logger,
+                    output_writer=None,
+                    output_format="json",
+                    enable_deduplication=deduplicate,
+                    min_confidence=min_confidence,
+                    worker_count=1,
+                    analytics_store=self._store,
+                    analytics_session_id=session_id,
+                    finalize_analytics_session=False,
+                )
             )
 
-            statistics.stop()
+            statistics = run_result.statistics
 
             # Complete session
             self._store.complete_session(
