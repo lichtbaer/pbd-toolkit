@@ -218,32 +218,33 @@ class ScannerService:
             )
             pmc.set_analytics_store(self._store, session_id)
 
-            # Run the scanner
-            from core.scanner import FileScanner
+            # Build the text processor up front and process each file via the
+            # scanner callback, mirroring the CLI pipeline (core/cli.py). Scans
+            # already run inside the service ThreadPoolExecutor, so files are
+            # processed sequentially here without an extra executor.
+            from core.processor import TextProcessor
+            from core.scanner import FileInfo, FileScanner
 
-            scanner = FileScanner(config=config_obj, logger=scan_logger)
-            scan_result = scanner.scan()
+            processor = TextProcessor(config_obj, pmc, statistics=statistics)
+
+            def _process(file_info: FileInfo) -> None:
+                try:
+                    processor.process_file(file_info)
+                except Exception as exc:
+                    scan_logger.debug("Error processing %s: %s", file_info.path, exc)
+
+            scanner = FileScanner(config_obj)
+            scan_result = scanner.scan(path=path, file_callback=_process)
+
+            # Post-scan finalisation (e.g. persist vector index for vector engine)
+            processor.finalize()
 
             statistics.update_from_scan_result(
-                total_files=scan_result.total_files,
+                total_files=scan_result.total_files_found,
                 files_processed=scan_result.files_processed,
                 extension_counts=scan_result.extension_counts,
                 errors=scan_result.errors,
             )
-
-            # Process files with the text processor
-            from core.processor import TextProcessor
-
-            processor = TextProcessor(config=config_obj, logger=scan_logger)
-            for file_path in scan_result.processed_files:
-                try:
-                    processor.process_file(
-                        file_path=file_path,
-                        match_container=pmc,
-                        statistics=statistics,
-                    )
-                except Exception as exc:
-                    scan_logger.debug("Error processing %s: %s", file_path, exc)
 
             statistics.stop()
 
