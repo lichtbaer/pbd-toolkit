@@ -1,10 +1,23 @@
 """Validation utilities for PII detection."""
 
 import importlib
+from typing import Protocol
 
 from validators.credit_card_validator import CreditCardValidator
 
 __all__ = ["CreditCardValidator", "get_validator"]
+
+
+class _ValidatorClass(Protocol):
+    """Structural shape shared by all validator classes in this package.
+
+    Each validator exposes a ``validate`` static method; the return type
+    varies (plain ``bool``, or ``(bool, reason)`` for CreditCardValidator).
+    """
+
+    @staticmethod
+    def validate(value: str) -> bool | tuple[bool, str | None]: ...
+
 
 # Lazy-loading validator registry: maps validation_type -> dotted import path
 _VALIDATOR_REGISTRY: dict[str, str] = {
@@ -14,10 +27,10 @@ _VALIDATOR_REGISTRY: dict[str, str] = {
     "bic": "validators.bic_validator.BicValidator",
 }
 
-_loaded_validators: dict[str, type | None] = {}
+_loaded_validators: dict[str, type[_ValidatorClass] | None] = {}
 
 
-def get_validator(validation_type: str) -> type | None:
+def get_validator(validation_type: str) -> type[_ValidatorClass] | None:
     """Get a validator class by type name. Returns None if not available.
 
     Validators are lazily imported and cached on first access. If the

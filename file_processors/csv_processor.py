@@ -44,12 +44,14 @@ class CsvProcessor(BaseFileProcessor):
         delimiter_counts = {d: sample.count(d) for d in delimiters}
         detected_delimiter = ","
         if max(delimiter_counts.values()) > 0:
-            detected_delimiter = max(delimiter_counts, key=delimiter_counts.get)
+            detected_delimiter = max(
+                delimiter_counts, key=lambda d: delimiter_counts[d]
+            )
 
         reader = csv.reader(io.StringIO(content), delimiter=detected_delimiter)
         return "\n".join(_format_sheet_rows(reader))
 
     @staticmethod
-    def can_process(extension: str) -> bool:
+    def can_process(extension: str) -> bool:  # type: ignore[override]  # registry inspects arity; see base_processor.can_process
         """Check if this processor can handle CSV files."""
         return extension.lower() == ".csv"

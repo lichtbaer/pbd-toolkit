@@ -7,12 +7,12 @@ try:
     from odf.table import Table, TableCell, TableRow
     from odf.text import H, P
 except Exception:  # pragma: no cover - optional dependency
-    load = None  # type: ignore[assignment]
-    Table = None  # type: ignore[assignment]
-    TableCell = None  # type: ignore[assignment]
-    TableRow = None  # type: ignore[assignment]
-    H = None  # type: ignore[assignment]
-    P = None  # type: ignore[assignment]
+    load = None
+    Table = None
+    TableCell = None
+    TableRow = None
+    H = None
+    P = None
 
 
 class OdtProcessor(BaseFileProcessor):
@@ -108,6 +108,6 @@ class OdtProcessor(BaseFileProcessor):
         return " ".join(text_parts)
 
     @staticmethod
-    def can_process(extension: str) -> bool:
+    def can_process(extension: str) -> bool:  # type: ignore[override]  # registry inspects arity; see base_processor.can_process
         """Check if this processor can handle ODT files."""
         return extension.lower() == ".odt"

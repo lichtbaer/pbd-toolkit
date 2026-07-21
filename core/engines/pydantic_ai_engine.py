@@ -20,11 +20,11 @@ from core.engines.llm_retry import retry_with_backoff
 
 try:
     # Optional dependency: used for text-only LLM detection.
-    from pydantic_ai import Agent  # type: ignore
+    from pydantic_ai import Agent
 
     _PYDANTIC_AI_AVAILABLE = True
 except ImportError:  # pragma: no cover
-    Agent = None  # type: ignore
+    Agent = None
     _PYDANTIC_AI_AVAILABLE = False
 
 
@@ -99,11 +99,11 @@ class PydanticAIEngine:
 
         # Initialize agent
         self._agent: Agent | None = None
-        self._available = None  # Cache availability check
+        self._available: bool | None = None  # Cache availability check
 
         # Adaptive rate limiting (preserved from OllamaEngine)
-        self._last_request_time = 0
-        self._last_request_duration = 0
+        self._last_request_time = 0.0
+        self._last_request_duration = 0.0
         self._consecutive_slow_requests = 0
         self._slow_threshold = 5.0  # Seconds considered "slow"
 
@@ -294,8 +294,8 @@ class PydanticAIEngine:
             # into the global environment via os.environ.
             model_input: Any = model_str
             if self.provider == "openai":
-                from pydantic_ai.models.openai import OpenAIChatModel  # type: ignore
-                from pydantic_ai.providers.openai import OpenAIProvider  # type: ignore
+                from pydantic_ai.models.openai import OpenAIChatModel
+                from pydantic_ai.providers.openai import OpenAIProvider
 
                 provider_kwargs: dict[str, Any] = {}
                 if self.api_key:
@@ -307,10 +307,10 @@ class PydanticAIEngine:
             elif self.provider == "anthropic" and self.api_key:
                 try:
                     from pydantic_ai.models.anthropic import (
-                        AnthropicModel,  # type: ignore
+                        AnthropicModel,
                     )
                     from pydantic_ai.providers.anthropic import (
-                        AnthropicProvider,  # type: ignore
+                        AnthropicProvider,
                     )
 
                     provider = AnthropicProvider(api_key=self.api_key)
@@ -325,10 +325,10 @@ class PydanticAIEngine:
             elif self.provider == "ollama" and self.base_url:
                 try:
                     from pydantic_ai.models.openai import (
-                        OpenAIChatModel,  # type: ignore
+                        OpenAIChatModel,
                     )
                     from pydantic_ai.providers.openai import (
-                        OpenAIProvider,  # type: ignore
+                        OpenAIProvider,
                     )
 
                     # Ollama exposes an OpenAI-compatible API
@@ -636,7 +636,7 @@ class PydanticAIEngine:
     ) -> dict[str, Any]:
         """Call an OpenAI-compatible /chat/completions endpoint with an image."""
         try:
-            import requests  # type: ignore
+            import requests
         except ImportError as e:  # pragma: no cover
             raise RuntimeError("requests is required for multimodal detection") from e
 

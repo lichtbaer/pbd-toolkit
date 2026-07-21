@@ -92,6 +92,6 @@ class JsonProcessor(BaseFileProcessor):
         # Numbers, booleans, None are ignored as they're not useful for PII detection
 
     @staticmethod
-    def can_process(extension: str) -> bool:
+    def can_process(extension: str) -> bool:  # type: ignore[override]  # registry inspects arity; see base_processor.can_process
         """Check if this processor can handle JSON files."""
         return extension.lower() == ".json"

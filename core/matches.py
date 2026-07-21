@@ -23,7 +23,6 @@ Business context:
 
 from __future__ import annotations
 
-import csv
 import logging
 import re
 import threading
@@ -41,6 +40,8 @@ from core.resources import load_config_types
 from core.severity import classify as _classify_severity
 
 if TYPE_CHECKING:
+    import _csv
+
     from core.protocols import AnalyticsStoreProtocol, OutputWriterProtocol
 
 # FIFO cap prevents unbounded memory growth during large directory scans.
@@ -73,7 +74,7 @@ config = load_config_types()
 config_ainer = config["ai-ner"]
 config_regex = config["regex"]
 
-config_regex_sorted: dict[str, dict] = {}
+config_regex_sorted: dict[int, dict] = {}
 
 # The regex engine compiles all patterns into a single alternation (e.g. bank account |
 # email | phone | …) for performance: one pass over the text matches every type at once.
@@ -181,7 +182,7 @@ class PiiMatchContainer:
     # Maps dedup_key → (list_index, set_of_engines) for confidence fusion
     _fusion_index: dict = field(default_factory=dict, init=False, repr=False)
     # CSV writer for output (injected dependency, only used for CSV format)
-    _csv_writer: csv.writer | None = field(default=None, init=False, repr=False)
+    _csv_writer: _csv.Writer | None = field(default=None, init=False, repr=False)
     # Output format (csv, json, xlsx)
     _output_format: str = field(default="csv", init=False, repr=False)
     # Optional output writer for streaming formats (implements OutputWriterProtocol).
@@ -219,7 +220,7 @@ class PiiMatchContainer:
                 if valid:
                     self._whitelist_pattern = re.compile("|".join(valid))
 
-    def set_csv_writer(self, csv_writer: csv.writer | None) -> None:
+    def set_csv_writer(self, csv_writer: _csv.Writer | None) -> None:
         """Set the CSV writer for output.
 
         Args:
@@ -322,6 +323,9 @@ class PiiMatchContainer:
     def _is_whitelisted(self, text: str) -> bool:
         """Check if text matches whitelist pattern with timeout protection."""
         import concurrent.futures
+
+        if self._whitelist_pattern is None:
+            return False
 
         try:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
@@ -541,7 +545,13 @@ class PiiMatchContainer:
                     if not is_valid:
                         return
 
-            self.__add_match(text=matches.group(), file=path, type=type, engine="regex")
+            # `type` may legitimately be None here (e.g. a standalone compiled
+            # pattern with no capture groups, outside the "combined" alternation
+            # this method is primarily designed for) — __add_match tolerates it
+            # (guards internally with `if type`), so this is intentional, not a
+            # bug: see `_run_finditer`'s "REGEX_MATCH" fallback in regex_engine.py
+            # for the equivalent case in the primary detection path.
+            self.__add_match(text=matches.group(), file=path, type=type, engine="regex")  # type: ignore[arg-type]
 
     def add_matches_ner(self, matches: list[dict] | None, path: str) -> None:
         """Add matches from the GLiNER NER engine.

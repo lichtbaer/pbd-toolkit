@@ -19,7 +19,7 @@ except ImportError as _exc:
 
     # Provide stub names so the module can be imported without defusedxml
     # installed; XmlProcessor.extract_text() will raise ImportError at call time.
-    def safe_parse(*_args, **_kwargs):  # type: ignore[misc]
+    def safe_parse(*_args, **_kwargs):
         raise ImportError(
             "defusedxml is required for secure XML parsing. "
             "Install it with: pip install defusedxml"

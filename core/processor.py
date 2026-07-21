@@ -377,8 +377,10 @@ class TextProcessor:
         lock_ctx = engine_lock if engine_lock is not None else nullcontext()
         with lock_ctx:
             if image_path is not None:
-                # PydanticAIEngine supports image_path kwarg; other engines ignore it
-                return engine.detect(text, labels, image_path=image_path)  # type: ignore[arg-type]
+                # Only ever called with the PydanticAI engine (see process_file),
+                # which is the sole DetectionEngine implementation accepting
+                # image_path; the Protocol itself does not declare it.
+                return engine.detect(text, labels, image_path=image_path)  # type: ignore[call-arg]
             return engine.detect(text, labels)
 
     def process_file(

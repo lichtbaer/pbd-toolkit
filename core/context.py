@@ -3,15 +3,20 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, TextIO
 
 from core.config import Config
 from core.matches import PiiMatchContainer
 from core.statistics import Statistics
 from core.writers import OutputWriter
+
+if TYPE_CHECKING:
+    import _csv
+
+    from core.protocols import AnalyticsStoreProtocol
 
 
 @dataclass
@@ -34,13 +39,14 @@ class ApplicationContext:
     # Translation function
     translate_func: Callable[[str], str] = lambda x: x
 
-    # Analytics store (optional, duck-typed to avoid import cycles)
-    analytics_store: object | None = None
+    # Analytics store (optional, structurally typed via AnalyticsStoreProtocol
+    # to avoid a hard import-time dependency on the analytics package).
+    analytics_store: AnalyticsStoreProtocol | None = None
     analytics_session_id: str | None = None
 
     # Backward compatibility: CSV writer and file handle
-    csv_writer: csv.writer | None = None
-    csv_file_handle: object | None = None
+    csv_writer: _csv.Writer | None = None
+    csv_file_handle: TextIO | None = None
 
     # Output configuration
     output_format: str = "csv"

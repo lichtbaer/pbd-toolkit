@@ -1,5 +1,6 @@
 """CLI interface using Typer for modern command-line argument parsing."""
 
+import argparse
 import os
 from pathlib import Path
 
@@ -29,7 +30,7 @@ def _get_cli_version() -> str:
     editable/dev runs where metadata may be unavailable.
     """
     try:
-        from importlib.metadata import version  # type: ignore
+        from importlib.metadata import version
 
         return version("pbd-toolkit")
     except Exception:
@@ -56,8 +57,8 @@ def _main(
     """Global CLI options."""
 
 
-def _create_argparse_namespace_from_typer_args(**kwargs) -> object:
-    """Create an argparse-like namespace object from Typer arguments.
+def _create_argparse_namespace_from_typer_args(**kwargs) -> argparse.Namespace:
+    """Create an argparse Namespace from Typer arguments.
 
     This adapter allows us to use existing setup functions that expect argparse.Namespace.
 
@@ -65,22 +66,9 @@ def _create_argparse_namespace_from_typer_args(**kwargs) -> object:
         **kwargs: All Typer command arguments
 
     Returns:
-        Object with attributes matching argparse.Namespace
+        Namespace with attributes matching the Typer arguments
     """
-
-    class Args:
-        """Simple namespace-like class for compatibility."""
-
-        pass
-
-    args = Args()
-    for key, value in kwargs.items():
-        # Convert typer argument names to argparse-style names
-        # e.g., spacy_ner -> spacy_ner (same)
-        # e.g., openai_compatible -> openai_compatible (same)
-        setattr(args, key, value)
-
-    return args
+    return argparse.Namespace(**kwargs)
 
 
 @app.command()
@@ -884,7 +872,7 @@ def scan(
                 "scan_path": str(config_obj.path),
                 "total_findings": len(context.match_container.pii_matches),
                 "files_scanned": context.statistics.files_processed,
-                "duration_sec": context.statistics.elapsed_time,
+                "duration_sec": context.statistics.duration_seconds,
                 "severity_counts": {
                     sev: sum(
                         1
@@ -1715,24 +1703,30 @@ def test_pattern(
     container = PiiMatchContainer()
 
     if regex:
+        import logging
+
+        from core.config import Config
         from core.engines.regex_engine import RegexEngine
 
-        cfg_obj = type("C", (), {"regex_pattern": None, "verbose": False})()
+        cfg_obj = Config(
+            use_regex=True, verbose=False, logger=logging.getLogger(__name__)
+        )
+        cfg_obj._load_regex_pattern()
         engine = RegexEngine(cfg_obj)
         if engine.is_available():
-            results = engine.detect(text, file_path="<test-input>")
+            results = engine.detect(text)
             container.add_detection_results(results, "<test-input>")
 
     if ner:
         try:
-            from core.engines.gliner_engine import GlinerEngine
+            from core.engines.gliner_engine import GLiNEREngine
 
             cfg_obj = type(
                 "C", (), {"ner_threshold": 0.3, "ner_labels": [], "verbose": False}
             )()
-            engine_ner = GlinerEngine(cfg_obj)
+            engine_ner = GLiNEREngine(cfg_obj)
             if engine_ner.is_available():
-                results_ner = engine_ner.detect(text, file_path="<test-input>")
+                results_ner = engine_ner.detect(text)
                 container.add_detection_results(results_ner, "<test-input>")
         except ImportError:
             typer.echo(
@@ -1821,8 +1815,11 @@ def export_config(
         try:
             from core.config_loader import ConfigLoader
 
-            file_data = ConfigLoader.load_from_file(str(config))
-            cfg = ConfigLoader.apply_to_config(file_data, cfg)
+            file_data = ConfigLoader.load_config(config)
+            for key, value in file_data.items():
+                if hasattr(cfg, key):
+                    setattr(cfg, key, value)
+            cfg._sync_sub_configs()
         except Exception as exc:
             typer.echo(f"Warning: could not load config file: {exc}", err=True)
 
@@ -1845,7 +1842,7 @@ def export_config(
         serialized = _json.dumps(export_data, indent=2, ensure_ascii=False)
     else:
         try:
-            import yaml as _yaml  # type: ignore[import]
+            import yaml as _yaml
 
             serialized = _yaml.dump(export_data, allow_unicode=True, sort_keys=False)
         except ImportError:

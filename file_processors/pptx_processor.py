@@ -6,8 +6,8 @@ try:
     from pptx import Presentation
     from pptx.exc import PackageNotFoundError
 except Exception:  # pragma: no cover - optional dependency
-    Presentation = None  # type: ignore[assignment]
-    PackageNotFoundError = None  # type: ignore[assignment]
+    Presentation = None
+    PackageNotFoundError = None
 
 
 class PptxProcessor(BaseFileProcessor):
@@ -48,7 +48,7 @@ class PptxProcessor(BaseFileProcessor):
         try:
             # Load presentation
             try:
-                prs = Presentation(file_path)  # type: ignore[misc]
+                prs = Presentation(file_path)
             except ImportError as e:
                 raise ImportError(
                     "python-pptx is required for PPTX processing. "
@@ -128,7 +128,7 @@ class PptxProcessor(BaseFileProcessor):
         return " ".join(text_parts)
 
     @staticmethod
-    def can_process(extension: str) -> bool:
+    def can_process(extension: str) -> bool:  # type: ignore[override]  # registry inspects arity; see base_processor.can_process
         """Check if this processor can handle PPTX files."""
         return extension.lower() == ".pptx"
 
@@ -163,6 +163,6 @@ class PptProcessor(BaseFileProcessor):
         )
 
     @staticmethod
-    def can_process(extension: str) -> bool:
+    def can_process(extension: str) -> bool:  # type: ignore[override]  # registry inspects arity; see base_processor.can_process
         """Check if this processor can handle PPT files."""
         return extension.lower() == ".ppt"

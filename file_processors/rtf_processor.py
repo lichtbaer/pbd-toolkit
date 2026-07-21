@@ -60,6 +60,6 @@ class RtfProcessor(BaseFileProcessor):
         return ""
 
     @staticmethod
-    def can_process(extension: str) -> bool:
+    def can_process(extension: str) -> bool:  # type: ignore[override]  # registry inspects arity; see base_processor.can_process
         """Check if this processor can handle RTF files."""
         return extension.lower() == ".rtf"

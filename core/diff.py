@@ -64,12 +64,12 @@ def compute_diff(old_findings: list[dict], new_findings: list[dict]) -> dict[str
     unchanged = [new_keys[k] for k in sorted(unchanged_keys)]
 
     # Severity distribution for added findings
-    added_severity = {}
+    added_severity: dict[str, int] = {}
     for f in added:
         sev = f.get("severity", "UNKNOWN")
         added_severity[sev] = added_severity.get(sev, 0) + 1
 
-    removed_severity = {}
+    removed_severity: dict[str, int] = {}
     for f in removed:
         sev = f.get("severity", "UNKNOWN")
         removed_severity[sev] = removed_severity.get(sev, 0) + 1

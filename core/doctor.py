@@ -46,7 +46,7 @@ def check_api_connectivity(
     """
     issues: list[DoctorIssue] = []
     try:
-        import requests  # type: ignore
+        import requests
     except ImportError:
         issues.append(
             DoctorIssue(
@@ -122,7 +122,7 @@ def run_benchmark(
         if labels:
             try:
                 import constants
-                from gliner import GLiNER  # type: ignore
+                from gliner import GLiNER
 
                 model = GLiNER.from_pretrained(constants.NER_MODEL_NAME)
                 t0 = time.perf_counter()

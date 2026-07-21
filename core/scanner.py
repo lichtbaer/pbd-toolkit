@@ -130,12 +130,15 @@ class FileScanner:
         Returns:
             ScanResult with statistics and errors
         """
+        # Lazy import avoids overhead in the common sequential (no-callback) case.
+        import concurrent.futures
+
         total_files_found = 0
         # "Processed" counts only files that are eligible for processing, i.e.
         # supported by a registered file processor (extension/mime-type based).
         files_processed = 0
-        pending_futures = []
-        future_to_path: dict[object, str] = {}
+        pending_futures: list[concurrent.futures.Future] = []
+        future_to_path: dict[concurrent.futures.Future, str] = {}
         # Prevent unbounded growth of pending futures when scanning large trees.
         # This is especially important for multi-worker runs where file_callback
         # submits to a ThreadPoolExecutor and returns futures.
@@ -283,17 +286,15 @@ class FileScanner:
                         try:
                             ret = file_callback(file_info)
                             files_processed += 1
-                            # If the callback returns a Future-like object, wait for it
-                            # before returning from scan, otherwise the CLI may finalize
+                            # If the callback returns a Future, wait for it before
+                            # returning from scan, otherwise the CLI may finalize
                             # output before processing completes.
-                            if hasattr(ret, "result") and hasattr(ret, "done"):
+                            if isinstance(ret, concurrent.futures.Future):
                                 pending_futures.append(ret)
                                 future_to_path[ret] = full_path
                                 # Bound memory usage: periodically drain completed futures.
                                 if len(pending_futures) >= max_pending_futures:
                                     try:
-                                        import concurrent.futures
-
                                         done, not_done = concurrent.futures.wait(
                                             pending_futures,
                                             return_when=concurrent.futures.FIRST_COMPLETED,
@@ -360,9 +361,6 @@ class FileScanner:
         # Ensure any async processing has completed before we return.
         if pending_futures:
             try:
-                # Import lazily to avoid overhead in the common sequential case.
-                import concurrent.futures
-
                 concurrent.futures.wait(pending_futures)
                 # Surface unexpected exceptions as scan errors (best-effort).
                 for fut in pending_futures:

@@ -24,7 +24,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
     # Paths that do not require authentication.
     _PUBLIC_PATHS = frozenset({"/api/v1/health", "/docs", "/openapi.json", "/redoc"})
 
-    def __init__(self, app: Callable, api_key: str) -> None:  # type: ignore[override]
+    def __init__(self, app: Callable, api_key: str) -> None:
         super().__init__(app)
         self.api_key = api_key
 
@@ -53,7 +53,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     def __init__(
         self,
-        app: Callable,  # type: ignore[override]
+        app: Callable,
         requests_per_minute: int = 60,
         scan_requests_per_minute: int = 5,
     ) -> None:

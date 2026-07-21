@@ -51,6 +51,7 @@ dev = [
   "pytest-mock~=3.15.1",
   "ruff>=0.8.0",
   "numpy>=1.24.0",
+  "mypy>=1.10.0",
 ]
 office = [
   "python-docx~=1.2.0",
@@ -107,6 +108,7 @@ exclude = ["tests", "tests.*"]
 
 [tool.setuptools.package-data]
 core = ["config_types.json"]
+"*" = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -137,6 +139,39 @@ exclude_lines = [
   "pragma: no cover",
   "if __name__ == .__main__.:",
 ]
+
+[tool.mypy]
+# Pragmatic baseline: catch real bugs (undefined names, bad calls, obvious type
+# mismatches) without requiring full annotation coverage yet. Tighten
+# per-module (e.g. via `disallow_untyped_defs` overrides) as modules are
+# cleaned up. See docs/developer/typing.md for the typing policy.
+python_version = "3.10"
+files = ["core", "api", "analytics", "file_processors", "validators", "eval"]
+exclude = ["^tests/", "^build/", "^output/"]
+namespace_packages = true
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+disallow_untyped_defs = false
+
+# Config.logger is typed `Logger | None` (a Config can legitimately be built
+# without one), but these modules call `self.config.logger.*` at ~80 call
+# sites unconditionally, relying on CLI/API always constructing a real
+# logger. Narrowing every call site (or threading a resolved-non-None logger
+# through) is real follow-up work, not a one-line fix — tracked as the next
+# tightening pass rather than done piecemeal here. See issue #94.
+[[tool.mypy.overrides]]
+module = [
+  "core.config",
+  "core.scanner",
+  "core.processor",
+  "core.engines.pydantic_ai_engine",
+  "core.engines.vector_engine",
+  "core.engines.spacy_engine",
+]
+disable_error_code = ["union-attr"]
 
 [tool.ruff]
 line-length = 88

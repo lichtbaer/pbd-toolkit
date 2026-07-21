@@ -40,34 +40,34 @@ _REGEX_TIMEOUT_SECONDS = 10  # seconds per chunk
 try:
     from validators.credit_card_validator import CreditCardValidator
 except ImportError:
-    CreditCardValidator = None  # type: ignore[assignment]
+    CreditCardValidator = None  # type: ignore[assignment, misc]
 except Exception as _exc:  # pragma: no cover
     _logger.warning("Failed to load CreditCardValidator: %s", _exc)
-    CreditCardValidator = None  # type: ignore[assignment]
+    CreditCardValidator = None  # type: ignore[assignment, misc]
 
 try:
     from validators.iban_validator import IbanValidator
 except ImportError:
-    IbanValidator = None  # type: ignore[assignment]
+    IbanValidator = None  # type: ignore[assignment, misc]
 except Exception as _exc:  # pragma: no cover
     _logger.warning("Failed to load IbanValidator: %s", _exc)
-    IbanValidator = None  # type: ignore[assignment]
+    IbanValidator = None  # type: ignore[assignment, misc]
 
 try:
     from validators.tax_id_validator import TaxIdValidator
 except ImportError:
-    TaxIdValidator = None  # type: ignore[assignment]
+    TaxIdValidator = None  # type: ignore[assignment, misc]
 except Exception as _exc:  # pragma: no cover
     _logger.warning("Failed to load TaxIdValidator: %s", _exc)
-    TaxIdValidator = None  # type: ignore[assignment]
+    TaxIdValidator = None  # type: ignore[assignment, misc]
 
 try:
     from validators.bic_validator import BicValidator
 except ImportError:
-    BicValidator = None  # type: ignore[assignment]
+    BicValidator = None  # type: ignore[assignment, misc]
 except Exception as _exc:  # pragma: no cover
     _logger.warning("Failed to load BicValidator: %s", _exc)
-    BicValidator = None  # type: ignore[assignment]
+    BicValidator = None  # type: ignore[assignment, misc]
 
 
 class RegexEngine:
@@ -150,6 +150,8 @@ class RegexEngine:
 
     def _run_finditer(self, text: str, base_offset: int) -> list[DetectionResult]:
         """Run finditer and collect results (executed in worker thread)."""
+        if self.pattern is None:
+            return []
         results = []
         for match in self.pattern.finditer(text):
             entity_type, config_entry = self._get_entity_type(match)
@@ -273,7 +275,7 @@ class RegexEngine:
         try:
             if path.lower().endswith((".yaml", ".yml")):
                 try:
-                    import yaml  # type: ignore
+                    import yaml
 
                     with open(path, encoding="utf-8") as fh:
                         data = yaml.safe_load(fh)

@@ -2,6 +2,7 @@
 
 import logging
 import os
+from typing import Any
 
 _logger = logging.getLogger(__name__)
 
@@ -21,8 +22,8 @@ class FileTypeDetector:
             enabled: Whether magic number detection is enabled
         """
         self.enabled = enabled
-        self._magic = None
-        self._filetype = None
+        self._magic: Any = None
+        self._filetype: Any = None
 
         if enabled:
             self._init_magic()

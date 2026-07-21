@@ -43,7 +43,7 @@ def redact_text(text: str, matches: list[PiiMatch]) -> str:
 
     # Resolve overlaps by preferring the longest span first.
     replacements.sort(key=lambda r: (-(r[1] - r[0]), r[0]))
-    cleaned = []
+    cleaned: list[tuple[int, int, str]] = []
     for start, end, placeholder in replacements:
         if not any(start < c_end and end > c_start for c_start, c_end, _ in cleaned):
             cleaned.append((start, end, placeholder))

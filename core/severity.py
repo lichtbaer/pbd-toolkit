@@ -223,7 +223,7 @@ def load_custom_severity_config(path: str) -> None:
     try:
         if path.lower().endswith((".yaml", ".yml")):
             try:
-                import yaml  # type: ignore
+                import yaml
 
                 with open(path, encoding="utf-8") as fh:
                     data = yaml.safe_load(fh)

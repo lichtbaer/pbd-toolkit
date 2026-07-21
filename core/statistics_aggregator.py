@@ -6,6 +6,7 @@ without storing individual PII instances or file paths.
 
 import os
 from collections import defaultdict
+from typing import Any
 
 from core.matches import PiiMatch
 from core.privacy_dimensions import (
@@ -159,7 +160,7 @@ class StatisticsAggregator:
             Dictionary with aggregated statistics, ready for JSON serialization
         """
         # Convert sets to counts/lists for JSON serialization
-        stats = {
+        stats: dict[str, Any] = {
             "statistics_by_dimension": {},
             "statistics_by_module": {},
             "statistics_by_file_type": {},

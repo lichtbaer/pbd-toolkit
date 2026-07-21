@@ -10,10 +10,10 @@ try:
     from odf.opendocument import load
     from odf.table import Table, TableCell, TableRow
 except Exception:  # pragma: no cover - optional dependency
-    load = None  # type: ignore[assignment]
-    Table = None  # type: ignore[assignment]
-    TableCell = None  # type: ignore[assignment]
-    TableRow = None  # type: ignore[assignment]
+    load = None
+    Table = None
+    TableCell = None
+    TableRow = None
 
 
 class OdsProcessor(BaseFileProcessor):
@@ -99,6 +99,6 @@ class OdsProcessor(BaseFileProcessor):
         return " ".join(text_parts)
 
     @staticmethod
-    def can_process(extension: str) -> bool:
+    def can_process(extension: str) -> bool:  # type: ignore[override]  # registry inspects arity; see base_processor.can_process
         """Check if this processor can handle ODS files."""
         return extension.lower() == ".ods"

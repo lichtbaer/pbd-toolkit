@@ -68,6 +68,7 @@ nav:
     - Configuration System: developer/configuration-system.md
     - Configuration Reference: developer/config-reference.md
     - Testing: developer/testing.md
+    - Type Checking: developer/typing.md
   - About:
     - Project Status: about/project-status.md
     - Roadmap: about/roadmap.md

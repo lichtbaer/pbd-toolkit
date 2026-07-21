@@ -116,6 +116,13 @@ class BaseFileProcessor(ABC):
             (like TextProcessor) may need the file_path to check MIME types.
             The mime_type parameter allows processors to match based on detected
             MIME type when magic number detection is enabled.
+
+            Subclasses may implement a narrower signature (e.g. just
+            ``can_process(extension)``) — ``FileProcessorRegistry`` inspects each
+            processor's actual signature via ``inspect.signature`` and calls it
+            with only the parameters it declares. This is intentional duck typing
+            that a static Liskov check cannot express, hence the
+            ``# type: ignore[override]`` on narrower overrides.
         """
         return False
 
