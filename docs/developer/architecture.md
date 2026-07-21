@@ -163,12 +163,25 @@ Detection methods (regex vs. NER) are implemented as strategies:
 
 ## Threading Model
 
-The toolkit uses a callback-based approach for file processing:
-- FileScanner walks the directory tree and calls a callback for each file
-- Files are processed sequentially in `--mode safe` and in parallel otherwise (via a thread pool of file workers)
+The toolkit uses a callback-based approach for file processing, with concurrency
+ownership centralized in one place (issue #79):
+
+- `ScanRunner` (`core/scan_runner.py`) is the **sole owner** of the file-worker
+  thread pool: it decides whether to create a `ThreadPoolExecutor` from the
+  resolved `worker_count` (`--mode safe` → 1, i.e. no executor at all; `--jobs`
+  or `--mode fast`/`balanced` → a real pool), submits work to it via the
+  `file_callback` it hands to `FileScanner.scan`, and shuts it down in a
+  `finally` block so cleanup happens even if scanning raises.
+- `FileScanner` itself never constructs an executor. It stays sequential
+  internally and only knows about `concurrent.futures.Future` in the abstract:
+  if a callback returns one, the scanner tracks it in `pending_futures` and
+  bounds that list (`max_pending_futures`) to avoid unbounded memory growth on
+  very large directory trees, draining/awaiting futures and surfacing their
+  exceptions as scan errors.
+- The REST API (`api/scanner_service.py`) forces `worker_count=1`, so API scans
+  always take the sequential path through the same `ScanRunner`.
 - Each detection engine handles thread safety internally (locks for model calls)
 - Match storage uses locks for thread safety
-- The scanner bounds queued async tasks to avoid unbounded memory growth on very large directory trees
 
 ## Error Handling
 
