@@ -95,15 +95,17 @@ Microsoft PowerPoint presentations (PowerPoint 2007+ format).
 - Extracts text from text boxes and shapes
 - Extracts text from notes pages
 
-### PPT (`.ppt`) — Not Supported
+### PPT (`.ppt`)
 
 Legacy PowerPoint 97-2003 presentations.
 
-**Processor**: `PptProcessor` always raises `NotImplementedError` — `.ppt` files are recognized but **no text is extracted** from them.
-- `python-pptx` only reads the PowerPoint 2007+ (`.pptx`) format; there is no legacy-format fallback
-- Convert `.ppt` files to `.pptx` (e.g. via LibreOffice or PowerPoint's "Save As") before scanning
-
-See also [Known Unsupported Formats](#known-unsupported-formats).
+**Processor**: `PptProcessor`
+- `python-pptx` only reads the PowerPoint 2007+ (`.pptx`) format, so text is extracted directly
+  from the file's OLE compound-document structure (via `olefile`) instead — no LibreOffice or
+  other external converter required
+- Extracts the raw text runs from slides and speaker notes (formatting, images, and the
+  slide/notes boundary are not preserved — sufficient for PII detection, not for reconstructing
+  the presentation)
 
 ## Web Formats
 
@@ -303,11 +305,9 @@ The toolkit can detect PII in images when multimodal detection is enabled.
 
 ## Known Unsupported Formats
 
-These extensions are recognized by the toolkit but do not currently yield any extracted text:
-
-- **Legacy PowerPoint (`.ppt`)** — see [PPT](#ppt-ppt--not-supported) above. Convert to `.pptx` first.
-
-Every other format listed above extracts text once its processor's dependencies are installed (see [Installation](../getting-started/installation.md) for the `office`/`ocr`/etc. extras).
+There are currently no formats that are recognized by the toolkit but yield no extracted text —
+every format listed above extracts text once its processor's dependencies are installed (see
+[Installation](../getting-started/installation.md) for the `office`/`ocr`/etc. extras).
 
 ## File Processing
 

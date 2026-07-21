@@ -2,6 +2,7 @@
 
 import os
 import sqlite3
+import struct
 import zipfile
 from unittest.mock import patch
 
@@ -27,6 +28,7 @@ from file_processors import (
     SqliteProcessor,
     TextProcessor,
     VcfProcessor,
+    XlsProcessor,
     XlsxProcessor,
     XmlProcessor,
     YamlProcessor,
@@ -769,6 +771,83 @@ class TestXlsxProcessor:
         )
 
 
+class TestXlsProcessor:
+    """Tests for XLS (Excel 97-2003) processor."""
+
+    def test_can_process_xls(self):
+        """Test that XLS processor recognizes .xls extension only."""
+        processor = XlsProcessor()
+        assert processor.can_process(".xls")
+        assert processor.can_process(".XLS")
+        assert not processor.can_process(".xlsx")
+        assert not processor.can_process(".csv")
+
+    def test_extract_text_from_xls(self, temp_dir):
+        """Test text extraction from a real XLS file (requires xlrd + xlwt)."""
+        pytest.importorskip("xlrd")
+        xlwt = pytest.importorskip("xlwt")
+
+        xls_path = os.path.join(temp_dir, "test.xls")
+        wb = xlwt.Workbook()
+        ws = wb.add_sheet("Sheet1")
+        ws.write(0, 0, "John Doe")
+        ws.write(0, 1, "john@example.com")
+        wb.save(xls_path)
+
+        processor = XlsProcessor()
+        text = processor.extract_text(xls_path)
+        assert "John Doe" in text
+        assert "john@example.com" in text
+
+    def test_extract_preserves_column_context(self, temp_dir):
+        """Values are paired with their column header, same as XlsxProcessor."""
+        pytest.importorskip("xlrd")
+        xlwt = pytest.importorskip("xlwt")
+
+        xls_path = os.path.join(temp_dir, "context.xls")
+        wb = xlwt.Workbook()
+        ws = wb.add_sheet("Sheet1")
+        rows = [
+            ["Name", "IBAN"],
+            ["Max Mustermann", "DE89 3704 0044 0532 0130 00"],
+            ["Erika Beispiel", "DE02 1203 0000 0000 2020 51"],
+        ]
+        for r, row in enumerate(rows):
+            for c, value in enumerate(row):
+                ws.write(r, c, value)
+        wb.save(xls_path)
+
+        text = XlsProcessor().extract_text(xls_path)
+        assert "IBAN: DE89 3704 0044 0532 0130 00" in text
+        assert "Name: Max Mustermann" in text
+        assert "Erika Beispiel" in text
+
+    def test_import_error_when_xlrd_not_installed(self, temp_dir, mocker):
+        """Test that ImportError is raised when xlrd is not installed."""
+        mocker.patch.dict("sys.modules", {"xlrd": None})
+
+        processor = XlsProcessor()
+        file_path = os.path.join(temp_dir, "test.xls")
+        with open(file_path, "w") as f:
+            f.write("dummy")
+
+        with pytest.raises(ImportError) as exc_info:
+            processor.extract_text(file_path)
+        assert "xlrd is required" in str(exc_info.value)
+
+    def test_file_not_found(self, temp_dir):
+        """Test that non-existent file raises an error (XlsProcessor wraps as Exception)."""
+        pytest.importorskip("xlrd")
+        processor = XlsProcessor()
+        non_existent = os.path.join(temp_dir, "nonexistent.xls")
+        with pytest.raises(Exception) as exc_info:
+            processor.extract_text(non_existent)
+        assert (
+            "No such file" in str(exc_info.value)
+            or "nonexistent" in str(exc_info.value).lower()
+        )
+
+
 class TestPptxProcessor:
     """Tests for PPTX processor."""
 
@@ -831,8 +910,114 @@ class TestPptxProcessor:
         assert "john@example.com" in text
 
 
+def _build_minimal_ppt(texts: list[str]) -> bytes:
+    """Hand-build a minimal, real OLE2 (CFBF) file with a "PowerPoint Document"
+    stream containing the given strings as ``TextCharsAtom`` records.
+
+    There is no maintained pure-Python library that *writes* the legacy PPT
+    binary format (that gap is exactly what ``PptProcessor`` closes for
+    *reading*), and LibreOffice is not available for fixture generation in CI.
+    So this builds the smallest valid compound-file container by hand: one
+    FAT sector, one directory sector (Root Entry + the document stream), and
+    enough data sectors to hold the record payload -- deliberately avoiding
+    the mini-stream/mini-FAT mechanism by padding the stream to at least 4096
+    bytes (the standard mini-stream cutoff) so only regular sectors are used.
+    This keeps the layout uniform regardless of how much text is packed in,
+    at the cost of only handling small payloads (asserted below): fine for a
+    test fixture, not a general-purpose OLE writer.
+    """
+    NOSTREAM = 0xFFFFFFFF
+    ENDOFCHAIN = 0xFFFFFFFE
+    FREESECT = 0xFFFFFFFF
+    FATSECT = 0xFFFFFFFD
+    TEXT_CHARS_ATOM = 4008
+
+    def atom(rec_type: int, content: bytes) -> bytes:
+        return struct.pack("<HHI", 0x0, rec_type, len(content)) + content
+
+    def container(rec_type: int, children: list[bytes]) -> bytes:
+        content = b"".join(children)
+        return struct.pack("<HHI", 0xF, rec_type, len(content)) + content
+
+    payload = container(
+        1000, [atom(TEXT_CHARS_ATOM, t.encode("utf-16-le")) for t in texts]
+    )
+    data_size = max(4096, -(-len(payload) // 512) * 512)
+    stream = payload + b"\x00" * (data_size - len(payload))
+    num_data_sectors = data_size // 512
+    dir_sector_index = 1 + num_data_sectors
+    total_sectors = 1 + num_data_sectors + 1  # FAT sector + data + directory
+    assert total_sectors <= 128, "fixture text too large for this minimal builder"
+
+    def name_field(name: str) -> tuple[bytes, int]:
+        raw = name.encode("utf-16-le") + b"\x00\x00"
+        return raw + b"\x00" * (64 - len(raw)), len(raw)
+
+    def dir_entry(
+        name: str,
+        obj_type: int,
+        left: int,
+        right: int,
+        child: int,
+        start_sector: int,
+        stream_size: int,
+    ) -> bytes:
+        name_bytes, name_len = name_field(name)
+        return (
+            name_bytes
+            + struct.pack("<H", name_len)
+            + struct.pack("<B", obj_type)
+            + struct.pack("<B", 1)  # color flag (black)
+            + struct.pack("<I", left)
+            + struct.pack("<I", right)
+            + struct.pack("<I", child)
+            + b"\x00" * 16  # CLSID
+            + struct.pack("<I", 0)  # state bits
+            + b"\x00" * 16  # creation + modified time
+            + struct.pack("<I", start_sector)
+            + struct.pack("<Q", stream_size)
+        )
+
+    root_entry = dir_entry("Root Entry", 5, NOSTREAM, NOSTREAM, 1, ENDOFCHAIN, 0)
+    stream_entry = dir_entry(
+        "PowerPoint Document", 2, NOSTREAM, NOSTREAM, NOSTREAM, 1, data_size
+    )
+    dir_sector = root_entry + stream_entry + b"\x00" * 128 + b"\x00" * 128
+
+    fat_entries = [FATSECT]
+    fat_entries += [s + 1 for s in range(1, num_data_sectors)]
+    fat_entries += [ENDOFCHAIN]  # last data sector
+    fat_entries += [ENDOFCHAIN]  # directory sector (single sector)
+    fat_entries += [FREESECT] * (128 - len(fat_entries))
+    fat_sector = b"".join(struct.pack("<I", e) for e in fat_entries)
+
+    difat = [0] + [FREESECT] * 108  # only FAT sector 0 is in use
+
+    header = (
+        bytes.fromhex("d0cf11e0a1b11ae1")  # OLE2 signature
+        + b"\x00" * 16  # CLSID
+        + struct.pack("<H", 0x003E)  # minor version
+        + struct.pack("<H", 0x0003)  # major version (3 = 512-byte sectors)
+        + struct.pack("<H", 0xFFFE)  # byte order mark
+        + struct.pack("<H", 9)  # sector shift: 2^9 = 512
+        + struct.pack("<H", 6)  # mini sector shift: 2^6 = 64
+        + b"\x00" * 6  # reserved
+        + struct.pack("<I", 0)  # number of directory sectors (0 for v3)
+        + struct.pack("<I", 1)  # number of FAT sectors
+        + struct.pack("<I", dir_sector_index)  # first directory sector
+        + struct.pack("<I", 0)  # transaction signature
+        + struct.pack("<I", 4096)  # mini stream cutoff size
+        + struct.pack("<I", ENDOFCHAIN)  # first mini FAT sector (none)
+        + struct.pack("<I", 0)  # number of mini FAT sectors
+        + struct.pack("<I", ENDOFCHAIN)  # first DIFAT sector (none beyond header)
+        + struct.pack("<I", 0)  # number of DIFAT sectors
+        + b"".join(struct.pack("<I", e) for e in difat)
+    )
+    return header + fat_sector + stream + dir_sector
+
+
 class TestPptProcessor:
-    """Tests for PPT processor."""
+    """Tests for PPT (PowerPoint 97-2003) processor."""
 
     def test_can_process_ppt(self):
         """Test that PPT processor recognizes .ppt extension."""
@@ -842,19 +1027,65 @@ class TestPptProcessor:
         assert not processor.can_process(".txt")
         assert not processor.can_process(".pptx")
 
-    def test_not_implemented(self, temp_dir):
-        """Test that NotImplementedError is raised for PPT files."""
+    def test_extract_text_from_ppt(self, temp_dir):
+        """Test text extraction from a real legacy PPT file (requires olefile)."""
+        pytest.importorskip("olefile")
+
+        ppt_path = os.path.join(temp_dir, "test.ppt")
+        with open(ppt_path, "wb") as f:
+            f.write(_build_minimal_ppt(["John Doe", "john@example.com"]))
+
+        processor = PptProcessor()
+        text = processor.extract_text(ppt_path)
+        assert "John Doe" in text
+        assert "john@example.com" in text
+
+    def test_extract_text_spanning_multiple_sectors(self, temp_dir):
+        """Text long enough to span several 512-byte sectors is still fully read."""
+        pytest.importorskip("olefile")
+
+        long_run = "A" * 3000
+        ppt_path = os.path.join(temp_dir, "large.ppt")
+        with open(ppt_path, "wb") as f:
+            f.write(_build_minimal_ppt(["John Doe", long_run]))
+
+        text = PptProcessor().extract_text(ppt_path)
+        assert "John Doe" in text
+        assert long_run in text
+
+    def test_import_error_when_olefile_not_installed(self, temp_dir, mocker):
+        """Test that ImportError is raised when olefile is not installed."""
+        mocker.patch("file_processors.pptx_processor.olefile", None)
+
         processor = PptProcessor()
         file_path = os.path.join(temp_dir, "test.ppt")
-        # Create a dummy file
         with open(file_path, "w") as f:
             f.write("dummy")
 
-        with pytest.raises(NotImplementedError) as exc_info:
+        with pytest.raises(ImportError) as exc_info:
             processor.extract_text(file_path)
-        assert "Older PPT format" in str(
-            exc_info.value
-        ) or "not fully supported" in str(exc_info.value)
+        assert "olefile is required" in str(exc_info.value)
+
+    def test_not_an_ole_file(self, temp_dir):
+        """Test that a non-OLE file (e.g. a renamed text file) raises clearly."""
+        pytest.importorskip("olefile")
+
+        file_path = os.path.join(temp_dir, "not_really.ppt")
+        with open(file_path, "w") as f:
+            f.write("this is not a compound file")
+
+        with pytest.raises(Exception) as exc_info:
+            PptProcessor().extract_text(file_path)
+        assert "Not a valid OLE compound file" in str(exc_info.value)
+
+    def test_file_not_found(self, temp_dir):
+        """Test that FileNotFoundError is raised for a non-existent file."""
+        pytest.importorskip("olefile")
+
+        processor = PptProcessor()
+        non_existent = os.path.join(temp_dir, "nonexistent.ppt")
+        with pytest.raises(FileNotFoundError):
+            processor.extract_text(non_existent)
 
 
 class TestYamlProcessor:

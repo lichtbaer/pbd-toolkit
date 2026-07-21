@@ -1,5 +1,7 @@
 """PPTX file processor using python-pptx library."""
 
+import struct
+
 from file_processors.base_processor import BaseFileProcessor
 
 try:
@@ -8,6 +10,11 @@ try:
 except Exception:  # pragma: no cover - optional dependency
     Presentation = None
     PackageNotFoundError = None
+
+try:
+    import olefile
+except Exception:  # pragma: no cover - optional dependency
+    olefile = None
 
 
 class PptxProcessor(BaseFileProcessor):
@@ -133,34 +140,115 @@ class PptxProcessor(BaseFileProcessor):
         return extension.lower() == ".pptx"
 
 
-class PptProcessor(BaseFileProcessor):
-    """Processor for PPT (PowerPoint 97-2003) files.
+# MS-PPT binary record header: a 2-byte version+instance field (low 4 bits are
+# the version), a 2-byte record type, and a 4-byte content length. A version
+# nibble of 0xF marks a *container* record whose content is itself a nested
+# stream of child records; any other value marks an *atom* holding raw data.
+# This convention lets a single recursive walk find every atom in the file
+# without needing to know the full record-type hierarchy (slide -> shape ->
+# text placeholder, etc.) -- we only care about the two atom types that carry
+# extractable text.
+_TEXT_CHARS_ATOM = 4008  # UTF-16LE text (0x0FA8)
+_TEXT_BYTES_ATOM = (
+    4000  # 8-bit (Windows-1252) text, high byte of each char zeroed (0x0FA0)
+)
+_TEXT_ATOM_TYPES = (_TEXT_CHARS_ATOM, _TEXT_BYTES_ATOM)
+_PPT_DOCUMENT_STREAM = "PowerPoint Document"
 
-    Note: Older PPT format support is limited. python-pptx does not support
-    older PPT files directly. This processor will attempt to handle them
-    but may not work for all PPT files.
+
+def _walk_ppt_records(data: bytes):
+    """Recursively yield ``(rec_type, content)`` for every atom record in *data*.
+
+    Best-effort by design: this walks an untrusted legacy binary stream, so a
+    truncated or malformed record (length running past the end of *data*) is
+    clamped rather than raising -- the offset always advances by at least the
+    8-byte header, so a corrupt file can yield garbage/partial atoms but can
+    never loop forever.
+    """
+    offset = 0
+    length = len(data)
+    while offset + 8 <= length:
+        rec_ver_instance, rec_type, rec_len = struct.unpack_from("<HHI", data, offset)
+        version = rec_ver_instance & 0x0F
+        content_start = offset + 8
+        content_end = min(content_start + rec_len, length)
+        content = data[content_start:content_end]
+        if version == 0xF:
+            yield from _walk_ppt_records(content)
+        else:
+            yield rec_type, content
+        offset = content_end
+
+
+def _decode_text_atom(rec_type: int, content: bytes) -> str:
+    if rec_type == _TEXT_CHARS_ATOM:
+        return content.decode("utf-16-le", errors="replace")
+    return content.decode("cp1252", errors="replace")
+
+
+class PptProcessor(BaseFileProcessor):
+    """Processor for legacy PPT (PowerPoint 97-2003) files.
+
+    No maintained pure-Python library reads this binary format, so text is
+    extracted directly from the OLE (compound-file) "PowerPoint Document"
+    stream by walking its record structure (see :func:`_walk_ppt_records`)
+    and decoding the ``TextCharsAtom``/``TextBytesAtom`` records. Formatting,
+    images, and slide/notes boundaries are not preserved -- only raw text
+    runs are extracted, which is sufficient for PII detection.
     """
 
     def extract_text(self, file_path: str) -> str:
-        """Extract text from a PPT file.
-
-        Note: python-pptx does not support older PPT format.
-        This is a placeholder that will raise an informative error.
+        """Extract text from a legacy PPT file.
 
         Args:
             file_path: Path to the PPT file
 
         Returns:
-            Extracted text content (if conversion is possible)
+            Extracted text content, one line per text run found in the
+            presentation (slide bodies and speaker notes are not distinguished).
 
         Raises:
-            NotImplementedError: Older PPT format is not fully supported
+            ImportError: If olefile is not installed
+            PermissionError: If file cannot be accessed
+            FileNotFoundError: If file does not exist
+            Exception: For other PPT processing errors (not a valid OLE file,
+                missing "PowerPoint Document" stream, etc.)
         """
-        raise NotImplementedError(
-            "Older PPT format (PowerPoint 97-2003) is not fully supported. "
-            "Please convert PPT files to PPTX format or use a different tool. "
-            "python-pptx only supports PPTX format (PowerPoint 2007+)."
-        )
+        if olefile is None:
+            raise ImportError(
+                "olefile is required for legacy PPT (PowerPoint 97-2003) processing. "
+                "Install it with: pip install olefile"
+            )
+
+        try:
+            if not olefile.isOleFile(file_path):
+                raise Exception(
+                    f"Not a valid OLE compound file (legacy PPT expected): {file_path}"
+                )
+
+            ole = olefile.OleFileIO(file_path)
+            try:
+                if not ole.exists(_PPT_DOCUMENT_STREAM):
+                    raise Exception(
+                        f"No '{_PPT_DOCUMENT_STREAM}' stream found; file may be "
+                        "corrupt or not a legacy PPT file"
+                    )
+                data = ole.openstream(_PPT_DOCUMENT_STREAM).read()
+            finally:
+                ole.close()
+        except FileNotFoundError:
+            raise
+        except PermissionError:
+            raise
+        except Exception as e:
+            raise Exception(f"Error processing PPT file: {str(e)}") from e
+
+        text_parts = [
+            _decode_text_atom(rec_type, content)
+            for rec_type, content in _walk_ppt_records(data)
+            if rec_type in _TEXT_ATOM_TYPES
+        ]
+        return "\n".join(t for t in text_parts if t and t.strip())
 
     @staticmethod
     def can_process(extension: str) -> bool:  # type: ignore[override]  # registry inspects arity; see base_processor.can_process
