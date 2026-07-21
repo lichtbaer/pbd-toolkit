@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: pbd-toolkit VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-07-21 20:53+0000\n"
+"POT-Creation-Date: 2026-07-21 21:00+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -112,6 +112,9 @@ msgstr ""
 msgid "Doctor: {}"
 msgstr ""
 
+msgid "Duration:"
+msgstr ""
+
 #, python-brace-format
 msgid "Engines:   {}\n"
 msgstr ""
@@ -195,6 +198,9 @@ msgstr ""
 msgid "Errors Summary:"
 msgstr ""
 
+msgid "Errors:"
+msgstr ""
+
 #, python-brace-format
 msgid "Extraction gate FAILED: recall {:.4f} < --fail-under {}"
 msgstr ""
@@ -210,10 +216,22 @@ msgstr ""
 msgid "FAILED"
 msgstr ""
 
+msgid "FORBIDDEN LEAKED:"
+msgstr ""
+
 msgid "File Risk Assessment:"
 msgstr ""
 
+msgid "Files analyzed:"
+msgstr ""
+
+msgid "Files scanned:"
+msgstr ""
+
 msgid "Findings"
+msgstr ""
+
+msgid "Finished:"
 msgstr ""
 
 #, python-brace-format
@@ -266,8 +284,14 @@ msgstr ""
 msgid "Loading index from '{}' …"
 msgstr ""
 
+msgid "MISSING:"
+msgstr ""
+
 #, python-brace-format
 msgid "Manifest:  {}  ({} files)\n"
+msgstr ""
+
+msgid "Matches found:"
 msgstr ""
 
 msgid ""
@@ -299,6 +323,12 @@ msgid "No scan sessions found."
 msgstr ""
 
 msgid "OK"
+msgstr ""
+
+msgid "Output directory:"
+msgstr ""
+
+msgid "Output file:"
 msgstr ""
 
 msgid "Overall severity distribution (all sessions):"
@@ -370,6 +400,9 @@ msgstr ""
 msgid "Skipped Files"
 msgstr ""
 
+msgid "Started:"
+msgstr ""
+
 msgid "Statistics"
 msgstr ""
 
@@ -395,6 +428,9 @@ msgstr ""
 
 #, python-brace-format
 msgid "Threshold: {}   Top-k: {}\n"
+msgstr ""
+
+msgid "Throughput:"
 msgstr ""
 
 msgid "Top PII types (all sessions):"
@@ -443,5 +479,17 @@ msgstr ""
 
 #, python-brace-format
 msgid "[fail-on-severity] Findings at or above {} detected. Exiting with code {}."
+msgstr ""
+
+msgid "files"
+msgstr ""
+
+msgid "files with CRITICAL risk - immediate review recommended"
+msgstr ""
+
+msgid "files with HIGH risk - review recommended"
+msgstr ""
+
+msgid "files/sec"
 msgstr ""
 

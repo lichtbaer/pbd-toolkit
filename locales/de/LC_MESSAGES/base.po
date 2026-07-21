@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: pbd-toolkit VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-07-21 20:53+0000\n"
+"POT-Creation-Date: 2026-07-21 21:00+0000\n"
 "PO-Revision-Date: 2026-07-21 20:48+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: de\n"
@@ -118,6 +118,9 @@ msgstr "Datensatz:  {}  ({} Dokumente)"
 msgid "Doctor: {}"
 msgstr "Doctor: {}"
 
+msgid "Duration:"
+msgstr "Dauer:"
+
 #, python-brace-format
 msgid "Engines:   {}\n"
 msgstr "Engines:   {}\n"
@@ -203,6 +206,9 @@ msgstr "Fehler"
 msgid "Errors Summary:"
 msgstr "Fehlerübersicht:"
 
+msgid "Errors:"
+msgstr "Fehler:"
+
 #, python-brace-format
 msgid "Extraction gate FAILED: recall {:.4f} < --fail-under {}"
 msgstr "Extraktions-Gate FEHLGESCHLAGEN: Recall {:.4f} < --fail-under {}"
@@ -218,11 +224,23 @@ msgstr "Extraktions-Recall: {:.3f} ({}/{} Snippets)"
 msgid "FAILED"
 msgstr "FEHLGESCHLAGEN"
 
+msgid "FORBIDDEN LEAKED:"
+msgstr "VERBOTEN DURCHGESICKERT:"
+
 msgid "File Risk Assessment:"
 msgstr "Datei-Risikobewertung:"
 
+msgid "Files analyzed:"
+msgstr "Analysierte Dateien:"
+
+msgid "Files scanned:"
+msgstr "Gescannte Dateien:"
+
 msgid "Findings"
 msgstr "Funde"
+
+msgid "Finished:"
+msgstr "Beendet:"
 
 #, python-brace-format
 msgid "Forbidden snippets leaked: {}"
@@ -276,9 +294,15 @@ msgstr "Letzte {} Scan(s):"
 msgid "Loading index from '{}' …"
 msgstr "Lade Index von '{}' …"
 
+msgid "MISSING:"
+msgstr "FEHLT:"
+
 #, python-brace-format
 msgid "Manifest:  {}  ({} files)\n"
 msgstr "Manifest:  {}  ({} Dateien)\n"
+
+msgid "Matches found:"
+msgstr "Gefundene Treffer:"
 
 msgid ""
 "Missing scan path. Provide PATH as positional argument, via --path, or in"
@@ -312,6 +336,12 @@ msgstr "Keine Scans gefunden."
 
 msgid "OK"
 msgstr "OK"
+
+msgid "Output directory:"
+msgstr "Ausgabeverzeichnis:"
+
+msgid "Output file:"
+msgstr "Ausgabedatei:"
 
 msgid "Overall severity distribution (all sessions):"
 msgstr "Gesamtverteilung der Schweregrade (alle Scans):"
@@ -384,6 +414,9 @@ msgstr "Übersicht übersprungener Inhalte:"
 msgid "Skipped Files"
 msgstr "Übersprungene Dateien"
 
+msgid "Started:"
+msgstr "Gestartet:"
+
 msgid "Statistics"
 msgstr "Statistik"
 
@@ -413,6 +446,9 @@ msgstr "Der Hook scannt gestagte Dateien mit: {}"
 #, python-brace-format
 msgid "Threshold: {}   Top-k: {}\n"
 msgstr "Schwellwert: {}   Top-k: {}\n"
+
+msgid "Throughput:"
+msgstr "Durchsatz:"
 
 msgid "Top PII types (all sessions):"
 msgstr "Häufigste PII-Typen (alle Scans):"
@@ -469,4 +505,16 @@ msgid "[fail-on-severity] Findings at or above {} detected. Exiting with code {}
 msgstr ""
 "[fail-on-severity] Funde mit Schweregrad {} oder höher erkannt. Beende "
 "mit Code {}."
+
+msgid "files"
+msgstr "Dateien"
+
+msgid "files with CRITICAL risk - immediate review recommended"
+msgstr "Dateien mit CRITICAL-Risiko - sofortige Prüfung empfohlen"
+
+msgid "files with HIGH risk - review recommended"
+msgstr "Dateien mit HIGH-Risiko - Prüfung empfohlen"
+
+msgid "files/sec"
+msgstr "Dateien/s"
 
