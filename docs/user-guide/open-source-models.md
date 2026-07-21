@@ -1,6 +1,6 @@
 # Open-Source Models for Multimodal Detection
 
-The PII Toolkit supports open-source multimodal models that can be run on your own infrastructure, providing complete privacy and control over your data.
+The pbD Toolkit supports open-source multimodal models that can be run on your own infrastructure, providing complete privacy and control over your data.
 
 ## Overview
 
@@ -8,7 +8,7 @@ Instead of using commercial APIs like OpenAI, you can run multimodal models loca
 - **vLLM**: High-performance inference server for LLMs
 - **LocalAI**: OpenAI-compatible API server for local models
 
-Both solutions provide OpenAI-compatible APIs, so they work seamlessly with the PII Toolkit's multimodal detection engine.
+Both solutions provide OpenAI-compatible APIs, so they work seamlessly with the pbD Toolkit's multimodal detection engine.
 The toolkit sends images using the OpenAI-compatible `POST /chat/completions` schema with an `image_url` data URL payload, so your endpoint must support vision-capable chat completions.
 
 ## Why Use Open-Source Models?
@@ -51,10 +51,10 @@ python -m vllm.entrypoints.openai.api_server \
 - `Gemma-3-Vision` (4B/9B) - Strong multimodal family; larger variants benefit from quantization
 - `microsoft/llava-1.6-vicuna-7b` - Solid baseline for compatibility
 
-### Using with PII Toolkit
+### Using with pbD Toolkit
 
 ```bash
-python main.py scan /data/images \
+pbd-toolkit scan /data/images \
     --multimodal \
     --multimodal-api-base http://localhost:8000/v1 \
     --multimodal-model microsoft/llava-1.6-vicuna-7b
@@ -134,10 +134,10 @@ parameters:
 context_size: 4096
 ```
 
-### Using with PII Toolkit
+### Using with pbD Toolkit
 
 ```bash
-python main.py scan /data/images \
+pbd-toolkit scan /data/images \
     --multimodal \
     --multimodal-api-base http://localhost:8080/v1 \
     --multimodal-model llava
@@ -243,7 +243,7 @@ python -m vllm.entrypoints.openai.api_server \
     --port 8000
 
 # Terminal 2: Run PII detection
-python main.py scan /data/images \
+pbd-toolkit scan /data/images \
     --multimodal \
     --multimodal-api-base http://localhost:8000/v1 \
     --multimodal-model microsoft/llava-1.6-vicuna-7b \
@@ -260,7 +260,7 @@ docker run -d -p 8080:8080 \
     localai/localai:latest-aio-cuda
 
 # Run PII detection
-python main.py scan /data/images \
+pbd-toolkit scan /data/images \
     --multimodal \
     --multimodal-api-base http://localhost:8080/v1 \
     --multimodal-model llava
@@ -288,4 +288,4 @@ python main.py scan /data/images \
 - [vLLM Documentation](https://docs.vllm.ai/)
 - [LocalAI Documentation](https://localai.io/)
 - [LLaVA Model Card](https://huggingface.co/microsoft/llava-1.6-vicuna-7b)
-- [Multimodal Detection Guide](../user-guide/detection-methods.md#multimodal-image-detection-engine)
+- [Multimodal Detection Guide](../user-guide/detection-methods.md#multimodal-image-detection-openai-compatible)

@@ -1,5 +1,5 @@
-# Example configuration file for PII Toolkit
-# Save this as config.yaml and use with: python main.py scan /data --config config.yaml
+# Example configuration file for pbd-toolkit
+# Save this as config.yaml and use with: pbd-toolkit scan /data --config config.yaml
 
 # Path to scan (if not provided as positional PATH or via --path)
 path: "/path/to/scan"

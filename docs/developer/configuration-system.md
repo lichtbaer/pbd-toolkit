@@ -1,6 +1,6 @@
 # Configuration System
 
-This document describes the configuration system used by the PII Toolkit.
+This document describes the configuration system used by the pbD Toolkit.
 
 ## Overview
 

@@ -1,4 +1,4 @@
-"""Custom exception hierarchy for the PII Toolkit.
+"""Custom exception hierarchy for the pbD Toolkit.
 
 All toolkit-specific exceptions inherit from ``PiiToolkitError`` so that callers
 can catch the entire hierarchy with a single ``except PiiToolkitError`` clause while
@@ -10,7 +10,7 @@ space is small and a deep hierarchy would add complexity without benefit.
 
 
 class PiiToolkitError(Exception):
-    """Base exception for all PII Toolkit errors."""
+    """Base exception for all pbD Toolkit errors."""
 
     pass
 

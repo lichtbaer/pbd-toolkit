@@ -350,7 +350,7 @@ def run_doctor(
         "Magic file detection (--use-magic-detection)",
         "pip install python-magic",
     )
-    _check_import("fastapi", "REST API (pii-toolkit serve)", "pip install fastapi")
+    _check_import("fastapi", "REST API (pbd-toolkit serve)", "pip install fastapi")
     _check_import("yaml", "YAML config files", "pip install pyyaml")
 
     details["dependencies"] = dep_results

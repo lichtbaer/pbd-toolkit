@@ -23,11 +23,11 @@ Usage
 -----
 Standalone::
 
-    pii-toolkit scan /data --vector-search
+    pbd-toolkit scan /data --vector-search
 
 As triage pre-filter (saves LLM API calls)::
 
-    pii-toolkit scan /data --vector-search --vector-triage --pydantic-ai ...
+    pbd-toolkit scan /data --vector-search --vector-triage --pydantic-ai ...
 """
 
 from __future__ import annotations
@@ -176,7 +176,7 @@ class VectorEngine:
                 self.config.logger.warning(
                     "[vector] sentence-transformers is not installed. "
                     "Install with: pip install sentence-transformers\n"
-                    "  or: pip install 'pii-toolkit[vector]'"
+                    "  or: pip install 'pbd-toolkit[vector]'"
                 )
         return self._available
 

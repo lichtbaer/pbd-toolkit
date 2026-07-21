@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for your interest in contributing to this fork of the PII Toolkit!
+Thank you for your interest in contributing to this fork of the pbD Toolkit!
 
 ## Getting Started
 
@@ -116,7 +116,7 @@ pytest
 pytest --cov=. --cov-report=html
 
 # Lint (lightweight; CI runs Ruff)
-ruff check core file_processors validators config.py matches.py main.py cli_setup.py
+ruff check core file_processors validators api analytics scripts tests eval
 ```
 
 ## Documentation

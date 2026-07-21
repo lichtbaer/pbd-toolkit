@@ -6,7 +6,7 @@ Can be started standalone::
 
 Or via the CLI::
 
-    pii-toolkit serve --port 8000
+    pbd-toolkit serve --port 8000
 """
 
 from __future__ import annotations
@@ -51,7 +51,7 @@ def main(argv: list[str] | None = None) -> None:
     except ImportError:
         print(
             "uvicorn is required to run the API server.\n"
-            "Install it with:  pip install 'pii-toolkit[api]'",
+            "Install it with:  pip install 'pbd-toolkit[api]'",
             file=sys.stderr,
         )
         sys.exit(1)

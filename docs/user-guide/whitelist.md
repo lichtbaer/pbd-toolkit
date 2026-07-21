@@ -25,7 +25,7 @@ do-not-reply
 Specify the whitelist file with the `--whitelist` option:
 
 ```bash
-python main.py scan /data --regex --whitelist stopwords.txt
+pbd-toolkit scan /data --regex --whitelist stopwords.txt
 ```
 
 ## Common Use Cases
@@ -97,7 +97,7 @@ example.com
 
 Usage:
 ```bash
-python main.py scan /data --regex --whitelist whitelist.txt
+pbd-toolkit scan /data --regex --whitelist whitelist.txt
 ```
 
 ### Comprehensive Whitelist
@@ -121,7 +121,7 @@ support@company.com
 
 Usage:
 ```bash
-python main.py scan /data --regex --ner --whitelist comprehensive_whitelist.txt
+pbd-toolkit scan /data --regex --ner --whitelist comprehensive_whitelist.txt
 ```
 
 ## Performance Impact

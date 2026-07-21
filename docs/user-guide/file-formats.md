@@ -1,6 +1,6 @@
 # Supported File Formats
 
-The PII Toolkit supports a wide range of file formats for PII detection. Files are identified by their extension and processed using specialized processors.
+The pbD Toolkit supports a wide range of file formats for PII detection. Files are identified by their extension and processed using specialized processors.
 
 ## Document Formats
 
@@ -290,7 +290,7 @@ The toolkit can detect PII in images when multimodal detection is enabled.
 
 **Detection**: Requires `--multimodal` flag and a compatible API (OpenAI, vLLM, or LocalAI).
 
-**Note**: Image processing is slower than text processing and requires API access. See [Detection Methods](detection-methods.md#multimodal-image-detection-engine) for details.
+**Note**: Image processing is slower than text processing and requires API access. See [Detection Methods](detection-methods.md#multimodal-image-detection-openai-compatible) for details.
 
 ## File Processing
 
@@ -305,7 +305,7 @@ When enabled with `--use-magic-detection`, the toolkit can identify file types u
 **Usage**:
 
 ```bash
-python main.py scan /data --regex --use-magic-detection
+pbd-toolkit scan /data --regex --use-magic-detection
 ```
 
 **When It's Useful**:

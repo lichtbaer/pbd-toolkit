@@ -2,7 +2,7 @@
 
 ## Overview
 
-The PII Toolkit supports these output formats for findings:
+The pbD Toolkit supports these output formats for findings:
 - **CSV** (default) - Comma-separated values
 - **JSON** - Structured JSON format with metadata
 - **JSONL** - JSON Lines format (streaming; one match per line)
@@ -13,9 +13,9 @@ The PII Toolkit supports these output formats for findings:
 ### CSV Format (Default)
 
 ```bash
-python main.py scan /data --regex
+pbd-toolkit scan /data --regex
 # or explicitly
-python main.py scan /data --regex --format csv
+pbd-toolkit scan /data --regex --format csv
 ```
 
 **Output**: `[timestamp]_findings.csv`
@@ -36,7 +36,7 @@ Max Mustermann,/data/file3.txt,NER_PERSON,0.85,gliner
 ### JSON Format
 
 ```bash
-python main.py scan /data --regex --format json
+pbd-toolkit scan /data --regex --format json
 ```
 
 **Output**: `[timestamp]_findings.json`
@@ -120,7 +120,7 @@ python main.py scan /data --regex --format json
 ### Excel Format (XLSX)
 
 ```bash
-python main.py scan /data --regex --format xlsx
+pbd-toolkit scan /data --regex --format xlsx
 ```
 
 **Output**: `[timestamp]_findings.xlsx`
@@ -164,35 +164,35 @@ python main.py scan /data --regex --format xlsx
 
 ```bash
 # CSV (default)
-python main.py scan /data --regex
+pbd-toolkit scan /data --regex
 
 # JSON
-python main.py scan /data --regex --format json
+pbd-toolkit scan /data --regex --format json
 
 # JSONL (streaming)
-python main.py scan /data --regex --format jsonl
+pbd-toolkit scan /data --regex --format jsonl
 
 # Excel
-python main.py scan /data --regex --format xlsx
+pbd-toolkit scan /data --regex --format xlsx
 ```
 
 ### With Custom Output Directory
 
 ```bash
-python main.py scan /data --regex --format json --output-dir ./results/
+pbd-toolkit scan /data --regex --format json --output-dir ./results/
 ```
 
 ### With Custom Output Name
 
 ```bash
-python main.py scan /data --regex --format xlsx --outname "leak-2024"
+pbd-toolkit scan /data --regex --format xlsx --outname "leak-2024"
 # Output: 2024-01-15 10-30-00 leak-2024_findings.xlsx
 ```
 
 ### Full Example
 
 ```bash
-python main.py \
+pbd-toolkit \
   scan /var/data-leak/ \
   --regex \
   --ner \

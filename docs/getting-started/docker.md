@@ -1,6 +1,6 @@
 # Docker / Compose
 
-The PII Toolkit is a CLI tool, so the recommended workflow is to run it as a one-off
+The pbD Toolkit is a CLI tool, so the recommended workflow is to run it as a one-off
 container job and mount your input/output directories.
 
 ## Directory layout

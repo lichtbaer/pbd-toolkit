@@ -588,7 +588,7 @@ class SarifWriter(OutputWriter):
                 {
                     "tool": {
                         "driver": {
-                            "name": "pii-toolkit",
+                            "name": "pbd-toolkit",
                             "rules": rules,
                         }
                     },

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-License compatibility checker for the PII Toolkit project.
+License compatibility checker for the pbD Toolkit project.
 
 This script checks all dependencies and their license compatibility with EUPL v1.2.
 """
@@ -274,7 +274,7 @@ def read_requirements() -> list[str]:
 def main():
     """Main function to check all dependencies."""
     print("=" * 80)
-    print("License Compatibility Check for PII Toolkit")
+    print("License Compatibility Check for pbD Toolkit")
     print("Project License: EUPL v1.2")
     print("=" * 80)
     print()

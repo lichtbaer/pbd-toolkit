@@ -1,6 +1,6 @@
 # Configuration
 
-The PII Toolkit can be configured through command-line arguments, configuration files (YAML or JSON), and environment variables.
+The pbD Toolkit can be configured through command-line arguments, configuration files (YAML or JSON), and environment variables.
 
 ## Configuration Precedence
 
@@ -25,7 +25,7 @@ You can use a configuration file (YAML or JSON) to set default values, which can
 ### Usage
 
 ```bash
-python main.py scan /data --config config.yaml
+pbd-toolkit scan /data --config config.yaml
 ```
 
 **Note**: CLI arguments take precedence over config file values. The scan path can be provided as positional `<path>`, via `--path`, or inside the config file as `path: ...`.
@@ -224,7 +224,7 @@ export LANGUAGE=de  # German (default)
 Usage:
 
 ```bash
-LANGUAGE=en python main.py scan /data --regex
+LANGUAGE=en pbd-toolkit scan /data --regex
 ```
 
 ## Default Values

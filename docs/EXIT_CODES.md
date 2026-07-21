@@ -1,6 +1,6 @@
 # Exit Codes
 
-The PII Toolkit uses standardized exit codes to indicate the result of execution. This allows scripts and automation tools to programmatically determine the outcome.
+The pbD Toolkit uses standardized exit codes to indicate the result of execution. This allows scripts and automation tools to programmatically determine the outcome.
 
 ## Exit Code Definitions
 
@@ -17,7 +17,7 @@ The PII Toolkit uses standardized exit codes to indicate the result of execution
 ### Bash Script
 ```bash
 #!/bin/bash
-python main.py scan /data --regex --ner
+pbd-toolkit scan /data --regex --ner
 
 case $? in
     0) echo "Analysis completed successfully" ;;
@@ -34,7 +34,7 @@ import subprocess
 import sys
 
 result = subprocess.run(
-    ["python", "main.py", "scan", "/data", "--regex", "--ner"],
+    ["pbd-toolkit", "scan", "/data", "--regex", "--ner"],
     capture_output=True
 )
 
@@ -86,17 +86,17 @@ EXIT_FILE_ACCESS_ERROR = 3
 EXIT_CONFIGURATION_ERROR = 4
 ```
 
-And used in `main.py`:
+And used in `core/cli.py` via Typer:
 
 ```python
-import sys
+import typer
 import constants
 
 # On error:
-sys.exit(constants.EXIT_CONFIGURATION_ERROR)
+raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
 
 # On success:
-sys.exit(constants.EXIT_SUCCESS)
+raise typer.Exit(code=constants.EXIT_SUCCESS)
 ```
 
 ## Best Practices

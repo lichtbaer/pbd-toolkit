@@ -82,7 +82,7 @@ Extracts text content from the file.
 
 **Returns**: Extracted text as string
 
-**Raises**: Various exceptions for errors (handled by main.py)
+**Raises**: Various exceptions for errors (handled by `core/processor.py`)
 
 ## Example: Simple Text Processor
 
@@ -189,7 +189,7 @@ def extract_text(self, file_path: str):
             yield '\n'.join(chunk)
 ```
 
-**Note**: The main processing loop in `main.py` handles both string returns and generators.
+**Note**: The main processing loop in `core/processor.py` handles both string returns and generators.
 
 ## MIME Type Detection
 

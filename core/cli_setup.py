@@ -43,7 +43,7 @@ def __setup_args(translate_func: Callable[[str], str]) -> argparse.Namespace:
         Parsed arguments
     """
     parser = argparse.ArgumentParser(
-        prog=translate_func("HBDI PII Toolkit"),
+        prog=translate_func("pbD Toolkit"),
         description=translate_func(
             "Scan directories for personally identifiable information"
         ),
@@ -440,7 +440,7 @@ def setup() -> tuple[
 
     .. deprecated::
         This legacy argparse-based setup is deprecated. Use the Typer-based CLI
-        via ``core.cli`` instead (``pii-toolkit scan ...``). This function will
+        via ``core.cli`` instead (``pbd-toolkit scan ...``). This function will
         be removed in a future release.
 
     Returns:
