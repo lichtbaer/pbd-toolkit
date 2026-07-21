@@ -87,6 +87,31 @@ def test_run_regex_scan_finds_pii(tmp_path):
     assert result.matches_by_file
 
 
+def test_run_with_isolated_file_processor_registry_finds_nothing(tmp_path):
+    """``ScanRequest.file_processor_registry`` actually reaches the scan pipeline.
+
+    Passing an empty isolated registry means no file is considered
+    processable, even though regex would otherwise find PII in it — proof
+    that the registry override (issue #78) is real wiring, not unused
+    surface, and is exactly the mechanism the REST API uses via
+    ``FileProcessorRegistry.snapshot()``.
+    """
+    from file_processors.registry import FileProcessorRegistry
+
+    scan_dir = tmp_path / "data"
+    scan_dir.mkdir()
+    (scan_dir / "sample.txt").write_text(
+        "Contact: john.doe@example.com IBAN DE89370400440532013000\n"
+    )
+
+    empty_registry = FileProcessorRegistry.create_isolated()
+    result = _run(str(scan_dir), file_processor_registry=empty_registry)
+
+    assert result.total_files_found == 1
+    assert result.files_processed == 0
+    assert result.matches_found == 0
+
+
 def test_clean_scan_reports_no_findings(tmp_path):
     """A scan over content without PII completes with zero findings."""
     scan_dir = tmp_path / "data"

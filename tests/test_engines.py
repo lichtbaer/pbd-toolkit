@@ -14,7 +14,12 @@ class TestEngineRegistry:
     """Tests for EngineRegistry."""
 
     def test_register_engine(self):
-        """Test engine registration."""
+        """Test engine registration on an isolated registry.
+
+        Uses ``create_isolated()`` rather than the global ``EngineRegistry`` so
+        this test cannot leak a "test" engine into the process-wide registry
+        for the rest of the suite (issue #78).
+        """
 
         class TestEngine:
             name = "test"
@@ -26,8 +31,10 @@ class TestEngineRegistry:
             def is_available(self):
                 return True
 
-        EngineRegistry.register("test", TestEngine)
-        assert EngineRegistry.is_registered("test")
+        registry = EngineRegistry.create_isolated()
+        registry.register("test", TestEngine)
+        assert registry.is_registered("test")
+        assert not EngineRegistry.is_registered("test")
 
     def test_get_engine(self):
         """Test getting engine instance."""
@@ -50,6 +57,114 @@ class TestEngineRegistry:
         engines = EngineRegistry.list_engines()
         assert "regex" in engines
         assert "gliner" in engines
+
+
+class TestEngineRegistryIsolation:
+    """Tests for EngineRegistry.create_isolated() / snapshot() (issue #78)."""
+
+    def test_create_isolated_starts_empty_and_does_not_affect_global(self):
+        isolated = EngineRegistry.create_isolated()
+        assert isolated.list_engines() == []
+
+        class TestEngine:
+            name = "isolated-only"
+            enabled = True
+
+            def detect(self, text, labels=None):
+                return []
+
+            def is_available(self):
+                return True
+
+        isolated.register("isolated-only", TestEngine)
+        assert isolated.is_registered("isolated-only")
+        assert not EngineRegistry.is_registered("isolated-only")
+
+    def test_snapshot_is_a_copy_not_a_live_view(self):
+        snapshot = EngineRegistry.snapshot()
+        assert set(snapshot.list_engines()) == set(EngineRegistry.list_engines())
+
+        class LateEngine:
+            name = "late"
+            enabled = True
+
+            def detect(self, text, labels=None):
+                return []
+
+            def is_available(self):
+                return True
+
+        # Registering on the snapshot must not leak into the global registry.
+        snapshot.register("late", LateEngine)
+        assert not EngineRegistry.is_registered("late")
+
+    def test_two_isolated_registries_do_not_leak_into_each_other(self):
+        """One test's custom registry must not affect another (issue #78 test notes)."""
+
+        class EngineA:
+            name = "a-only"
+            enabled = True
+
+            def detect(self, text, labels=None):
+                return []
+
+            def is_available(self):
+                return True
+
+        registry_1 = EngineRegistry.create_isolated()
+        registry_1.register("a-only", EngineA)
+
+        registry_2 = EngineRegistry.create_isolated()
+
+        assert registry_1.is_registered("a-only")
+        assert not registry_2.is_registered("a-only")
+
+
+class TestEngineRegistryOptionalDependencies:
+    """Optional engines degrade gracefully when their dependency is unavailable.
+
+    ``core/engines/__init__.py`` guards optional-engine class imports with
+    ``try/except ImportError`` so a missing dependency never prevents the rest
+    of the module (and thus ``core.processor``) from importing. The second,
+    independent layer is exercised here: even when an engine class *is*
+    registered, ``EngineRegistry.get_engine`` must return ``None`` (not raise)
+    when the engine reports itself unavailable at construction time.
+    """
+
+    def test_get_engine_pydantic_ai_unavailable_dependency_returns_none(self):
+        import core.engines.pydantic_ai_engine as pydantic_ai_engine
+
+        mock_config = Mock()
+        mock_config.logger = Mock()
+        mock_config.verbose = False
+        mock_config.use_ollama = False
+        mock_config.use_openai_compatible = False
+        mock_config.use_multimodal = False
+        mock_config.use_pydantic_ai = True
+
+        with patch.object(pydantic_ai_engine, "_PYDANTIC_AI_AVAILABLE", False):
+            engine = EngineRegistry.get_engine("pydantic-ai", mock_config)
+
+        assert engine is None
+
+    def test_get_engine_vector_search_unavailable_dependency_returns_none(self):
+        from core.indexer.document_indexer import DocumentIndexer
+
+        mock_config = Mock(spec=Config)
+        mock_config.use_vector_search = True
+        mock_config.use_vector_triage = False
+        mock_config.vector_threshold = 0.75
+        mock_config.vector_model = "sentence-transformers/all-MiniLM-L6-v2"
+        mock_config.vector_save_index = None
+        mock_config.vector_load_index = None
+        mock_config.vector_custom_exemplars = None
+        mock_config.verbose = False
+        mock_config.logger = Mock()
+
+        with patch.object(DocumentIndexer, "is_available", return_value=False):
+            engine = EngineRegistry.get_engine("vector-search", mock_config)
+
+        assert engine is None
 
 
 class TestRegexEngine:

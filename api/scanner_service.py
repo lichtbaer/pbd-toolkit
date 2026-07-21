@@ -13,6 +13,8 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from analytics.store import AnalyticsStore
+from core.engines.registry import EngineRegistry
+from file_processors.registry import FileProcessorRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,12 @@ class ScannerService:
         )
         self._active: dict[str, dict[str, Any]] = {}
         self._lock = threading.Lock()
+        # Stable registry snapshots (issue #78): every scan this service instance
+        # runs uses the same processor/engine set, captured once at startup,
+        # instead of reading whatever the global registries look like at scan
+        # time (which could drift if something else in the process mutates them).
+        self._file_processor_registry = FileProcessorRegistry.snapshot()
+        self._engine_registry = EngineRegistry.snapshot()
         # Resolve allowed scan roots to canonical absolute paths.
         if allowed_scan_roots:
             self._allowed_roots = [os.path.realpath(r) for r in allowed_scan_roots]
@@ -223,6 +231,8 @@ class ScannerService:
                     analytics_store=self._store,
                     analytics_session_id=session_id,
                     finalize_analytics_session=False,
+                    file_processor_registry=self._file_processor_registry,
+                    engine_registry=self._engine_registry,
                 )
             )
 

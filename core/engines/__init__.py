@@ -5,7 +5,7 @@ from core.engines.gliner_engine import GLiNEREngine
 
 # Import engines to register them
 from core.engines.regex_engine import RegexEngine
-from core.engines.registry import EngineRegistry
+from core.engines.registry import EngineRegistry, IsolatedEngineRegistry
 
 # Register built-in engines
 EngineRegistry.register("regex", RegexEngine)
@@ -39,6 +39,7 @@ __all__ = [
     "DetectionEngine",
     "DetectionResult",
     "EngineRegistry",
+    "IsolatedEngineRegistry",
     "RegexEngine",
     "GLiNEREngine",
     "PydanticAIEngine",

@@ -24,7 +24,10 @@ from file_processors.odt_processor import OdtProcessor
 from file_processors.pdf_processor import PdfProcessor
 from file_processors.pptx_processor import PptProcessor, PptxProcessor
 from file_processors.properties_processor import PropertiesProcessor
-from file_processors.registry import FileProcessorRegistry
+from file_processors.registry import (
+    FileProcessorRegistry,
+    IsolatedFileProcessorRegistry,
+)
 from file_processors.rtf_processor import RtfProcessor
 from file_processors.sqlite_processor import SqliteProcessor
 from file_processors.text_processor import TextProcessor
@@ -43,6 +46,7 @@ __all__ = [
     "decode_with_fallback",
     "read_text_with_fallback",
     "FileProcessorRegistry",
+    "IsolatedFileProcessorRegistry",
     "PdfProcessor",
     "DocxProcessor",
     "HtmlProcessor",

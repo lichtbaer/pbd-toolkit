@@ -97,3 +97,61 @@ class TestFileProcessorRegistryOtherMethods:
             FileProcessorRegistry.clear()
             for p in processors_before:
                 FileProcessorRegistry.register(p)
+
+
+class TestFileProcessorRegistryIsolation:
+    """Tests for FileProcessorRegistry.create_isolated() / snapshot() (issue #78)."""
+
+    def test_create_isolated_starts_empty_and_does_not_affect_global(self):
+        isolated = FileProcessorRegistry.create_isolated()
+        assert isolated.get_all_processors() == []
+
+        class DummyProcessor(BaseFileProcessor):
+            def extract_text(self, file_path: str):
+                return ""
+
+            @staticmethod
+            def can_process(extension: str, file_path: str = "", mime_type: str = ""):
+                return extension == ".dummy_isolated"
+
+        isolated.register_class(DummyProcessor)
+        assert isolated.get_processor(".dummy_isolated") is not None
+        # The global, process-wide registry must be untouched.
+        assert FileProcessorRegistry.get_processor(".dummy_isolated") is None
+
+    def test_snapshot_is_a_copy_not_a_live_view(self):
+        snapshot = FileProcessorRegistry.snapshot()
+        assert len(snapshot.get_all_processors()) == len(
+            FileProcessorRegistry.get_all_processors()
+        )
+
+        class DummyProcessor(BaseFileProcessor):
+            def extract_text(self, file_path: str):
+                return ""
+
+            @staticmethod
+            def can_process(extension: str, file_path: str = "", mime_type: str = ""):
+                return extension == ".dummy_snapshot"
+
+        # Registering on the snapshot must not affect the global registry.
+        snapshot.register_class(DummyProcessor)
+        assert FileProcessorRegistry.get_processor(".dummy_snapshot") is None
+
+    def test_two_isolated_registries_do_not_leak_into_each_other(self):
+        """One test's custom registry must not affect another (issue #78 test notes)."""
+
+        class ProcessorA(BaseFileProcessor):
+            def extract_text(self, file_path: str):
+                return ""
+
+            @staticmethod
+            def can_process(extension: str, file_path: str = "", mime_type: str = ""):
+                return extension == ".a_only"
+
+        registry_1 = FileProcessorRegistry.create_isolated()
+        registry_1.register_class(ProcessorA)
+
+        registry_2 = FileProcessorRegistry.create_isolated()
+
+        assert registry_1.get_processor(".a_only") is not None
+        assert registry_2.get_processor(".a_only") is None
