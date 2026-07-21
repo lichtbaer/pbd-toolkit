@@ -243,8 +243,11 @@ class Pseudonymizer:
     def pseudonymize_text(self, text: str, matches: list[PiiMatch]) -> str:
         """Replace all PII matches in *text* with fake values.
 
-        Matches are processed from end to start so character offsets remain
-        valid during in-place substitution.
+        Overlapping matches are resolved by keeping the longest span first
+        (ties break on earliest start), so a shorter, contained match from
+        one engine cannot leave part of a longer match from another engine
+        unreplaced. Selected replacements are then applied from end to start
+        so character offsets remain valid during in-place substitution.
         """
         if not matches or not text:
             return text
@@ -268,17 +271,17 @@ class Pseudonymizer:
         if not replacements:
             return text
 
-        # Sort descending by start to preserve offsets
-        replacements.sort(key=lambda x: x[0], reverse=True)
-
-        # Remove overlaps (keep first / longest)
+        # Resolve overlaps by preferring the longest span first.
+        replacements.sort(key=lambda r: (-(r[1] - r[0]), r[0]))
         cleaned: list[tuple[int, int, str]] = []
-        min_start: float = float("inf")
         for start, end, fake in replacements:
-            if end <= min_start:
+            if not any(
+                start < c_end and end > c_start for c_start, c_end, _ in cleaned
+            ):
                 cleaned.append((start, end, fake))
-                min_start = start
 
+        # Apply replacements from end to start to preserve offsets.
+        cleaned.sort(key=lambda r: r[0], reverse=True)
         result = text
         for start, end, fake in cleaned:
             result = result[:start] + fake + result[end:]

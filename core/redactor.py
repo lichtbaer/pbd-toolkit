@@ -9,7 +9,11 @@ from core.matches import PiiMatch
 def redact_text(text: str, matches: list[PiiMatch]) -> str:
     """Replace all PII matches in text with [REDACTED:TYPE] placeholders.
 
-    Matches are sorted by position (longest first for overlaps) and replaced
+    Overlapping matches are resolved by keeping the longest span first (ties
+    break on earliest start): different engines can report overlapping
+    boundaries for the same real-world PII (e.g. a full name vs. a
+    NER-detected surname), and letting a shorter, contained match win would
+    leave part of the PII unredacted. Selected replacements are then applied
     from end to start to preserve character offsets.
     """
     if not matches or not text:
@@ -37,18 +41,15 @@ def redact_text(text: str, matches: list[PiiMatch]) -> str:
     if not replacements:
         return text
 
-    # Sort by start position descending (replace from end to preserve offsets)
-    replacements.sort(key=lambda x: x[0], reverse=True)
-
-    # Remove overlapping replacements (keep the one that starts first / is longer)
+    # Resolve overlaps by preferring the longest span first.
+    replacements.sort(key=lambda r: (-(r[1] - r[0]), r[0]))
     cleaned = []
-    min_start = float("inf")
     for start, end, placeholder in replacements:
-        if end <= min_start:
+        if not any(start < c_end and end > c_start for c_start, c_end, _ in cleaned):
             cleaned.append((start, end, placeholder))
-            min_start = start
 
-    # Apply replacements (already sorted descending)
+    # Apply replacements from end to start to preserve offsets.
+    cleaned.sort(key=lambda r: r[0], reverse=True)
     result = text
     for start, end, placeholder in cleaned:
         result = result[:start] + placeholder + result[end:]
