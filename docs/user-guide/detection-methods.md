@@ -1,6 +1,6 @@
 # PII Detection Methods
 
-The PII Toolkit supports multiple detection engines that can be used independently or in combination for comprehensive PII detection.
+The pbD Toolkit supports multiple detection engines that can be used independently or in combination for comprehensive PII detection.
 
 ## Regular Expression-Based Detection
 
@@ -11,7 +11,7 @@ Regular expression (regex) pattern matching is a fast, rule-based approach for d
 Enable regex detection:
 
 ```bash
-python main.py scan /data --regex
+pbd-toolkit scan /data --regex
 ```
 
 ### Supported Patterns
@@ -274,7 +274,7 @@ AI-powered detection using multiple analytical engines. The toolkit supports sev
 Enable NER detection:
 
 ```bash
-python main.py scan /data --ner
+pbd-toolkit scan /data --ner
 ```
 
 **Note**: Requires the GLiNER model to be downloaded (see [Installation](../getting-started/installation.md)).
@@ -456,7 +456,7 @@ German-specific Named Entity Recognition using spaCy models optimized for German
 **Usage**:
 
 ```bash
-python main.py scan /data --spacy-ner --spacy-model de_core_news_lg
+pbd-toolkit scan /data --spacy-ner --spacy-model de_core_news_lg
 ```
 
 **Available Models**:
@@ -488,7 +488,7 @@ Local LLM-based detection using Ollama. Runs completely offline.
 **Usage**:
 
 ```bash
-python main.py scan /data --ollama --ollama-model llama3.2
+pbd-toolkit scan /data --ollama --ollama-model llama3.2
 ```
 
 **Configuration**:
@@ -525,19 +525,19 @@ Unified LLM-based detection using PydanticAI. Replaces the old OpenAI-Compatible
 
 ```bash
 # With Ollama (local, offline)
-python main.py scan /data --pydantic-ai --pydantic-ai-provider ollama --pydantic-ai-model llama3.2
+pbd-toolkit scan /data --pydantic-ai --pydantic-ai-provider ollama --pydantic-ai-model llama3.2
 
 # With OpenAI
-python main.py scan /data --pydantic-ai --pydantic-ai-provider openai \
+pbd-toolkit scan /data --pydantic-ai --pydantic-ai-provider openai \
     --pydantic-ai-api-key YOUR_KEY --pydantic-ai-model gpt-3.5-turbo
 
 # With Anthropic Claude
-python main.py scan /data --pydantic-ai --pydantic-ai-provider anthropic \
+pbd-toolkit scan /data --pydantic-ai --pydantic-ai-provider anthropic \
     --pydantic-ai-api-key YOUR_KEY
 
 # Multimodal image detection (OpenAI-compatible endpoint)
 # Use --multimodal (images) and a vision-capable model on an OpenAI-compatible server (OpenAI, vLLM, LocalAI).
-python main.py scan /data/images --multimodal \
+pbd-toolkit scan /data/images --multimodal \
     --multimodal-api-key YOUR_KEY \
     --multimodal-api-base https://api.openai.com/v1 \
     --multimodal-model gpt-4o-mini
@@ -548,7 +548,7 @@ python main.py scan /data/images --multimodal \
 ```bash
 # Text PII: Ollama (local)
 # Image PII: vLLM or LocalAI (OpenAI-compatible, local)
-python main.py scan /data \
+pbd-toolkit scan /data \
   --pydantic-ai --pydantic-ai-provider ollama --pydantic-ai-model llama3.2 \
   --multimodal --multimodal-api-base http://localhost:8000/v1 --multimodal-model microsoft/llava-1.6-vicuna-7b
 ```
@@ -628,17 +628,17 @@ Semantic similarity-based PII detection using sentence-transformers embeddings. 
 
 ```bash
 # Standalone – fully local, no API needed
-pii-toolkit scan /data --vector-search
+pbd-toolkit scan /data --vector-search
 
 # Adjust sensitivity (lower threshold = more recall, more false positives)
-pii-toolkit scan /data --vector-search --vector-threshold 0.65
+pbd-toolkit scan /data --vector-search --vector-threshold 0.65
 
 # Better German/multilingual coverage
-pii-toolkit scan /data --vector-search \
+pbd-toolkit scan /data --vector-search \
     --vector-model paraphrase-multilingual-MiniLM-L12-v2
 
 # Save FAISS index for later cross-document analysis
-pii-toolkit scan /data --vector-search --vector-save-index ./output/my_index
+pbd-toolkit scan /data --vector-search --vector-save-index ./output/my_index
 ```
 
 **Triage mode** – use vector search as a cheap pre-filter in front of expensive LLM engines:
@@ -646,7 +646,7 @@ pii-toolkit scan /data --vector-search --vector-save-index ./output/my_index
 ```bash
 # Chunks without a PII signal are skipped before being sent to the LLM
 # This can reduce LLM API calls by 70-90% on typical document collections
-pii-toolkit scan /data \
+pbd-toolkit scan /data \
     --vector-search --vector-triage \
     --pydantic-ai --pydantic-ai-provider ollama --pydantic-ai-model llama3.2
 ```
@@ -654,7 +654,7 @@ pii-toolkit scan /data \
 **Installation**:
 
 ```bash
-pip install "pii-toolkit[vector]"
+pip install "pbd-toolkit[vector]"
 # For FAISS index persistence (--vector-save-index / --vector-load-index):
 pip install faiss-cpu
 ```
@@ -694,7 +694,7 @@ pip install faiss-cpu
 Domain-specific PII categories can be added or extended with a YAML or JSON exemplar file:
 
 ```bash
-pii-toolkit scan /data --vector-search --vector-custom-exemplars ./my_exemplars.yaml
+pbd-toolkit scan /data --vector-search --vector-custom-exemplars ./my_exemplars.yaml
 ```
 
 **YAML format** (`my_exemplars.yaml`):
@@ -750,28 +750,28 @@ Use multiple engines together for comprehensive detection:
 
 ```bash
 # Basic combination
-pii-toolkit scan /data --regex --ner
+pbd-toolkit scan /data --regex --ner
 
 # All local engines
-pii-toolkit scan /data \
+pbd-toolkit scan /data \
     --regex \
     --ner \
     --spacy-ner --spacy-model de_core_news_lg \
     --vector-search
 
 # Vector as triage + LLM for precise extraction
-pii-toolkit scan /data \
+pbd-toolkit scan /data \
     --vector-search --vector-triage \
     --pydantic-ai --pydantic-ai-provider ollama --pydantic-ai-model llama3.2
 
 # German-focused, structured + semantic
-pii-toolkit scan /data \
+pbd-toolkit scan /data \
     --regex \
     --spacy-ner --spacy-model de_core_news_lg \
     --vector-search --vector-model paraphrase-multilingual-MiniLM-L12-v2
 
 # With image detection
-pii-toolkit scan /data \
+pbd-toolkit scan /data \
     --regex \
     --ner \
     --multimodal --multimodal-api-key YOUR_KEY

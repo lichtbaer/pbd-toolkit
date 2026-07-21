@@ -1,20 +1,20 @@
 # Architecture
 
-This document provides an overview of the PII Toolkit's architecture and design principles.
+This document provides an overview of the pbD Toolkit's architecture and design principles.
 
 ## Overview
 
-The PII Toolkit is a modular, extensible system for detecting personally identifiable information (PII) in various file formats.
+The pbD Toolkit is a modular, extensible system for detecting personally identifiable information (PII) in various file formats.
 
 ## Core Components
 
 ### Main Entry Point
 
-**Files**: `main.py`, `core/cli.py`, `cli_setup.py`
+**Files**: `core/cli.py`, `core/cli_setup.py`, `core/scan_runner.py`
 
-- **core/cli.py**: Typer-based CLI. Implements the `scan` command and orchestrates the scan pipeline.
-- **cli_setup.py**: Shared setup helpers (i18n, logger setup, Config construction).
-- **main.py**: Thin entry point that forwards to the Typer CLI (`core.cli.cli`).
+- **core/cli.py**: Typer-based CLI. Installed as the `pbd-toolkit` console script (also runnable as `python -m core.cli`). Implements the `scan` command, parses arguments, and delegates orchestration to `ScanRunner`.
+- **core/cli_setup.py**: Shared setup helpers (i18n, logger setup, Config construction).
+- **core/scan_runner.py**: `ScanRunner` application service — owns the shared scan pipeline (scanner/processor/writer orchestration, cache handling, reporting) used by both the CLI and the REST API.
 
 ### Core Modules
 
@@ -177,7 +177,7 @@ For regex patterns:
 1. Add format option to CLI arguments in `core/cli.py`
 2. Implement output writer class in `core/writers.py` (inherit from OutputWriter)
 3. Register in `core/writers.py` `create_output_writer()` function
-4. No changes needed to `PiiMatchContainer` or `main.py`
+4. No changes needed to `PiiMatchContainer` or `core/cli.py`
 
 ## Performance Considerations
 

@@ -40,16 +40,16 @@ An output mode that generates JSON statistics files with aggregated data by priv
 
 ```bash
 # Statistics-only mode (still writes the normal findings output file)
-pii-toolkit scan /path --regex --ner --statistics-mode
+pbd-toolkit scan /path --regex --ner --statistics-mode
 
 # Strict privacy statistics (no file paths kept in memory)
-pii-toolkit scan /path --regex --ner --statistics-mode --statistics-strict
+pbd-toolkit scan /path --regex --ner --statistics-mode --statistics-strict
 
 # Statistics + detailed findings
-pii-toolkit scan /path --regex --ner --statistics-mode --format csv
+pbd-toolkit scan /path --regex --ner --statistics-mode --format csv
 
 # Custom output path for the statistics JSON
-pii-toolkit scan /path --regex --ner --statistics-mode --statistics-output ./stats.json
+pbd-toolkit scan /path --regex --ner --statistics-mode --statistics-output ./stats.json
 ```
 
 ## Output Structure

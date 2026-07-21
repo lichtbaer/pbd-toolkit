@@ -1,6 +1,6 @@
 # Documentation
 
-This directory contains the MkDocs-based documentation for the PII Toolkit fork.
+This directory contains the MkDocs-based documentation for the pbD Toolkit fork.
 
 ## Building the Documentation
 
@@ -59,6 +59,6 @@ mkdocs gh-deploy
 
 ## Note
 
-This documentation is for the **fork** of the HBDI PII Toolkit. It is not official documentation from HBDI.
+This documentation is for the **fork** of the HBDI pbD Toolkit. It is not official documentation from HBDI.
 
 For installation and feature extras (recommended), see `getting-started/installation.md`.

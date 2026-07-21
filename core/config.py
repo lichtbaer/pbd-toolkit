@@ -1,4 +1,4 @@
-"""Configuration management for the PII Toolkit.
+"""Configuration management for the pbD Toolkit.
 
 Design rationale – sub-config grouping
 ---------------------------------------
@@ -167,7 +167,7 @@ _SUB_CONFIG_FIELDS = _build_sub_config_fields()
 
 @dataclass
 class Config:
-    """Configuration object for PII Toolkit.
+    """Configuration object for pbD Toolkit.
 
     This class centralizes all configuration and dependencies,
     enabling dependency injection and better testability.

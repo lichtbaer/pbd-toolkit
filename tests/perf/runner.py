@@ -144,7 +144,7 @@ def run_scenario(
         temp_dataset_dir = temp_root
         scan_path = str(temp_root)
 
-    command = [sys.executable, "main.py", "scan", "--path", scan_path] + args
+    command = [sys.executable, "-m", "core.cli", "scan", "--path", scan_path] + args
     env = os.environ.copy()
     if "--openai-api-base" in args:
         base_index = args.index("--openai-api-base")

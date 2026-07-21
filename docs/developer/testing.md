@@ -1,6 +1,6 @@
 # Testing
 
-This document describes the testing approach and test suite for the PII Toolkit.
+This document describes the testing approach and test suite for the pbD Toolkit.
 
 ## Test Structure
 

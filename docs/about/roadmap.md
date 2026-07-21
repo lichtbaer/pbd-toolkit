@@ -21,7 +21,7 @@ This roadmap reflects the current direction of this fork. Items are grouped by t
   - `--engines` to compare engine combinations, `--format json`, and `--fail-under` for use
     as a CI quality gate. A hermetic regex-only regression test guards the structured types.
 - **Vector Search Extensions**:
-  - **Post-scan `query` CLI** (`pii-toolkit query <index> <text>`): interactive FAISS index queries after a scan, with `--top-k`, `--threshold`, and `--format json` support
+  - **Post-scan `query` CLI** (`pbd-toolkit query <index> <text>`): interactive FAISS index queries after a scan, with `--top-k`, `--threshold`, and `--format json` support
   - **Custom exemplars** (`--vector-custom-exemplars`): extend or override built-in PII categories with domain-specific YAML/JSON exemplar files
   - **File hash tracking**: SHA-256 hashes stored per chunk in the FAISS `.meta` file; foundation for future incremental index updates
   - **FAISS query bug fix**: disk-loaded FAISS indices now correctly use FAISS for similarity search instead of falling back to a broken brute-force path
@@ -30,7 +30,7 @@ This roadmap reflects the current direction of this fork. Items are grouped by t
   - 13 PII categories, 90 bilingual (DE/EN) exemplar texts
   - Triage mode (`--vector-triage`): pre-filter for LLM engines to reduce API costs
   - Optional FAISS index persistence for cross-document analysis
-  - `pip install "pii-toolkit[vector]"`
+  - `pip install "pbd-toolkit[vector]"`
 - Typer-based CLI with config file support (YAML/JSON) and structured summary output
 - Unified LLM engine with PydanticAI for text detection
 - **Real OpenAI-compatible multimodal image detection** (OpenAI / vLLM / LocalAI via `POST /chat/completions`)

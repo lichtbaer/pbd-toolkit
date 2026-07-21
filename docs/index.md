@@ -1,13 +1,13 @@
-# PII Toolkit (Fork)
+# pbD Toolkit (Fork)
 
 !!! warning "This is a Fork"
-    **This is an unofficial fork of the HBDI PII Toolkit.** This project is not maintained by or affiliated with the Hessian Commissioner for Data Protection and Freedom of Information (HBDI). This fork may contain modifications, improvements, or changes that are not present in the original project.
+    **This is an unofficial fork of the HBDI pbD Toolkit.** This project is not maintained by or affiliated with the Hessian Commissioner for Data Protection and Freedom of Information (HBDI). This fork may contain modifications, improvements, or changes that are not present in the original project.
 
    For the official project, please visit the [original repository](https://github.com/hessen-datenschutz/pbd-toolkit) or the [HBDI website](https://datenschutz.hessen.de).
 
 ## Overview
 
-The PII Toolkit is a command-line tool designed to scan directories and identify potentially personally identifiable information (PII) within files. It supports multiple detection methods and file formats, making it useful for data leak analysis, privacy audits, and compliance checks.
+The pbD Toolkit is a command-line tool designed to scan directories and identify potentially personally identifiable information (PII) within files. It supports multiple detection methods and file formats, making it useful for data leak analysis, privacy audits, and compliance checks.
 
 ## Key Features
 
@@ -48,10 +48,10 @@ python3 -m pip install -e ".[dev,office,images,magic,llm]"
 # python3 -m pip install -e ".[gliner,spacy]"
 
 # Basic usage
-python3 main.py scan /path/to/scan --regex --ner
+pbd-toolkit scan /path/to/scan --regex --ner
 
 # With custom output
-python3 main.py scan /path/to/scan --regex --format json --outname "scan-2024"
+pbd-toolkit scan /path/to/scan --regex --format json --outname "scan-2024"
 ```
 
 ## Documentation Structure
@@ -67,7 +67,7 @@ This fork is based on the **pbD-Toolkit** (Personenbezogene Daten Toolkit) devel
 
 ### Original Project Information
 
-- **Original Name**: pbD-Toolkit (PII Toolkit)
+- **Original Name**: pbD-Toolkit (pbD Toolkit)
 - **Original Maintainer**: Hessian Commissioner for Data Protection and Freedom of Information (HBDI)
 - **Contact**: Department 3.2 - Technical Data Protection Audits
 - **Website**: [datenschutz.hessen.de](https://datenschutz.hessen.de)

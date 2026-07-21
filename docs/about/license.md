@@ -1,12 +1,12 @@
 # License
 
-This fork maintains the same license as the original HBDI PII Toolkit project.
+This fork maintains the same license as the original HBDI pbD Toolkit project.
 
 Please refer to the [LICENSE](../LICENSE) file in the repository root for the complete license text.
 
 ## License Information
 
-The original pbD-Toolkit (PII Toolkit) was developed by the Hessian Commissioner for Data Protection and Freedom of Information (HBDI) and is shared with the public.
+The original pbD-Toolkit (pbD Toolkit) was developed by the Hessian Commissioner for Data Protection and Freedom of Information (HBDI) and is shared with the public.
 
 This fork is provided under the same license terms as the original project.
 

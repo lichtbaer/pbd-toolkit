@@ -32,7 +32,7 @@ Scenarios live in `tests/perf/scenarios.json`:
 
 - `name`: Scenario identifier.
 - `path`: Dataset path to scan.
-- `args`: CLI flags for `main.py` (e.g. `["--regex"]`).
+- `args`: CLI flags for `core.cli` (e.g. `["--regex"]`).
 - `stop_count`: Optional limit to keep runs short.
 - `runs`: Number of repeated runs for the same scenario.
 - `exclude_extensions`: Optional list of file extensions to skip.

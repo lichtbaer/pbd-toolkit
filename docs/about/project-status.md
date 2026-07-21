@@ -2,7 +2,7 @@
 
 ## Fork Information
 
-**This is an unofficial fork** of the HBDI PII Toolkit (pbD-Toolkit). This fork is not maintained by or affiliated with the Hessian Commissioner for Data Protection and Freedom of Information (HBDI).
+**This is an unofficial fork** of the HBDI pbD Toolkit (pbD-Toolkit). This fork is not maintained by or affiliated with the Hessian Commissioner for Data Protection and Freedom of Information (HBDI).
 
 ## Original Project
 

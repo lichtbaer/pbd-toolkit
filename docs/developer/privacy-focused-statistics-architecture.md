@@ -221,7 +221,7 @@ core/
 
 1. **User runs scan with statistics mode**:
    ```bash
-   pii-toolkit scan /data --regex --ner --statistics-mode
+   pbd-toolkit scan /data --regex --ner --statistics-mode
    ```
 
 2. **System processes files**:

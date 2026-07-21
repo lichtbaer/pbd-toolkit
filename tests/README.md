@@ -1,6 +1,6 @@
 # Test Suite
 
-This directory contains the test suite for the PII Toolkit.
+This directory contains the test suite for the pbD Toolkit.
 
 ## Running Tests
 

@@ -12,9 +12,9 @@ Path to the root directory to scan recursively. You can provide it:
 - or via a config file (`path: /data`) if neither positional nor `--path` is provided
 
 ```bash
-python main.py scan /var/data
-# or, after installation:
-pii-toolkit scan /var/data
+pbd-toolkit scan /var/data
+# or, from source without installing:
+python3 -m core.cli scan /var/data
 ```
 
 **Note**: The tool will scan all subdirectories recursively.
@@ -28,7 +28,7 @@ At least one of these must be specified:
 Enable regular expression-based pattern matching.
 
 ```bash
-python main.py scan /data --regex
+pbd-toolkit scan /data --regex
 ```
 
 Detects:
@@ -44,7 +44,7 @@ Detects:
 Enable AI-based Named Entity Recognition.
 
 ```bash
-python main.py scan /data --ner
+pbd-toolkit scan /data --ner
 ```
 
 Detects:
@@ -60,7 +60,7 @@ Detects:
 Enable spaCy NER detection (optimized for German text).
 
 ```bash
-python main.py scan /data --spacy-ner --spacy-model de_core_news_lg
+pbd-toolkit scan /data --spacy-ner --spacy-model de_core_news_lg
 ```
 
 **Options**:
@@ -74,16 +74,16 @@ Enable the unified LLM engine based on PydanticAI. This is the preferred way to 
 
 ```bash
 # Local (Ollama)
-python main.py scan /data --pydantic-ai --pydantic-ai-provider ollama --pydantic-ai-model llama3.2
+pbd-toolkit scan /data --pydantic-ai --pydantic-ai-provider ollama --pydantic-ai-model llama3.2
 
 # OpenAI
-python main.py scan /data --pydantic-ai --pydantic-ai-provider openai \
+pbd-toolkit scan /data --pydantic-ai --pydantic-ai-provider openai \
   --pydantic-ai-api-key YOUR_KEY --pydantic-ai-model gpt-4o-mini
 
 # Local (vLLM / LocalAI, OpenAI-compatible) - text only
 # Note: many OpenAI-compatible clients require an API key string; local servers
 # often ignore it. Use a dummy value like "local" if needed.
-python main.py scan /data --pydantic-ai --pydantic-ai-provider openai \
+pbd-toolkit scan /data --pydantic-ai --pydantic-ai-provider openai \
   --pydantic-ai-base-url http://localhost:8000/v1 \
   --pydantic-ai-model <text-model> \
   --pydantic-ai-api-key local
@@ -100,18 +100,18 @@ python main.py scan /data --pydantic-ai --pydantic-ai-provider openai \
 Enable real image analysis via an OpenAI-compatible vision endpoint (OpenAI / vLLM / LocalAI).
 
 ```bash
-python main.py scan /data/images --multimodal \
+pbd-toolkit scan /data/images --multimodal \
   --multimodal-api-key YOUR_KEY \
   --multimodal-api-base https://api.openai.com/v1 \
   --multimodal-model gpt-4o-mini
 
 # Local (vLLM)
-python main.py scan /data/images --multimodal \
+pbd-toolkit scan /data/images --multimodal \
   --multimodal-api-base http://localhost:8000/v1 \
   --multimodal-model microsoft/llava-1.6-vicuna-7b
 
 # Local (LocalAI)
-python main.py scan /data/images --multimodal \
+pbd-toolkit scan /data/images --multimodal \
   --multimodal-api-base http://localhost:8080/v1 \
   --multimodal-model llava
 ```
@@ -131,21 +131,21 @@ Enable vector-based semantic PII detection using sentence-transformers embedding
 
 ```bash
 # Standalone
-pii-toolkit scan /data --vector-search
+pbd-toolkit scan /data --vector-search
 
 # Higher recall (lower threshold)
-pii-toolkit scan /data --vector-search --vector-threshold 0.65
+pbd-toolkit scan /data --vector-search --vector-threshold 0.65
 
 # Better multilingual (DE + EN) coverage
-pii-toolkit scan /data --vector-search \
+pbd-toolkit scan /data --vector-search \
     --vector-model paraphrase-multilingual-MiniLM-L12-v2
 
 # Triage mode: skip chunks with no PII signal before the LLM
-pii-toolkit scan /data --vector-search --vector-triage \
+pbd-toolkit scan /data --vector-search --vector-triage \
     --pydantic-ai --pydantic-ai-provider ollama --pydantic-ai-model llama3.2
 
 # Save FAISS index for cross-document analysis
-pii-toolkit scan /data --vector-search --vector-save-index ./output/my_index
+pbd-toolkit scan /data --vector-search --vector-save-index ./output/my_index
 ```
 
 **Options**:
@@ -160,14 +160,14 @@ pii-toolkit scan /data --vector-search --vector-save-index ./output/my_index
 | `--vector-load-index` | – | Path prefix to load a saved FAISS index |
 | `--vector-custom-exemplars` | – | Path to custom exemplar file (YAML or JSON) |
 
-**Installation**: `pip install sentence-transformers` (or `pip install "pii-toolkit[vector]"`)
+**Installation**: `pip install sentence-transformers` (or `pip install "pbd-toolkit[vector]"`)
 
 **Triage mode** makes the vector engine act as a cheap gate: chunks without a semantic PII signal are never forwarded to NER or LLM engines. On typical document collections this reduces LLM API calls by 70–90 %.
 
 **Custom exemplars** let you extend or override the built-in PII categories with domain-specific examples:
 
 ```bash
-pii-toolkit scan /data --vector-search --vector-custom-exemplars ./my_exemplars.yaml
+pbd-toolkit scan /data --vector-search --vector-custom-exemplars ./my_exemplars.yaml
 ```
 
 See [Detection Methods – Vector Search](detection-methods.md#vector-search-engine) for full details including the exemplar file format.
@@ -177,7 +177,7 @@ See [Detection Methods – Vector Search](detection-methods.md#vector-search-eng
 Enable Ollama LLM-based detection (local, offline).
 
 ```bash
-python main.py scan /data --ollama --ollama-model llama3.2
+pbd-toolkit scan /data --ollama --ollama-model llama3.2
 ```
 
 **Options**:
@@ -191,7 +191,7 @@ python main.py scan /data --ollama --ollama-model llama3.2
 Enable OpenAI-compatible API detection.
 
 ```bash
-python main.py scan /data --openai-compatible \
+pbd-toolkit scan /data --openai-compatible \
     --openai-api-key YOUR_KEY \
     --openai-model gpt-3.5-turbo
 ```
@@ -216,8 +216,8 @@ Execution mode controlling the speed/stability trade-off (default: `balanced`).
 - `fast`: Higher parallelism for maximum throughput (best for many small files + regex-heavy workloads).
 
 ```bash
-python main.py scan /data --regex --mode fast
-python main.py scan /data --ner --mode safe
+pbd-toolkit scan /data --regex --mode fast
+pbd-toolkit scan /data --ner --mode safe
 ```
 
 ### `--jobs`
@@ -225,7 +225,7 @@ python main.py scan /data --ner --mode safe
 Number of parallel file workers. Overrides `--mode`.
 
 ```bash
-python main.py scan /data --regex --jobs 8
+pbd-toolkit scan /data --regex --jobs 8
 ```
 
 ### `--outname`
@@ -233,7 +233,7 @@ python main.py scan /data --regex --jobs 8
 Custom string to include in output file names.
 
 ```bash
-python main.py scan /data --regex --outname "scan-2024"
+pbd-toolkit scan /data --regex --outname "scan-2024"
 ```
 
 Output: `2024-01-15 10-30-00 scan-2024_findings.csv`
@@ -243,7 +243,7 @@ Output: `2024-01-15 10-30-00 scan-2024_findings.csv`
 Path to a text file containing exclusion patterns (one per line).
 
 ```bash
-python main.py scan /data --regex --whitelist stopwords.txt
+pbd-toolkit scan /data --regex --whitelist stopwords.txt
 ```
 
 Example `stopwords.txt`:
@@ -260,7 +260,7 @@ Any finding containing these strings will be excluded from output.
 Stop analysis after processing N files (useful for testing).
 
 ```bash
-python main.py scan /data --regex --stop-count 100
+pbd-toolkit scan /data --regex --stop-count 100
 ```
 
 **Note**: The count refers to files that are eligible for analysis (supported file types), not every file encountered on disk.
@@ -270,7 +270,7 @@ python main.py scan /data --regex --stop-count 100
 Directory for output files (default: `./output/`).
 
 ```bash
-python main.py scan /data --regex --output-dir ./results/
+pbd-toolkit scan /data --regex --output-dir ./results/
 ```
 
 ### `--format`
@@ -284,7 +284,7 @@ Options:
 - `xlsx`: Excel spreadsheet
 
 ```bash
-python main.py scan /data --regex --format json
+pbd-toolkit scan /data --regex --format json
 ```
 
 ### `--no-header`
@@ -292,7 +292,7 @@ python main.py scan /data --regex --format json
 Don't include header row in CSV output (for backward compatibility).
 
 ```bash
-python main.py scan /data --regex --no-header
+pbd-toolkit scan /data --regex --no-header
 ```
 
 ### `--statistics-mode`
@@ -300,7 +300,7 @@ python main.py scan /data --regex --no-header
 Generate privacy-focused aggregated statistics output (JSON) **without writing PII instances**.
 
 ```bash
-python main.py scan /data --regex --ner --statistics-mode
+pbd-toolkit scan /data --regex --ner --statistics-mode
 ```
 
 ### `--statistics-strict`
@@ -308,7 +308,7 @@ python main.py scan /data --regex --ner --statistics-mode
 Strict privacy statistics mode: do not keep file paths in memory (some unique-file metrics become `null`).
 
 ```bash
-python main.py scan /data --regex --ner --statistics-mode --statistics-strict
+pbd-toolkit scan /data --regex --ner --statistics-mode --statistics-strict
 ```
 
 ### `--statistics-output`
@@ -316,7 +316,7 @@ python main.py scan /data --regex --ner --statistics-mode --statistics-strict
 Custom output path for the statistics JSON file.
 
 ```bash
-python main.py scan /data --regex --statistics-mode --statistics-output ./stats.json
+pbd-toolkit scan /data --regex --statistics-mode --statistics-output ./stats.json
 ```
 
 ### `--verbose`, `-v`
@@ -324,7 +324,7 @@ python main.py scan /data --regex --statistics-mode --statistics-output ./stats.
 Enable verbose output with detailed logging and progress bar.
 
 ```bash
-python main.py scan /data --regex --verbose
+pbd-toolkit scan /data --regex --verbose
 ```
 
 Includes:
@@ -338,7 +338,7 @@ Includes:
 Suppress all output except errors. Useful for automation and scripts where only errors are relevant.
 
 ```bash
-python main.py scan /data --regex --quiet
+pbd-toolkit scan /data --regex --quiet
 ```
 
 **Note**: When `--quiet` is specified:
@@ -352,9 +352,9 @@ python main.py scan /data --regex --quiet
 Show the installed package version:
 
 ```bash
-pii-toolkit --version
+pbd-toolkit --version
 # or
-pii-toolkit -V
+pbd-toolkit -V
 ```
 
 ### `--config`
@@ -362,7 +362,7 @@ pii-toolkit -V
 Path to configuration file (YAML or JSON). CLI arguments override config file values.
 
 ```bash
-python main.py scan /data --config config.yaml
+pbd-toolkit scan /data --config config.yaml
 ```
 
 **Example config.yaml:**
@@ -389,7 +389,7 @@ verbose: false
 Format for summary output. Use `json` for machine-readable output.
 
 ```bash
-python main.py scan /data --regex --summary-format json
+pbd-toolkit scan /data --regex --summary-format json
 ```
 
 **Options:**
@@ -424,7 +424,7 @@ python main.py scan /data --regex --summary-format json
 Set interface language: `de` (German, default) or `en` (English).
 
 ```bash
-LANGUAGE=en python main.py scan /data --regex
+LANGUAGE=en pbd-toolkit scan /data --regex
 ```
 
 ### `PII_TOOLKIT_PROGRESS_ESTIMATE`
@@ -434,7 +434,7 @@ Enable a pre-scan pass to estimate the total number of files for an exact progre
 **Note**: This may significantly increase runtime on large directory trees because it performs an additional directory walk.
 
 ```bash
-PII_TOOLKIT_PROGRESS_ESTIMATE=1 python main.py scan /data --regex --verbose
+PII_TOOLKIT_PROGRESS_ESTIMATE=1 pbd-toolkit scan /data --regex --verbose
 ```
 
 ## Examples
@@ -442,13 +442,13 @@ PII_TOOLKIT_PROGRESS_ESTIMATE=1 python main.py scan /data --regex --verbose
 ### Basic Scan
 
 ```bash
-python main.py scan /var/data-leak --regex
+pbd-toolkit scan /var/data-leak --regex
 ```
 
 ### Full Featured Scan
 
 ```bash
-python main.py \
+pbd-toolkit \
   scan /var/data-leak/ \
   --regex \
   --ner \
@@ -462,13 +462,13 @@ python main.py \
 ### Quick Test
 
 ```bash
-python main.py scan /data --regex --stop-count 50 --verbose
+pbd-toolkit scan /data --regex --stop-count 50 --verbose
 ```
 
 ### English Interface
 
 ```bash
-LANGUAGE=en python main.py scan /data --regex --ner
+LANGUAGE=en pbd-toolkit scan /data --regex --ner
 ```
 
 ## Output
@@ -506,7 +506,7 @@ See [Exit Codes Documentation](../EXIT_CODES.md) for detailed information and us
 Display help message:
 
 ```bash
-python main.py --help
+pbd-toolkit --help
 ```
 
 ## Query
@@ -515,16 +515,16 @@ Query a saved FAISS vector index for semantically similar chunks. Useful for ad-
 
 ```bash
 # Basic query (human-readable output)
-pii-toolkit query ./output/my_index "patient medical record"
+pbd-toolkit query ./output/my_index "patient medical record"
 
 # Short option
-pii-toolkit query ./output/my_index -q "Kreditkartennummer"
+pbd-toolkit query ./output/my_index -q "Kreditkartennummer"
 
 # Return top 10 results with lower threshold
-pii-toolkit query ./output/my_index "IBAN" --top-k 10 --threshold 0.60
+pbd-toolkit query ./output/my_index "IBAN" --top-k 10 --threshold 0.60
 
 # Machine-readable JSON output (for scripting / CI)
-pii-toolkit query ./output/my_index "SSH private key" --format json
+pbd-toolkit query ./output/my_index "SSH private key" --format json
 ```
 
 **Arguments**:
@@ -574,7 +574,7 @@ Query: "patient medical record"  threshold=0.70
 Validate configuration and optional dependencies:
 
 ```bash
-python main.py doctor
-python main.py doctor --json
-python main.py doctor --strict
+pbd-toolkit doctor
+pbd-toolkit doctor --json
+pbd-toolkit doctor --strict
 ```

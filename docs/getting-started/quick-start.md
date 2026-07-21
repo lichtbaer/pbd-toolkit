@@ -1,13 +1,13 @@
 # Quick Start Guide
 
-This guide will help you get started with the PII Toolkit in just a few minutes.
+This guide will help you get started with the pbD Toolkit in just a few minutes.
 
 ## Basic Usage
 
 The simplest command to scan a directory:
 
 ```bash
-python main.py scan /path/to/directory --regex
+pbd-toolkit scan /path/to/directory --regex
 ```
 
 This will:
@@ -22,7 +22,7 @@ This will:
 Use both regex and AI-based detection:
 
 ```bash
-python main.py scan /data --regex --ner
+pbd-toolkit scan /data --regex --ner
 ```
 
 ### 2. Custom Output Name
@@ -30,7 +30,7 @@ python main.py scan /data --regex --ner
 Add a custom name to output files:
 
 ```bash
-python main.py scan /data --regex --outname "leak-analysis-2024"
+pbd-toolkit scan /data --regex --outname "leak-analysis-2024"
 ```
 
 Output files will be named: `2024-01-15 10-30-00 leak-analysis-2024_findings.csv`
@@ -40,7 +40,7 @@ Output files will be named: `2024-01-15 10-30-00 leak-analysis-2024_findings.csv
 Filter out known false positives:
 
 ```bash
-python main.py scan /data --regex --whitelist stopwords.txt
+pbd-toolkit scan /data --regex --whitelist stopwords.txt
 ```
 
 The whitelist file should contain one string per line that will be matched against findings.
@@ -50,7 +50,7 @@ The whitelist file should contain one string per line that will be matched again
 Get structured JSON output with metadata:
 
 ```bash
-python main.py scan /data --regex --format json
+pbd-toolkit scan /data --regex --format json
 ```
 
 ### 5. Excel Output
@@ -58,7 +58,7 @@ python main.py scan /data --regex --format json
 Generate an Excel spreadsheet:
 
 ```bash
-python main.py scan /data --regex --format xlsx
+pbd-toolkit scan /data --regex --format xlsx
 ```
 
 ### 6. Test Run (Limited Files)
@@ -66,7 +66,7 @@ python main.py scan /data --regex --format xlsx
 Test with a limited number of files:
 
 ```bash
-python main.py scan /data --regex --stop-count 100
+pbd-toolkit scan /data --regex --stop-count 100
 ```
 
 ### 7. Verbose Mode
@@ -74,7 +74,7 @@ python main.py scan /data --regex --stop-count 100
 Get detailed logging and progress information:
 
 ```bash
-python main.py scan /data --regex --verbose
+pbd-toolkit scan /data --regex --verbose
 ```
 
 ### 8. Performance Modes
@@ -83,10 +83,10 @@ Tune the speed/stability trade-off depending on your workload:
 
 ```bash
 # Safe: minimal resources (recommended for model-heavy scans)
-python main.py scan /data --ner --mode safe
+pbd-toolkit scan /data --ner --mode safe
 
 # Fast: higher parallelism (recommended for regex-heavy scans on many small files)
-python main.py scan /data --regex --mode fast
+pbd-toolkit scan /data --regex --mode fast
 ```
 
 ## Complete Example
@@ -94,7 +94,7 @@ python main.py scan /data --regex --mode fast
 A comprehensive example with all options:
 
 ```bash
-python main.py \
+pbd-toolkit \
   scan /var/data-leak/ \
   --regex \
   --ner \

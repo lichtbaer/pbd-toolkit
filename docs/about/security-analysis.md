@@ -1,6 +1,6 @@
 # Security and Privacy Analysis
 
-This document summarizes the security and privacy posture of the PII Toolkit (fork) at a high level. It is not a substitute for a formal security review.
+This document summarizes the security and privacy posture of the pbD Toolkit (fork) at a high level. It is not a substitute for a formal security review.
 
 ## Threat model (short)
 

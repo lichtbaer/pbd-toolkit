@@ -21,11 +21,11 @@ uv pip install ".[dev,office,images,magic,llm]"
 # Optional (if you want these engines available locally):
 # python3 -m pip install ".[gliner,spacy]"
 
-# Basic usage
-python3 main.py scan /path/to/scan --regex --ner
-
-# Or, after installation
+# Basic usage (after installation)
 pbd-toolkit scan /path/to/scan --regex --ner
+
+# Or, from source without installing
+python3 -m core.cli scan /path/to/scan --regex --ner
 ```
 
 ## Documentation
@@ -127,7 +127,7 @@ This project is designed with privacy in mind:
 - **User-initiated network calls**: Network connections are only made when explicitly using external APIs (OpenAI, Ollama) with user-provided credentials
 - **Privacy-first**: Use local models for sensitive data - see [Open-Source Models Guide](docs/user-guide/open-source-models.md)
 
-For detailed security and privacy analysis, see [Security and Privacy Analysis](SECURITY_AND_PRIVACY_ANALYSIS.md).
+For detailed security and privacy analysis, see [Security and Privacy Analysis](docs/about/security-analysis.md).
 
 ## Disclaimer
 

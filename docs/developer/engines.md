@@ -2,7 +2,7 @@
 
 ## Overview
 
-The PII Toolkit uses a plugin-based engine architecture that allows multiple detection engines to run in parallel. This design enables easy extension with new detection methods without modifying core processing logic.
+The pbD Toolkit uses a plugin-based engine architecture that allows multiple detection engines to run in parallel. This design enables easy extension with new detection methods without modifying core processing logic.
 
 In the current implementation, enabled engines are executed **sequentially per text chunk/file** (with per-engine locks to ensure thread safety). The architecture is designed so future parallel execution can be added safely, but it is not enabled today.
 
@@ -148,7 +148,7 @@ Semantic similarity-based detection using sentence-transformers embeddings. Oper
 - Called by `Processor.process_file()` before each file is processed (when `--vector-save-index` is active)
 - Enables `add_chunk()` to associate each indexed chunk with the correct source file and hash
 
-**`pii-toolkit query <index> <text>`** CLI subcommand:
+**`pbd-toolkit query <index> <text>`** CLI subcommand:
 - Loads a saved FAISS index from `<index>.faiss` + `<index>.meta`
 - Calls `query_similar_chunks()` to find semantically similar chunks
 - Outputs results in `human` (default) or `json` format

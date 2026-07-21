@@ -159,7 +159,7 @@ For PII detection in images, you have two options:
 - Install vLLM: `pip install vllm`
 - Or use LocalAI: See [Open-Source Models Guide](../user-guide/open-source-models.md)
 
-See [Detection Methods](../user-guide/detection-methods.md#multimodal-image-detection-engine) and [Open-Source Models](../user-guide/open-source-models.md) for detailed setup.
+See [Detection Methods](../user-guide/detection-methods.md#multimodal-image-detection-openai-compatible) and [Open-Source Models](../user-guide/open-source-models.md) for detailed setup.
 
 ### AI Model Setup (NER)
 
@@ -203,7 +203,7 @@ export HF_HUB_DISABLE_TELEMETRY=1
 export TORCH_DISABLE_TELEMETRY=1
 ```
 
-For detailed security and privacy information, see [Security and Privacy Analysis](../SECURITY_AND_PRIVACY_ANALYSIS.md).
+For detailed security and privacy information, see [Security and Privacy Analysis](../about/security-analysis.md).
 
 ## Verify Installation
 
