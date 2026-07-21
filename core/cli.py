@@ -851,89 +851,67 @@ def scan(
     ):
         raise typer.Exit(code=run_result.exit_code)
 
+    # Post-scan integrations (redaction, pseudonymization, webhook) are
+    # extracted into independently testable handlers (issue #80); the CLI
+    # only decides *whether* to run each one and how to present the result.
+    from core.post_scan import (
+        WebhookHandler,
+        build_pseudonymization_handler,
+        build_redaction_handler,
+    )
+
+    _quiet = bool(hasattr(args, "quiet") and args.quiet)
+
     # Redaction: create redacted copies if requested
     if getattr(args, "redact", False) and matches_by_file:
-        from core.redactor import redact_files
-
-        _redact_dir = getattr(args, "redact_dir", None) or os.path.join(
-            output_dir, "redacted"
+        _redaction_handler = build_redaction_handler(
+            getattr(args, "redact_dir", None), output_dir
         )
-        redacted_paths = redact_files(
-            matches_by_file=matches_by_file,
-            output_dir=_redact_dir,
-            logger=context.logger,
-        )
-        if redacted_paths and not (hasattr(args, "quiet") and args.quiet):
+        redacted_paths = _redaction_handler.handle(run_result, logger=context.logger)
+        if redacted_paths and not _quiet:
             typer.echo(
                 "\n"
                 + translate_func("Redacted {} files to: {}").format(
-                    len(redacted_paths), _redact_dir
+                    len(redacted_paths), _redaction_handler.output_dir
                 )
             )
 
     # Pseudo-anonymization: create files with realistic fake replacements
     if getattr(args, "pseudonymize", False) and matches_by_file:
-        from core.pseudonymizer import pseudonymize_files
-
-        _pseudo_dir = getattr(args, "pseudonymize_dir", None) or os.path.join(
-            output_dir, "pseudonymized"
+        _pseudo_handler = build_pseudonymization_handler(
+            getattr(args, "pseudonymize_dir", None), output_dir
         )
-        pseudo_paths = pseudonymize_files(
-            matches_by_file=matches_by_file,
-            output_dir=_pseudo_dir,
-            logger=context.logger,
-        )
-        if pseudo_paths and not (hasattr(args, "quiet") and args.quiet):
+        pseudo_paths = _pseudo_handler.handle(run_result, logger=context.logger)
+        if pseudo_paths and not _quiet:
             typer.echo(
                 "\n"
                 + translate_func("Pseudo-anonymized {} files to: {}").format(
-                    len(pseudo_paths), _pseudo_dir
+                    len(pseudo_paths), _pseudo_handler.output_dir
                 )
             )
 
     # Webhook: POST scan summary to configured URL
     _webhook_url = getattr(args, "webhook_url", None)
     if _webhook_url:
-        import json as _json
-
-        try:
-            import urllib.request as _urllib_req
-
-            _summary_payload = {
-                "scan_path": str(config_obj.path),
-                "total_findings": len(context.match_container.pii_matches),
-                "files_scanned": context.statistics.files_processed,
-                "duration_sec": context.statistics.duration_seconds,
-                "severity_counts": {
-                    sev: sum(
-                        1
-                        for m in context.match_container.pii_matches
-                        if m.severity == sev
-                    )
-                    for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW")
-                },
-                "output_file": output_file_path,
-            }
-            _req = _urllib_req.Request(
-                _webhook_url,
-                data=_json.dumps(_summary_payload).encode(),
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            with _urllib_req.urlopen(_req, timeout=10) as _resp:  # noqa: S310  # nosec B310
-                _status = _resp.status
-            if not (hasattr(args, "quiet") and args.quiet):
+        _webhook_result = WebhookHandler(
+            url=_webhook_url, scan_path=str(config_obj.path)
+        ).handle(run_result, logger=context.logger)
+        if not _quiet:
+            if _webhook_result.delivered:
                 typer.echo(
                     "\n"
                     + translate_func("Webhook delivered (HTTP {}): {}").format(
-                        _status, _webhook_url
+                        _webhook_result.status_code, _webhook_url
                     )
                 )
-        except Exception as _exc:
-            typer.echo(
-                "\n" + translate_func("Webhook delivery failed: {}").format(_exc),
-                err=True,
-            )
+            else:
+                typer.echo(
+                    "\n"
+                    + translate_func("Webhook delivery failed: {}").format(
+                        _webhook_result.error
+                    ),
+                    err=True,
+                )
 
     # Console summary
     if not (hasattr(args, "quiet") and args.quiet):
