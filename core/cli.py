@@ -8,7 +8,7 @@ import typer
 
 # Import existing setup and processing logic
 from core import cli_setup as setup
-from core import constants
+from core import constants, i18n
 from core.config import Config
 from core.config_loader import ConfigLoader
 from core.doctor import run_doctor
@@ -431,13 +431,15 @@ def scan(
         output_dir = env_overrides["output_dir"]
 
     # Setup language handling
-    translate_func = setup.__setup_lang()
+    translate_func = i18n.get_translator()
 
     # Deprecation warning for --path option (prefer positional PATH argument).
     if path_opt is not None:
         typer.echo(
-            "Warning: --path is deprecated. Pass the directory as a positional argument instead: "
-            "pbd-toolkit scan /your/directory",
+            translate_func(
+                "Warning: --path is deprecated. Pass the directory as a positional argument instead: "
+                "pbd-toolkit scan /your/directory"
+            ),
             err=True,
         )
 
@@ -518,12 +520,16 @@ def scan(
     # Deprecation warnings for legacy engine flags.
     if ollama:
         typer.echo(
-            "Warning: --ollama is deprecated. Use --pydantic-ai --pydantic-ai-provider ollama instead.",
+            translate_func(
+                "Warning: --ollama is deprecated. Use --pydantic-ai --pydantic-ai-provider ollama instead."
+            ),
             err=True,
         )
     if openai_compatible:
         typer.echo(
-            "Warning: --openai-compatible is deprecated. Use --pydantic-ai --pydantic-ai-provider openai instead.",
+            translate_func(
+                "Warning: --openai-compatible is deprecated. Use --pydantic-ai --pydantic-ai-provider openai instead."
+            ),
             err=True,
         )
 
@@ -535,7 +541,7 @@ def scan(
             profile_data = get_profile(profile)
             args = ConfigLoader.merge_with_args(profile_data, args)
         except ValueError as e:
-            typer.echo(f"Profile error: {e}", err=True)
+            typer.echo(translate_func("Profile error: {}").format(e), err=True)
             raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
 
     # Load config file if provided
@@ -544,7 +550,9 @@ def scan(
             config_data = ConfigLoader.load_config(config)
             args = ConfigLoader.merge_with_args(config_data, args)
         except (ValueError, FileNotFoundError, PermissionError) as e:
-            typer.echo(f"Configuration file error: {e}", err=True)
+            typer.echo(
+                translate_func("Configuration file error: {}").format(e), err=True
+            )
             raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
 
     # Ensure a scan path exists (positional PATH, --path, or config file).
@@ -560,18 +568,30 @@ def scan(
     # --- Early path validation ---
     scan_path = getattr(args, "path")
     if not os.path.exists(scan_path):
-        typer.echo(f"Scan path does not exist: {scan_path}", err=True)
+        typer.echo(
+            translate_func("Scan path does not exist: {}").format(scan_path),
+            err=True,
+        )
         raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
     if not os.path.isdir(scan_path):
-        typer.echo(f"Scan path is not a directory: {scan_path}", err=True)
+        typer.echo(
+            translate_func("Scan path is not a directory: {}").format(scan_path),
+            err=True,
+        )
         raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
     if not os.access(scan_path, os.R_OK):
-        typer.echo(f"Scan path is not readable: {scan_path}", err=True)
+        typer.echo(
+            translate_func("Scan path is not readable: {}").format(scan_path),
+            err=True,
+        )
         raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
 
     whitelist_arg = getattr(args, "whitelist", None)
     if whitelist_arg and not os.path.isfile(whitelist_arg):
-        typer.echo(f"Whitelist file not found: {whitelist_arg}", err=True)
+        typer.echo(
+            translate_func("Whitelist file not found: {}").format(whitelist_arg),
+            err=True,
+        )
         raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
 
     # Construct name for output files
@@ -645,12 +665,15 @@ def scan(
         )
     except RuntimeError as e:
         # NER model loading failed - exit with error message
-        typer.echo(f"Configuration error: {e}", err=True)
+        typer.echo(translate_func("Configuration error: {}").format(e), err=True)
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
     except Exception as e:
         # Other configuration errors: keep the specific exception type visible
         # instead of collapsing every cause into the same generic message.
-        typer.echo(f"Configuration error: {type(e).__name__}: {e}", err=True)
+        typer.echo(
+            translate_func("Configuration error: {}: {}").format(type(e).__name__, e),
+            err=True,
+        )
         logger.debug("Configuration error details", exc_info=True)
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
 
@@ -684,7 +707,7 @@ def scan(
     # Validate configuration
     is_valid, error_msg = config_obj.validate_path()
     if not is_valid:
-        typer.echo(f"Invalid path: {error_msg}", err=True)
+        typer.echo(translate_func("Invalid path: {}").format(error_msg), err=True)
         raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
 
     # Check if at least one detection method is enabled
@@ -841,7 +864,12 @@ def scan(
             logger=context.logger,
         )
         if redacted_paths and not (hasattr(args, "quiet") and args.quiet):
-            typer.echo(f"\nRedacted {len(redacted_paths)} files to: {_redact_dir}")
+            typer.echo(
+                "\n"
+                + translate_func("Redacted {} files to: {}").format(
+                    len(redacted_paths), _redact_dir
+                )
+            )
 
     # Pseudo-anonymization: create files with realistic fake replacements
     if getattr(args, "pseudonymize", False) and matches_by_file:
@@ -857,7 +885,10 @@ def scan(
         )
         if pseudo_paths and not (hasattr(args, "quiet") and args.quiet):
             typer.echo(
-                f"\nPseudo-anonymized {len(pseudo_paths)} files to: {_pseudo_dir}"
+                "\n"
+                + translate_func("Pseudo-anonymized {} files to: {}").format(
+                    len(pseudo_paths), _pseudo_dir
+                )
             )
 
     # Webhook: POST scan summary to configured URL
@@ -892,9 +923,17 @@ def scan(
             with _urllib_req.urlopen(_req, timeout=10) as _resp:  # noqa: S310  # nosec B310
                 _status = _resp.status
             if not (hasattr(args, "quiet") and args.quiet):
-                typer.echo(f"\nWebhook delivered (HTTP {_status}): {_webhook_url}")
+                typer.echo(
+                    "\n"
+                    + translate_func("Webhook delivered (HTTP {}): {}").format(
+                        _status, _webhook_url
+                    )
+                )
         except Exception as _exc:
-            typer.echo(f"\nWebhook delivery failed: {_exc}", err=True)
+            typer.echo(
+                "\n" + translate_func("Webhook delivery failed: {}").format(_exc),
+                err=True,
+            )
 
     # Console summary
     if not (hasattr(args, "quiet") and args.quiet):
@@ -919,7 +958,10 @@ def scan(
     if _fail_sev and run_result.findings_above_threshold:
         if not (hasattr(args, "quiet") and args.quiet):
             typer.echo(
-                f"\n[fail-on-severity] Findings at or above {_fail_sev.upper()} detected. Exiting with code {constants.EXIT_FINDINGS_ABOVE_THRESHOLD}.",
+                "\n"
+                + translate_func(
+                    "[fail-on-severity] Findings at or above {} detected. Exiting with code {}."
+                ).format(_fail_sev.upper(), constants.EXIT_FINDINGS_ABOVE_THRESHOLD),
                 err=True,
             )
         raise typer.Exit(code=constants.EXIT_FINDINGS_ABOVE_THRESHOLD)
@@ -976,10 +1018,13 @@ def query(
 
         pbd-toolkit query ./my_index -q "Krankenversicherungsnummer" --format json
     """
+    translate_func = i18n.get_translator()
     resolved_query = query_opt or query_text
     if not resolved_query:
         typer.echo(
-            "Error: provide query text as a positional argument or via --query / -q",
+            translate_func(
+                "Error: provide query text as a positional argument or via --query / -q"
+            ),
             err=True,
         )
         raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
@@ -988,8 +1033,11 @@ def query(
     meta_path = index + ".meta"
     if not os.path.isfile(meta_path):
         typer.echo(
-            f"Error: Index metadata file not found: {meta_path}\n"
-            "Run a scan with --vector-save-index to create an index first.",
+            translate_func("Error: Index metadata file not found: {}").format(meta_path)
+            + "\n"
+            + translate_func(
+                "Run a scan with --vector-save-index to create an index first."
+            ),
             err=True,
         )
         raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
@@ -1004,20 +1052,22 @@ def query(
 
     if not indexer.is_available():
         typer.echo(
-            "Error: sentence-transformers is not installed.\n"
-            "Install with:  pip install sentence-transformers\n"
-            "           or: pip install 'pbd-toolkit[vector]'",
+            translate_func("Error: sentence-transformers is not installed.")
+            + "\n"
+            + translate_func("Install with:  pip install sentence-transformers")
+            + "\n"
+            + translate_func("           or: pip install 'pbd-toolkit[vector]'"),
             err=True,
         )
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
 
-    typer.echo(f"Loading index from '{index}' …", err=True)
+    typer.echo(translate_func("Loading index from '{}' …").format(index), err=True)
     try:
         results = indexer.query_similar_chunks(
             resolved_query, top_k=top_k, threshold=threshold
         )
     except Exception as exc:
-        typer.echo(f"Error querying index: {exc}", err=True)
+        typer.echo(translate_func("Error querying index: {}").format(exc), err=True)
         raise typer.Exit(code=constants.EXIT_GENERAL_ERROR)
 
     num_indexed = indexer.num_indexed_chunks
@@ -1044,18 +1094,28 @@ def query(
         }
         typer.echo(json.dumps(output, indent=2, ensure_ascii=False))
     else:
-        typer.echo(f"\nQuery:     {resolved_query!r}")
-        typer.echo(f"Index:     {index}  ({num_indexed:,} chunks indexed)")
-        typer.echo(f"Threshold: {threshold}   Top-k: {top_k}\n")
+        typer.echo("\n" + translate_func("Query:     {!r}").format(resolved_query))
+        typer.echo(
+            translate_func("Index:     {}  ({:,} chunks indexed)").format(
+                index, num_indexed
+            )
+        )
+        typer.echo(
+            translate_func("Threshold: {}   Top-k: {}\n").format(threshold, top_k)
+        )
         if not results:
-            typer.echo(f"No results found above threshold {threshold}.")
+            typer.echo(
+                translate_func("No results found above threshold {}.").format(threshold)
+            )
         else:
             sep = "─" * 72
-            typer.echo(f"Found {len(results)} result(s):\n")
+            typer.echo(translate_func("Found {} result(s):\n").format(len(results)))
             for i, (score, chunk) in enumerate(results, 1):
                 typer.echo(sep)
                 typer.echo(
-                    f"#{i}  Score: {score:.4f}  │  File: {chunk.file_path}  │  Chunk #{chunk.chunk_idx}"
+                    translate_func(
+                        "#{}  Score: {:.4f}  │  File: {}  │  Chunk #{}"
+                    ).format(i, score, chunk.file_path, chunk.chunk_idx)
                 )
                 preview = chunk.text.replace("\n", " ").strip()
                 if len(preview) > 300:
@@ -1106,21 +1166,25 @@ def evaluate(
     from eval.dataset import load_dataset
     from eval.runner import run_evaluation
 
+    translate_func = i18n.get_translator()
     engine_list = [e.strip() for e in engines.split(",") if e.strip()]
 
     try:
         documents = load_dataset(dataset)
     except FileNotFoundError:
-        typer.echo(f"Error: dataset file not found: {dataset}", err=True)
+        typer.echo(
+            translate_func("Error: dataset file not found: {}").format(dataset),
+            err=True,
+        )
         raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
     except ValueError as exc:
-        typer.echo(f"Error: invalid dataset: {exc}", err=True)
+        typer.echo(translate_func("Error: invalid dataset: {}").format(exc), err=True)
         raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
 
     try:
         result = run_evaluation(documents, engine_list)
     except ValueError as exc:
-        typer.echo(f"Error: {exc}", err=True)
+        typer.echo(translate_func("Error: {}").format(exc), err=True)
         raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
 
     report = result.as_dict()
@@ -1140,8 +1204,13 @@ def evaluate(
             )
         )
     else:
-        typer.echo(f"\nDataset:   {dataset}  ({len(documents)} documents)")
-        typer.echo(f"Engines:   {', '.join(engine_list)}\n")
+        typer.echo(
+            "\n"
+            + translate_func("Dataset:   {}  ({} documents)").format(
+                dataset, len(documents)
+            )
+        )
+        typer.echo(translate_func("Engines:   {}\n").format(", ".join(engine_list)))
         header = f"{'Type':<20}{'P':>8}{'R':>8}{'F1':>8}{'TP':>6}{'FP':>6}{'FN':>6}"
         typer.echo(header)
         typer.echo("─" * len(header))
@@ -1160,7 +1229,9 @@ def evaluate(
 
     if fail_under is not None and micro_f1 < fail_under:
         typer.echo(
-            f"Quality gate FAILED: micro F1 {micro_f1:.4f} < --fail-under {fail_under}",
+            translate_func(
+                "Quality gate FAILED: micro F1 {:.4f} < --fail-under {}"
+            ).format(micro_f1, fail_under),
             err=True,
         )
         raise typer.Exit(code=constants.EXIT_GENERAL_ERROR)
@@ -1201,13 +1272,18 @@ def eval_extraction(
 
     from eval.extraction import run_extraction_eval
 
+    translate_func = i18n.get_translator()
+
     try:
         result = run_extraction_eval(manifest)
     except FileNotFoundError:
-        typer.echo(f"Error: manifest file not found: {manifest}", err=True)
+        typer.echo(
+            translate_func("Error: manifest file not found: {}").format(manifest),
+            err=True,
+        )
         raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
     except ValueError as exc:
-        typer.echo(f"Error: invalid manifest: {exc}", err=True)
+        typer.echo(translate_func("Error: invalid manifest: {}").format(exc), err=True)
         raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
 
     report = result.as_dict()
@@ -1217,34 +1293,48 @@ def eval_extraction(
             _json.dumps({"manifest": manifest, **report}, indent=2, ensure_ascii=False)
         )
     else:
-        typer.echo(f"\nManifest:  {manifest}  ({len(report['per_file'])} files)\n")
+        typer.echo(
+            "\n"
+            + translate_func("Manifest:  {}  ({} files)\n").format(
+                manifest, len(report["per_file"])
+            )
+        )
         header = f"{'File':<32}{'Found':>8}{'Exp':>6}"
         typer.echo(header)
         typer.echo("─" * len(header))
         for r in report["per_file"]:
             typer.echo(f"{r['file']:<32}{r['found']:>8}{r['expected']:>6}")
             for miss in r["missing"]:
-                typer.echo(f"    MISSING: {miss!r}")
+                typer.echo(f"    {translate_func('MISSING:')} {miss!r}")
             for hit in r["forbidden_hits"]:
-                typer.echo(f"    FORBIDDEN LEAKED: {hit!r}")
+                typer.echo(f"    {translate_func('FORBIDDEN LEAKED:')} {hit!r}")
         typer.echo("─" * len(header))
         typer.echo(
-            f"Extraction recall: {report['recall']:.3f} "
-            f"({report['total_found']}/{report['total_expected']} snippets)"
+            translate_func("Extraction recall: {:.3f} ({}/{} snippets)").format(
+                report["recall"], report["total_found"], report["total_expected"]
+            )
         )
         if report["forbidden_hits"]:
-            typer.echo(f"Forbidden snippets leaked: {report['forbidden_hits']}")
+            typer.echo(
+                translate_func("Forbidden snippets leaked: {}").format(
+                    report["forbidden_hits"]
+                )
+            )
         typer.echo("")
 
     if report["forbidden_hits"]:
         typer.echo(
-            f"Extraction gate FAILED: {report['forbidden_hits']} forbidden snippet(s) leaked",
+            translate_func(
+                "Extraction gate FAILED: {} forbidden snippet(s) leaked"
+            ).format(report["forbidden_hits"]),
             err=True,
         )
         raise typer.Exit(code=constants.EXIT_GENERAL_ERROR)
     if fail_under is not None and result.recall < fail_under:
         typer.echo(
-            f"Extraction gate FAILED: recall {result.recall:.4f} < --fail-under {fail_under}",
+            translate_func(
+                "Extraction gate FAILED: recall {:.4f} < --fail-under {}"
+            ).format(result.recall, fail_under),
             err=True,
         )
         raise typer.Exit(code=constants.EXIT_GENERAL_ERROR)
@@ -1279,16 +1369,18 @@ def diff(
 
     from core.diff import compute_diff, load_findings
 
+    translate_func = i18n.get_translator()
+
     try:
         old_findings = load_findings(old_file)
     except (FileNotFoundError, json.JSONDecodeError) as e:
-        typer.echo(f"Error reading old file: {e}", err=True)
+        typer.echo(translate_func("Error reading old file: {}").format(e), err=True)
         raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
 
     try:
         new_findings = load_findings(new_file)
     except (FileNotFoundError, json.JSONDecodeError) as e:
-        typer.echo(f"Error reading new file: {e}", err=True)
+        typer.echo(translate_func("Error reading new file: {}").format(e), err=True)
         raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
 
     result = compute_diff(old_findings, new_findings)
@@ -1300,24 +1392,32 @@ def diff(
     else:
         s = result["summary"]
         typer.echo("\n" + "=" * 50)
-        typer.echo("Scan Diff Report")
+        typer.echo(translate_func("Scan Diff Report"))
         typer.echo("=" * 50)
-        typer.echo(f"  Old scan: {s['old_total']} findings ({old_file})")
-        typer.echo(f"  New scan: {s['new_total']} findings ({new_file})")
+        typer.echo(
+            translate_func("  Old scan: {} findings ({})").format(
+                s["old_total"], old_file
+            )
+        )
+        typer.echo(
+            translate_func("  New scan: {} findings ({})").format(
+                s["new_total"], new_file
+            )
+        )
         typer.echo()
-        typer.echo(f"  New findings:       +{s['added']}")
-        typer.echo(f"  Resolved findings:  -{s['removed']}")
-        typer.echo(f"  Unchanged:           {s['unchanged']}")
+        typer.echo(translate_func("  New findings:       +{}").format(s["added"]))
+        typer.echo(translate_func("  Resolved findings:  -{}").format(s["removed"]))
+        typer.echo(translate_func("  Unchanged:           {}").format(s["unchanged"]))
 
         if result["added_by_severity"]:
-            typer.echo("\n  New findings by severity:")
+            typer.echo("\n  " + translate_func("New findings by severity:"))
             for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
                 count = result["added_by_severity"].get(sev, 0)
                 if count:
                     typer.echo(f"    {sev}: +{count}")
 
         if result["removed_by_severity"]:
-            typer.echo("\n  Resolved findings by severity:")
+            typer.echo("\n  " + translate_func("Resolved findings by severity:"))
             for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
                 count = result["removed_by_severity"].get(sev, 0)
                 if count:
@@ -1330,7 +1430,7 @@ def diff(
             if f.get("severity") in ("CRITICAL", "HIGH")
         ]
         if critical_new:
-            typer.echo("\n  New CRITICAL/HIGH findings:")
+            typer.echo("\n  " + translate_func("New CRITICAL/HIGH findings:"))
             for f in critical_new[:10]:
                 typer.echo(
                     f"    [{f.get('severity')}] {f.get('file')} - {f.get('type')}: {f.get('text', '')[:60]}"
@@ -1373,10 +1473,13 @@ def report(
     import json as _json
     import os as _os
 
+    translate_func = i18n.get_translator()
+
     if not _os.path.isfile(db):
         typer.echo(
-            f"Error: Analytics database not found: {db}\n"
-            "Run a scan with --analytics to create one.",
+            translate_func("Error: Analytics database not found: {}").format(db)
+            + "\n"
+            + translate_func("Run a scan with --analytics to create one."),
             err=True,
         )
         raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
@@ -1385,7 +1488,10 @@ def report(
         from analytics.database import AnalyticsDatabase
         from analytics.queries import AnalyticsQueries
     except ImportError as exc:
-        typer.echo(f"Error: could not load analytics module: {exc}", err=True)
+        typer.echo(
+            translate_func("Error: could not load analytics module: {}").format(exc),
+            err=True,
+        )
         raise typer.Exit(code=constants.EXIT_GENERAL_ERROR)
 
     db_obj = AnalyticsDatabase(db_path=db)
@@ -1410,16 +1516,19 @@ def report(
 
     # Human-readable output
     typer.echo("\n" + "=" * 60)
-    typer.echo("Analytics Report")
+    typer.echo(translate_func("Analytics Report"))
     typer.echo("=" * 60)
-    typer.echo(f"  Database:       {db}")
-    typer.echo(f"  Total sessions: {total_sessions}")
+    typer.echo(translate_func("  Database:       {}").format(db))
+    typer.echo(translate_func("  Total sessions: {}").format(total_sessions))
     typer.echo()
 
     if not sessions:
-        typer.echo("  No scan sessions found.")
+        typer.echo("  " + translate_func("No scan sessions found."))
     else:
-        typer.echo(f"  Last {min(last, len(sessions))} session(s):")
+        typer.echo(
+            "  "
+            + translate_func("Last {} session(s):").format(min(last, len(sessions)))
+        )
         typer.echo()
         for s in sessions:
             started = (s.get("started_at") or "")[:16]
@@ -1437,13 +1546,15 @@ def report(
 
     if severity_overall:
         typer.echo()
-        typer.echo("  Overall severity distribution (all sessions):")
+        typer.echo(
+            "  " + translate_func("Overall severity distribution (all sessions):")
+        )
         for row in severity_overall:
             typer.echo(f"    {row['severity']:<10} {row['count']:>6}")
 
     if top_types:
         typer.echo()
-        typer.echo("  Top PII types (all sessions):")
+        typer.echo("  " + translate_func("Top PII types (all sessions):"))
         for row in top_types:
             typer.echo(f"    {row['pii_type']:<35} {row['count']:>6}")
 
@@ -1462,6 +1573,7 @@ def doctor(
     ),
 ) -> None:
     """Validate configuration and optional dependencies."""
+    translate_func = i18n.get_translator()
     report = run_doctor()
     if json_output:
         import json
@@ -1479,8 +1591,8 @@ def doctor(
             )
         )
     else:
-        status = "OK" if report.ok else "FAILED"
-        typer.echo(f"Doctor: {status}")
+        status = translate_func("OK") if report.ok else translate_func("FAILED")
+        typer.echo(translate_func("Doctor: {}").format(status))
         for issue in report.issues:
             typer.echo(f"- {issue.level.upper()}: {issue.message}")
 
@@ -1527,12 +1639,14 @@ def serve(
     ),
 ) -> None:
     """Start the REST API server for scanning and analytics."""
+    translate_func = i18n.get_translator()
     try:
         from api.server import main as serve_main
     except ImportError:
         typer.echo(
-            "The API module requires additional dependencies.\n"
-            "Install them with:  pip install 'pbd-toolkit[api]'",
+            translate_func("The API module requires additional dependencies.")
+            + "\n"
+            + translate_func("Install them with:  pip install 'pbd-toolkit[api]'"),
             err=True,
         )
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
@@ -1587,11 +1701,15 @@ def install_hook(
     """
     import stat
 
+    translate_func = i18n.get_translator()
+
     hooks_dir = os.path.join(git_dir, ".git", "hooks")
     if not os.path.isdir(hooks_dir):
         typer.echo(
-            f"Error: .git/hooks directory not found in '{git_dir}'. "
-            "Make sure you are inside a git repository.",
+            translate_func(
+                "Error: .git/hooks directory not found in '{}'. "
+                "Make sure you are inside a git repository."
+            ).format(git_dir),
             err=True,
         )
         raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
@@ -1600,10 +1718,11 @@ def install_hook(
 
     if os.path.exists(hook_path) and not force:
         overwrite = typer.confirm(
-            f"Hook already exists at '{hook_path}'. Overwrite?", default=False
+            translate_func("Hook already exists at '{}'. Overwrite?").format(hook_path),
+            default=False,
         )
         if not overwrite:
-            typer.echo("Aborted.")
+            typer.echo(translate_func("Aborted."))
             raise typer.Exit()
 
     hook_script = f"""#!/bin/sh
@@ -1650,10 +1769,13 @@ exit 0
     current_mode = os.stat(hook_path).st_mode
     os.chmod(hook_path, current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
-    typer.echo(f"Git {hook_type} hook installed at: {hook_path}")
     typer.echo(
-        "The hook will scan staged files with: "
-        f"pbd-toolkit scan <staged_files> {engines}"
+        translate_func("Git {} hook installed at: {}").format(hook_type, hook_path)
+    )
+    typer.echo(
+        translate_func("The hook will scan staged files with: {}").format(
+            f"pbd-toolkit scan <staged_files> {engines}"
+        )
     )
 
 
@@ -1697,21 +1819,27 @@ def test_pattern(
     import json as _json
     import sys
 
+    translate_func = i18n.get_translator()
+
     if text is None:
         if sys.stdin.isatty():
             typer.echo(
-                "Reading from stdin … (pass --text to provide text directly)",
+                translate_func(
+                    "Reading from stdin … (pass --text to provide text directly)"
+                ),
                 err=True,
             )
         text = sys.stdin.read()
 
     if not text.strip():
-        typer.echo("Error: no input text provided.", err=True)
+        typer.echo(translate_func("Error: no input text provided."), err=True)
         raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
 
     if not regex and not ner:
         typer.echo(
-            "Error: at least one engine must be enabled (--regex or --ner).",
+            translate_func(
+                "Error: at least one engine must be enabled (--regex or --ner)."
+            ),
             err=True,
         )
         raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
@@ -1748,7 +1876,9 @@ def test_pattern(
                 container.add_detection_results(results_ner, "<test-input>")
         except ImportError:
             typer.echo(
-                "Warning: GLiNER not installed (pip install 'pbd-toolkit[gliner]')",
+                translate_func(
+                    "Warning: GLiNER not installed (pip install 'pbd-toolkit[gliner]')"
+                ),
                 err=True,
             )
 
@@ -1777,9 +1907,11 @@ def test_pattern(
         )
     else:
         if not matches:
-            typer.echo("No PII detected in the provided text.")
+            typer.echo(translate_func("No PII detected in the provided text."))
         else:
-            typer.echo(f"\nFound {len(matches)} PII finding(s):\n")
+            typer.echo(
+                "\n" + translate_func("Found {} PII finding(s):\n").format(len(matches))
+            )
             sep = "─" * 60
             typer.echo(sep)
             for m in matches:
@@ -1827,6 +1959,8 @@ def export_config(
 
     from core.config import Config
 
+    translate_func = i18n.get_translator()
+
     # Build a default Config (optionally merged from file)
     cfg = Config()
     if config is not None:
@@ -1840,7 +1974,10 @@ def export_config(
                     # live-synced, so no manual resync is needed here.
                     setattr(cfg, key, value)
         except Exception as exc:
-            typer.echo(f"Warning: could not load config file: {exc}", err=True)
+            typer.echo(
+                translate_func("Warning: could not load config file: {}").format(exc),
+                err=True,
+            )
 
     # Serialise sub-configs to nested dicts, skipping non-serialisable fields
     def _to_dict(dc_instance) -> dict:
@@ -1868,7 +2005,9 @@ def export_config(
             # Fallback: manual YAML-like output without pyyaml
             serialized = _json.dumps(export_data, indent=2, ensure_ascii=False)
             typer.echo(
-                "Warning: PyYAML not installed, falling back to JSON format.",
+                translate_func(
+                    "Warning: PyYAML not installed, falling back to JSON format."
+                ),
                 err=True,
             )
 
@@ -1876,9 +2015,11 @@ def export_config(
         try:
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(serialized + "\n")
-            typer.echo(f"Configuration exported to: {output_path}")
+            typer.echo(
+                translate_func("Configuration exported to: {}").format(output_path)
+            )
         except OSError as exc:
-            typer.echo(f"Error writing config: {exc}", err=True)
+            typer.echo(translate_func("Error writing config: {}").format(exc), err=True)
             raise typer.Exit(code=constants.EXIT_GENERAL_ERROR)
     else:
         typer.echo(serialized)

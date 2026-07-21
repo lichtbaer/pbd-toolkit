@@ -1,6 +1,5 @@
 import argparse
 import datetime
-import gettext
 import logging
 import os
 from collections.abc import Callable
@@ -19,15 +18,15 @@ from core.writers import OutputWriter, create_output_writer
 def __setup_lang() -> Callable[[str], str]:
     """Initialize internationalization based on LANGUAGE environment variable.
 
-    Returns:
-        Translation object
-    """
-    lstr: str | None = os.environ.get("LANGUAGE")
-    lenv: str = lstr if lstr and lstr in ["de", "en"] else "de"
+    Deprecated: use :func:`core.i18n.get_translator` directly. Kept as a
+    thin delegate so existing call sites keep working unchanged.
 
-    lang = gettext.translation("base", localedir="locales", languages=[lenv])
-    lang.install()
-    return lang.gettext
+    Returns:
+        Translation function
+    """
+    from core.i18n import get_translator
+
+    return get_translator()
 
 
 """ Setup CLI argument parsing. """

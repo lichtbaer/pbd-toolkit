@@ -1,129 +1,515 @@
+# English translations for pbd-toolkit.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the pbd-toolkit
+# project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: \n"
-"POT-Creation-Date: 2025-08-20 14:03+0200\n"
-"PO-Revision-Date: \n"
-"Last-Translator: \n"
-"Language-Team: \n"
+"Project-Id-Version: pbd-toolkit VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-07-21 21:00+0000\n"
+"PO-Revision-Date: 2026-07-21 20:48+0000\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
+"Language-Team: en <LL@li.org>\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Poedit 3.2.2\n"
-"X-Poedit-Basepath: ../..\n"
-"X-Poedit-SearchPath-0: main.py\n"
-"X-Poedit-SearchPath-1: matches.py\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
 
-#: main.py:111
-msgid "--path parameter cannot be empty"
-msgstr ""
+msgid "           or: pip install 'pbd-toolkit[vector]'"
+msgstr "           or: pip install 'pbd-toolkit[vector]'"
 
-#: main.py:114
-msgid "Regex- and/or NER-based analysis must be turned on."
-msgstr ""
+#, python-brace-format
+msgid "  Database:       {}"
+msgstr "  Database:       {}"
 
-#: main.py:136
-msgid "Analysis\n"
-msgstr ""
+#, python-brace-format
+msgid "  New findings:       +{}"
+msgstr "  New findings:       +{}"
 
-#: main.py:138
+#, python-brace-format
+msgid "  New scan: {} findings ({})"
+msgstr "  New scan: {} findings ({})"
+
+#, python-brace-format
+msgid "  Old scan: {} findings ({})"
+msgstr "  Old scan: {} findings ({})"
+
+#, python-brace-format
+msgid "  Resolved findings:  -{}"
+msgstr "  Resolved findings:  -{}"
+
+#, python-brace-format
+msgid "  Total sessions: {}"
+msgstr "  Total sessions: {}"
+
+#, python-brace-format
+msgid "  Unchanged:           {}"
+msgstr "  Unchanged:           {}"
+
+#, python-brace-format
+msgid "#{}  Score: {:.4f}  │  File: {}  │  Chunk #{}"
+msgstr "#{}  Score: {:.4f}  │  File: {}  │  Chunk #{}"
+
 msgid ""
-"Analysis started at {}\n"
+"--> see *_findings.csv\n"
 "\n"
 msgstr ""
+"--> see *_findings.csv\n"
+"\n"
 
-#: main.py:141
-msgid "Regex-based search is active.\n"
+msgid "Aborted."
+msgstr "Aborted."
+
+msgid "Analysis Summary"
+msgstr "Analysis Summary"
+
+#, python-brace-format
+msgid "Analysis finished at {}"
+msgstr "Analysis finished at {}"
+
+msgid "Analytics Report"
+msgstr "Analytics Report"
+
+#, python-format
+msgid "Analytics database enabled: %s"
+msgstr "Analytics database enabled: %s"
+
+msgid ""
+"At least one detection method must be enabled (--regex, --ner, --spacy-"
+"ner, --ollama, --openai-compatible, --multimodal, or --pydantic-ai)."
 msgstr ""
+"At least one detection method must be enabled (--regex, --ner, --spacy-"
+"ner, --ollama, --openai-compatible, --multimodal, or --pydantic-ai)."
 
-#: main.py:143
-msgid "Regex-based search is *not* active.\n"
+#, python-brace-format
+msgid "Average time per chunk: {:.3f}s"
+msgstr "Average time per chunk: {:.3f}s"
+
+#, python-brace-format
+msgid "Chunks processed: {}"
+msgstr "Chunks processed: {}"
+
+#, python-brace-format
+msgid "Configuration error: {}"
+msgstr "Configuration error: {}"
+
+#, python-brace-format
+msgid "Configuration error: {}: {}"
+msgstr "Configuration error: {}: {}"
+
+#, python-brace-format
+msgid "Configuration exported to: {}"
+msgstr "Configuration exported to: {}"
+
+#, python-brace-format
+msgid "Configuration file error: {}"
+msgstr "Configuration file error: {}"
+
+#, python-brace-format
+msgid "Dataset:   {}  ({} documents)"
+msgstr "Dataset:   {}  ({} documents)"
+
+#, python-brace-format
+msgid "Doctor: {}"
+msgstr "Doctor: {}"
+
+msgid "Duration:"
+msgstr "Duration:"
+
+#, python-brace-format
+msgid "Engines:   {}\n"
+msgstr "Engines:   {}\n"
+
+msgid "Entities by type:"
+msgstr "Entities by type:"
+
+#, python-brace-format
+msgid "Entities found: {}"
+msgstr "Entities found: {}"
+
+#, python-brace-format
+msgid "Error querying index: {}"
+msgstr "Error querying index: {}"
+
+#, python-brace-format
+msgid "Error reading new file: {}"
+msgstr "Error reading new file: {}"
+
+#, python-brace-format
+msgid "Error reading old file: {}"
+msgstr "Error reading old file: {}"
+
+#, python-brace-format
+msgid "Error writing config: {}"
+msgstr "Error writing config: {}"
+
+#, python-brace-format
+msgid ""
+"Error: .git/hooks directory not found in '{}'. Make sure you are inside a"
+" git repository."
 msgstr ""
+"Error: .git/hooks directory not found in '{}'. Make sure you are inside a"
+" git repository."
 
-#: main.py:146
-msgid "AI-based search is active.\n"
+#, python-brace-format
+msgid "Error: Analytics database not found: {}"
+msgstr "Error: Analytics database not found: {}"
+
+#, python-brace-format
+msgid "Error: Index metadata file not found: {}"
+msgstr "Error: Index metadata file not found: {}"
+
+msgid "Error: at least one engine must be enabled (--regex or --ner)."
+msgstr "Error: at least one engine must be enabled (--regex or --ner)."
+
+#, python-brace-format
+msgid "Error: could not load analytics module: {}"
+msgstr "Error: could not load analytics module: {}"
+
+#, python-brace-format
+msgid "Error: dataset file not found: {}"
+msgstr "Error: dataset file not found: {}"
+
+#, python-brace-format
+msgid "Error: invalid dataset: {}"
+msgstr "Error: invalid dataset: {}"
+
+#, python-brace-format
+msgid "Error: invalid manifest: {}"
+msgstr "Error: invalid manifest: {}"
+
+#, python-brace-format
+msgid "Error: manifest file not found: {}"
+msgstr "Error: manifest file not found: {}"
+
+msgid "Error: no input text provided."
+msgstr "Error: no input text provided."
+
+msgid "Error: provide query text as a positional argument or via --query / -q"
+msgstr "Error: provide query text as a positional argument or via --query / -q"
+
+msgid "Error: sentence-transformers is not installed."
+msgstr "Error: sentence-transformers is not installed."
+
+#, python-brace-format
+msgid "Error: {}"
+msgstr "Error: {}"
+
+msgid "Errors"
+msgstr "Errors"
+
+msgid "Errors Summary:"
+msgstr "Errors Summary:"
+
+msgid "Errors:"
+msgstr "Errors:"
+
+#, python-brace-format
+msgid "Extraction gate FAILED: recall {:.4f} < --fail-under {}"
+msgstr "Extraction gate FAILED: recall {:.4f} < --fail-under {}"
+
+#, python-brace-format
+msgid "Extraction gate FAILED: {} forbidden snippet(s) leaked"
+msgstr "Extraction gate FAILED: {} forbidden snippet(s) leaked"
+
+#, python-brace-format
+msgid "Extraction recall: {:.3f} ({}/{} snippets)"
+msgstr "Extraction recall: {:.3f} ({}/{} snippets)"
+
+msgid "FAILED"
+msgstr "FAILED"
+
+msgid "FORBIDDEN LEAKED:"
+msgstr "FORBIDDEN LEAKED:"
+
+msgid "File Risk Assessment:"
+msgstr "File Risk Assessment:"
+
+msgid "Files analyzed:"
+msgstr "Files analyzed:"
+
+msgid "Files scanned:"
+msgstr "Files scanned:"
+
+msgid "Findings"
+msgstr "Findings"
+
+msgid "Finished:"
+msgstr "Finished:"
+
+#, python-brace-format
+msgid "Forbidden snippets leaked: {}"
+msgstr "Forbidden snippets leaked: {}"
+
+#, python-brace-format
+msgid "Found {} PII finding(s):\n"
+msgstr "Found {} PII finding(s):\n"
+
+#, python-brace-format
+msgid "Found {} result(s):\n"
+msgstr "Found {} result(s):\n"
+
+msgid ""
+"GLiNER NER is enabled but model could not be loaded. Please check the "
+"error messages above."
 msgstr ""
+"GLiNER NER is enabled but model could not be loaded. Please check the "
+"error messages above."
 
-#: main.py:148
-msgid "AI-based search is *not* active.\n"
+#, python-brace-format
+msgid "Git {} hook installed at: {}"
+msgstr "Git {} hook installed at: {}"
+
+msgid "Highest risk files:"
+msgstr "Highest risk files:"
+
+#, python-brace-format
+msgid "Hook already exists at '{}'. Overwrite?"
+msgstr "Hook already exists at '{}'. Overwrite?"
+
+#, python-brace-format
+msgid "Index:     {}  ({:,} chunks indexed)"
+msgstr "Index:     {}  ({:,} chunks indexed)"
+
+msgid "Install them with:  pip install 'pbd-toolkit[api]'"
+msgstr "Install them with:  pip install 'pbd-toolkit[api]'"
+
+msgid "Install with:  pip install sentence-transformers"
+msgstr "Install with:  pip install sentence-transformers"
+
+#, python-brace-format
+msgid "Invalid path: {}"
+msgstr "Invalid path: {}"
+
+#, python-brace-format
+msgid "Last {} session(s):"
+msgstr "Last {} session(s):"
+
+#, python-brace-format
+msgid "Loading index from '{}' …"
+msgstr "Loading index from '{}' …"
+
+msgid "MISSING:"
+msgstr "MISSING:"
+
+#, python-brace-format
+msgid "Manifest:  {}  ({} files)\n"
+msgstr "Manifest:  {}  ({} files)\n"
+
+msgid "Matches found:"
+msgstr "Matches found:"
+
+msgid ""
+"Missing scan path. Provide PATH as positional argument, via --path, or in"
+" the config file as 'path'."
 msgstr ""
+"Missing scan path. Provide PATH as positional argument, via --path, or in"
+" the config file as 'path'."
 
-#: main.py:271
-msgid "Statistics\n"
-msgstr ""
+msgid "NER Statistics"
+msgstr "NER Statistics"
 
-#: main.py:273
-msgid "The following file extensions have been found:\n"
-msgstr ""
+#, python-brace-format
+msgid "NER errors encountered: {}"
+msgstr "NER errors encountered: {}"
 
-#: main.py:275
+msgid "New CRITICAL/HIGH findings:"
+msgstr "New CRITICAL/HIGH findings:"
+
+msgid "New findings by severity:"
+msgstr "New findings by severity:"
+
+msgid "No PII detected in the provided text."
+msgstr "No PII detected in the provided text."
+
+#, python-brace-format
+msgid "No results found above threshold {}."
+msgstr "No results found above threshold {}."
+
+msgid "No scan sessions found."
+msgstr "No scan sessions found."
+
+msgid "OK"
+msgstr "OK"
+
+msgid "Output directory:"
+msgstr "Output directory:"
+
+msgid "Output file:"
+msgstr "Output file:"
+
+msgid "Overall severity distribution (all sessions):"
+msgstr "Overall severity distribution (all sessions):"
+
+#, python-brace-format
+msgid "Performance of analysis: {} analyzed files per second"
+msgstr "Performance of analysis: {} analyzed files per second"
+
+msgid "Performance:"
+msgstr "Performance:"
+
+#, python-brace-format
+msgid "Profile error: {}"
+msgstr "Profile error: {}"
+
+#, python-brace-format
+msgid "Pseudo-anonymized {} files to: {}"
+msgstr "Pseudo-anonymized {} files to: {}"
+
+#, python-brace-format
+msgid "Quality gate FAILED: micro F1 {:.4f} < --fail-under {}"
+msgstr "Quality gate FAILED: micro F1 {:.4f} < --fail-under {}"
+
+#, python-brace-format
+msgid "Query:     {!r}"
+msgstr "Query:     {!r}"
+
+msgid "Reading from stdin … (pass --text to provide text directly)"
+msgstr "Reading from stdin … (pass --text to provide text directly)"
+
+msgid "Recommended actions:"
+msgstr "Recommended actions:"
+
+#, python-brace-format
+msgid "Redacted {} files to: {}"
+msgstr "Redacted {} files to: {}"
+
+msgid "Resolved findings by severity:"
+msgstr "Resolved findings by severity:"
+
+msgid "Run a scan with --analytics to create one."
+msgstr "Run a scan with --analytics to create one."
+
+msgid "Run a scan with --vector-save-index to create an index first."
+msgstr "Run a scan with --vector-save-index to create an index first."
+
+msgid "Scan Diff Report"
+msgstr "Scan Diff Report"
+
+#, python-brace-format
+msgid "Scan path does not exist: {}"
+msgstr "Scan path does not exist: {}"
+
+#, python-brace-format
+msgid "Scan path is not a directory: {}"
+msgstr "Scan path is not a directory: {}"
+
+#, python-brace-format
+msgid "Scan path is not readable: {}"
+msgstr "Scan path is not readable: {}"
+
+msgid "Skipped Content"
+msgstr "Skipped Content"
+
+msgid "Skipped Content Summary:"
+msgstr "Skipped Content Summary:"
+
+msgid "Skipped Files"
+msgstr "Skipped Files"
+
+msgid "Started:"
+msgstr "Started:"
+
+msgid "Statistics"
+msgstr "Statistics"
+
+msgid "Statistics:"
+msgstr "Statistics:"
+
+#, python-brace-format
 msgid ""
 "TOTAL: {} files.\n"
 "QUALIFIED: {} files (supported file extension)\n"
 "\n"
+msgstr ""
+"TOTAL: {} files.\n"
+"QUALIFIED: {} files (supported file extension)\n"
 "\n"
-msgstr ""
 
-#: main.py:277
-msgid "Findings\n"
-msgstr ""
+msgid "The API module requires additional dependencies."
+msgstr "The API module requires additional dependencies."
 
-#: main.py:284
+msgid "The following file extensions have been found:"
+msgstr "The following file extensions have been found:"
+
+#, python-brace-format
+msgid "The hook will scan staged files with: {}"
+msgstr "The hook will scan staged files with: {}"
+
+#, python-brace-format
+msgid "Threshold: {}   Top-k: {}\n"
+msgstr "Threshold: {}   Top-k: {}\n"
+
+msgid "Throughput:"
+msgstr "Throughput:"
+
+msgid "Top PII types (all sessions):"
+msgstr "Top PII types (all sessions):"
+
+#, python-brace-format
+msgid "Total NER processing time: {:.2f}s"
+msgstr "Total NER processing time: {:.2f}s"
+
 msgid ""
-"--> see *_findings.csv\n"
-"\n"
-"\n"
+"Warning: --ollama is deprecated. Use --pydantic-ai --pydantic-ai-provider"
+" ollama instead."
 msgstr ""
+"Warning: --ollama is deprecated. Use --pydantic-ai --pydantic-ai-provider"
+" ollama instead."
 
-#: main.py:286
-msgid "Errors\n"
+msgid ""
+"Warning: --openai-compatible is deprecated. Use --pydantic-ai --pydantic-"
+"ai-provider openai instead."
 msgstr ""
+"Warning: --openai-compatible is deprecated. Use --pydantic-ai --pydantic-"
+"ai-provider openai instead."
 
-#: main.py:294
-msgid "Analysis finished at {}\n"
+msgid ""
+"Warning: --path is deprecated. Pass the directory as a positional "
+"argument instead: pbd-toolkit scan /your/directory"
 msgstr ""
+"Warning: --path is deprecated. Pass the directory as a positional "
+"argument instead: pbd-toolkit scan /your/directory"
 
-#: main.py:295
-msgid "Performance of analysis: {} analyzed files per second\n"
-msgstr ""
+msgid "Warning: GLiNER not installed (pip install 'pbd-toolkit[gliner]')"
+msgstr "Warning: GLiNER not installed (pip install 'pbd-toolkit[gliner]')"
 
-#: matches.py:21
-msgid "Regex: Pension Insurance Fond ID"
-msgstr ""
+msgid "Warning: PyYAML not installed, falling back to JSON format."
+msgstr "Warning: PyYAML not installed, falling back to JSON format."
 
-#: matches.py:22
-msgid "Regex: IBAN"
-msgstr ""
+#, python-brace-format
+msgid "Warning: could not load config file: {}"
+msgstr "Warning: could not load config file: {}"
 
-#: matches.py:23
-msgid "Regex: Email address"
-msgstr ""
+#, python-brace-format
+msgid "Webhook delivered (HTTP {}): {}"
+msgstr "Webhook delivered (HTTP {}): {}"
 
-#: matches.py:24
-msgid "Regex: IPv4 address"
-msgstr ""
+#, python-brace-format
+msgid "Webhook delivery failed: {}"
+msgstr "Webhook delivery failed: {}"
 
-#: matches.py:25
-msgid "Regex: Signal words"
-msgstr ""
+#, python-brace-format
+msgid "Whitelist file not found: {}"
+msgstr "Whitelist file not found: {}"
 
-#: matches.py:26
-msgid "Regex: private pgp key"
-msgstr ""
+#, python-brace-format
+msgid "[fail-on-severity] Findings at or above {} detected. Exiting with code {}."
+msgstr "[fail-on-severity] Findings at or above {} detected. Exiting with code {}."
 
-#: matches.py:27
-msgid "AI-NER: Person"
-msgstr ""
+msgid "files"
+msgstr "files"
 
-#: matches.py:28
-msgid "AI-NER: Location"
-msgstr ""
+msgid "files with CRITICAL risk - immediate review recommended"
+msgstr "files with CRITICAL risk - immediate review recommended"
 
-#: matches.py:29
-msgid "AI-NER: Health Data (experimental)"
-msgstr ""
+msgid "files with HIGH risk - review recommended"
+msgstr "files with HIGH risk - review recommended"
 
-#: matches.py:30
-msgid "AI-NER: Passwords (experimental)"
-msgstr ""
+msgid "files/sec"
+msgstr "files/sec"
+
