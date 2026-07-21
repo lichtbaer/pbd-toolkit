@@ -14,7 +14,11 @@ class TestEngineRegistry:
     """Tests for EngineRegistry."""
 
     def test_register_engine(self):
-        """Test engine registration."""
+        """Test engine registration.
+
+        Uses ``isolated()`` so the fake "test" engine doesn't leak into the
+        global registry for every test that runs afterwards in this process.
+        """
 
         class TestEngine:
             name = "test"
@@ -26,8 +30,110 @@ class TestEngineRegistry:
             def is_available(self):
                 return True
 
-        EngineRegistry.register("test", TestEngine)
-        assert EngineRegistry.is_registered("test")
+        with EngineRegistry.isolated():
+            EngineRegistry.register("test", TestEngine)
+            assert EngineRegistry.is_registered("test")
+
+        assert not EngineRegistry.is_registered("test")
+
+    def test_isolated_restores_registry_on_exception(self):
+        """isolated() must restore the previous table even if the block raises."""
+
+        class TestEngine:
+            name = "boom"
+            enabled = True
+
+            def detect(self, text, labels=None):
+                return []
+
+            def is_available(self):
+                return True
+
+        with pytest.raises(ValueError):
+            with EngineRegistry.isolated():
+                EngineRegistry.register("boom", TestEngine)
+                assert EngineRegistry.is_registered("boom")
+                raise ValueError("boom")
+
+        assert not EngineRegistry.is_registered("boom")
+
+    def test_isolated_does_not_affect_concurrent_lookups_after_exit(self):
+        """Registrations inside isolated() are invisible once the block exits."""
+        assert not EngineRegistry.is_registered("scoped-only")
+        with EngineRegistry.isolated():
+
+            class ScopedEngine:
+                name = "scoped-only"
+                enabled = True
+
+                def detect(self, text, labels=None):
+                    return []
+
+                def is_available(self):
+                    return True
+
+            EngineRegistry.register("scoped-only", ScopedEngine)
+            assert "scoped-only" in EngineRegistry.list_engines()
+
+        assert "scoped-only" not in EngineRegistry.list_engines()
+
+    def test_snapshot_is_independent_of_later_registrations(self):
+        """A snapshot must not see engines registered after it was taken."""
+        snapshot = EngineRegistry.snapshot()
+        assert snapshot.is_registered("regex")
+
+        with EngineRegistry.isolated():
+
+            class LateEngine:
+                name = "late"
+                enabled = True
+
+                def detect(self, text, labels=None):
+                    return []
+
+                def is_available(self):
+                    return True
+
+            EngineRegistry.register("late", LateEngine)
+            assert EngineRegistry.is_registered("late")
+            # The snapshot taken before this registration must be unaffected.
+            assert not snapshot.is_registered("late")
+            assert "late" not in snapshot.list_engines()
+
+    def test_snapshot_get_engine_behaves_like_registry(self):
+        """Snapshot.get_engine should construct engines the same way the registry does."""
+        snapshot = EngineRegistry.snapshot()
+        mock_config = Mock(spec=Config)
+        mock_config.use_regex = True
+        mock_config.regex_pattern = Mock()
+
+        engine = snapshot.get_engine("regex", mock_config)
+        assert engine is not None
+        assert engine.name == "regex"
+        assert snapshot.get_engine("nonexistent", mock_config) is None
+
+    def test_construction_failure_returns_none_without_leaking(self):
+        """An engine whose constructor raises should not propagate the exception."""
+
+        class BrokenEngine:
+            name = "broken"
+            enabled = True
+
+            def __init__(self, config):
+                raise ImportError("optional dependency missing")
+
+            def detect(self, text, labels=None):
+                return []
+
+            def is_available(self):
+                return True
+
+        with EngineRegistry.isolated():
+            EngineRegistry.register("broken", BrokenEngine)
+            mock_config = Mock()
+            mock_config.verbose = False
+            engine = EngineRegistry.get_engine("broken", mock_config)
+            assert engine is None
 
     def test_get_engine(self):
         """Test getting engine instance."""
