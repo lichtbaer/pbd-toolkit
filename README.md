@@ -52,7 +52,7 @@ Then open `http://127.0.0.1:8000` in your browser.
   - LLM-based detection (**recommended: `--pydantic-ai`**, legacy flags kept for compatibility)
   - **Multimodal image detection** (GPT-4 Vision, local models via vLLM/LocalAI)
   - **Vector search** (`--vector-search`): semantic similarity via sentence-transformers – fully local, no API required. Also works as a triage pre-filter to reduce LLM costs (`--vector-triage`)
-- **Wide File Format Support**: PDF, DOCX, HTML, TXT, CSV, JSON, XLSX, XLS, PPTX, ODT, RTF, ODS, EML, MSG, XML, YAML, and **image formats** (JPEG, PNG, GIF, BMP, TIFF, WebP)
+- **Wide File Format Support**: PDF, DOCX, HTML, TXT, CSV, JSON, XLSX, XLS, PPTX, PPT, ODT, RTF, ODS, EML, MSG, XML, YAML, and **image formats** (JPEG, PNG, GIF, BMP, TIFF, WebP)
 - **File Type Detection**: Optional magic number detection for files without or with incorrect extensions
 - **Flexible Output Formats**: CSV, JSON, **JSONL**, and Excel (XLSX)
 - **Advanced Features**: Whitelist support, progress tracking, detailed logging

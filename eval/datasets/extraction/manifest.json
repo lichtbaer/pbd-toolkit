@@ -27,6 +27,23 @@
         "erika.beispiel@web.de"
       ],
       "forbidden": []
+    },
+    {
+      "file": "contacts.xls",
+      "expected": [
+        "Name: Max Mustermann",
+        "IBAN: DE89 3704 0044 0532 0130 00"
+      ],
+      "forbidden": []
+    },
+    {
+      "file": "slides.ppt",
+      "expected": [
+        "hans.schmidt@example.org",
+        "buchhaltung@musterfirma.de",
+        "DE44 5001 0517 5407 3249 31"
+      ],
+      "forbidden": []
     }
   ]
 }
