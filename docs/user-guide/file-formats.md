@@ -15,7 +15,7 @@ Portable Document Format files.
 - Skips PDFs with very short text (likely image-only)
 
 **Limitations**:
-- Does not support OCR (image-based PDFs are skipped)
+- OCR is optional: image-based/scanned pages are skipped unless the `[ocr]` extra is installed (`pip install ".[ocr]"`, plus the system `tesseract` and `poppler` binaries). When installed, OCR runs automatically as a fallback for pages with no embedded text
 - Password-protected PDFs are reported as errors
 
 ### DOCX (`.docx`)
@@ -23,12 +23,11 @@ Portable Document Format files.
 Microsoft Word documents (Office Open XML format).
 
 **Processor**: `DocxProcessor`
-- Extracts text from document body
-- Preserves paragraph structure
+- Extracts text from document body, tables, and section headers/footers
+- Preserves paragraph structure (paragraphs are joined with newlines so entities don't fuse across paragraph boundaries)
 - Handles Unicode characters
 
 **Limitations**:
-- Headers, footers, and table text may not be fully extracted
 - Password-protected documents are reported as errors
 
 ### ODT (`.odt`)
@@ -95,6 +94,16 @@ Microsoft PowerPoint presentations (PowerPoint 2007+ format).
 - Processes all slides in presentation
 - Extracts text from text boxes and shapes
 - Extracts text from notes pages
+
+### PPT (`.ppt`) — Not Supported
+
+Legacy PowerPoint 97-2003 presentations.
+
+**Processor**: `PptProcessor` always raises `NotImplementedError` — `.ppt` files are recognized but **no text is extracted** from them.
+- `python-pptx` only reads the PowerPoint 2007+ (`.pptx`) format; there is no legacy-format fallback
+- Convert `.ppt` files to `.pptx` (e.g. via LibreOffice or PowerPoint's "Save As") before scanning
+
+See also [Known Unsupported Formats](#known-unsupported-formats).
 
 ## Web Formats
 
@@ -291,6 +300,14 @@ The toolkit can detect PII in images when multimodal detection is enabled.
 **Detection**: Requires `--multimodal` flag and a compatible API (OpenAI, vLLM, or LocalAI).
 
 **Note**: Image processing is slower than text processing and requires API access. See [Detection Methods](detection-methods.md#multimodal-image-detection-openai-compatible) for details.
+
+## Known Unsupported Formats
+
+These extensions are recognized by the toolkit but do not currently yield any extracted text:
+
+- **Legacy PowerPoint (`.ppt`)** — see [PPT](#ppt-ppt--not-supported) above. Convert to `.pptx` first.
+
+Every other format listed above extracts text once its processor's dependencies are installed (see [Installation](../getting-started/installation.md) for the `office`/`ocr`/etc. extras).
 
 ## File Processing
 
