@@ -46,7 +46,7 @@ class MsgProcessor(BaseFileProcessor):
         # Support tests that mock the module symbol with a callable that raises
         if callable(extract_msg):  # pragma: no cover
             try:
-                extract_msg()  # type: ignore[misc]
+                extract_msg()
             except ImportError as e:
                 raise ImportError(
                     "extract-msg is required for MSG processing. "
@@ -57,7 +57,7 @@ class MsgProcessor(BaseFileProcessor):
 
         try:
             # Open MSG file
-            msg = extract_msg.Message(file_path)  # type: ignore[union-attr]
+            msg = extract_msg.Message(file_path)
 
             # Extract headers (these often contain PII)
             headers_to_extract = [
@@ -93,7 +93,13 @@ class MsgProcessor(BaseFileProcessor):
 
             # Try HTML body if available
             if hasattr(msg, "htmlBody") and msg.htmlBody:
-                html_body = msg.htmlBody
+                # extract-msg returns the HTML body as raw bytes.
+                raw_html_body = msg.htmlBody
+                html_body = (
+                    raw_html_body.decode("utf-8", errors="replace")
+                    if isinstance(raw_html_body, bytes)
+                    else str(raw_html_body)
+                )
                 # Extract text from HTML (remove tags)
                 text = self._extract_text_from_html(html_body)
                 if text.strip():
@@ -183,6 +189,6 @@ class MsgProcessor(BaseFileProcessor):
         return text
 
     @staticmethod
-    def can_process(extension: str) -> bool:
+    def can_process(extension: str) -> bool:  # type: ignore[override]  # registry inspects arity; see base_processor.can_process
         """Check if this processor can handle MSG files."""
         return extension.lower() == ".msg"

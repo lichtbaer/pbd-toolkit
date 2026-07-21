@@ -21,6 +21,7 @@ import logging
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, TextIO
 
 import typer
 
@@ -33,6 +34,11 @@ from core.scanner import FileInfo, FileScanner
 from core.statistics import Statistics
 from core.statistics_aggregator import StatisticsAggregator
 from core.writers import OutputWriter
+
+if TYPE_CHECKING:
+    import _csv
+
+    from core.protocols import AnalyticsStoreProtocol
 
 _SEVERITY_LEVELS = ("CRITICAL", "HIGH", "MEDIUM", "LOW")
 
@@ -57,8 +63,8 @@ class ScanRequest:
     output_file_path: str | None = None
     output_dir: str | None = None
     outslug: str | None = None
-    csv_writer: object | None = None
-    csv_file_handle: object | None = None
+    csv_writer: _csv.Writer | None = None
+    csv_file_handle: TextIO | None = None
 
     # PiiMatchContainer construction flags (CLI passes real values; API simplified).
     enable_deduplication: bool = False
@@ -79,7 +85,7 @@ class ScanRequest:
     statistics_output: str | None = None
 
     # Analytics: caller owns the store + session lifecycle decision.
-    analytics_store: object | None = None
+    analytics_store: AnalyticsStoreProtocol | None = None
     analytics_session_id: str | None = None
     finalize_analytics_session: bool = True
 
@@ -301,14 +307,15 @@ class ScanRunner:
         executor = None
         if worker_count <= 1:
 
-            def process_file(file_info: FileInfo) -> None:
+            def process_file(file_info: FileInfo) -> object:
                 _process_file_impl(file_info)
+                return None
         else:
             import concurrent.futures
 
             executor = concurrent.futures.ThreadPoolExecutor(max_workers=worker_count)
 
-            def process_file(file_info: FileInfo):
+            def process_file(file_info: FileInfo) -> object:
                 return executor.submit(_process_file_impl, file_info)
 
         # --- Scan --------------------------------------------------------------

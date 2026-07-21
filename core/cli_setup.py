@@ -22,7 +22,7 @@ def __setup_lang() -> Callable[[str], str]:
     Returns:
         Translation object
     """
-    lstr: str = os.environ.get("LANGUAGE")
+    lstr: str | None = os.environ.get("LANGUAGE")
     lenv: str = lstr if lstr and lstr in ["de", "en"] else "de"
 
     lang = gettext.translation("base", localedir="locales", languages=[lenv])

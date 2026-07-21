@@ -31,6 +31,6 @@ class HtmlProcessor(BaseFileProcessor):
             return soup.get_text()
 
     @staticmethod
-    def can_process(extension: str) -> bool:
+    def can_process(extension: str) -> bool:  # type: ignore[override]  # registry inspects arity; see base_processor.can_process
         """Check if this processor can handle HTML files."""
         return extension.lower() in [".html", ".htm"]

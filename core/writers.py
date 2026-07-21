@@ -9,7 +9,10 @@ import json
 import logging
 import os
 import shutil
-from typing import Any, TextIO
+from typing import TYPE_CHECKING, Any, TextIO
+
+if TYPE_CHECKING:
+    import _csv
 
 from core.exceptions import OutputError
 from core.matches import PiiMatch
@@ -59,7 +62,9 @@ class CsvWriter(OutputWriter):
     def __init__(self, file_path: str, include_header: bool = True):
         super().__init__(file_path, include_header)
         try:
-            self._file = open(file_path, "w", newline="", encoding="utf-8")
+            self._file: TextIO | None = open(
+                file_path, "w", newline="", encoding="utf-8"
+            )
             self._writer = csv.writer(self._file)
             if self.include_header:
                 self._writer.writerow(
@@ -88,11 +93,11 @@ class CsvWriter(OutputWriter):
     def supports_streaming(self) -> bool:
         return True
 
-    def get_writer(self) -> csv.writer:
+    def get_writer(self) -> _csv.Writer:
         return self._writer
 
     @property
-    def file_handle(self) -> TextIO:
+    def file_handle(self) -> TextIO | None:
         return self._file
 
 
@@ -252,12 +257,13 @@ class JsonlWriter(OutputWriter):
     def __init__(self, file_path: str, include_header: bool = True):
         super().__init__(file_path, include_header)
         try:
-            self._file = open(file_path, "w", encoding="utf-8")
+            self._file: TextIO | None = open(file_path, "w", encoding="utf-8")
         except OSError as e:
             raise OutputError(f"Failed to open output file: {e}")
 
     def write_match(self, match: PiiMatch) -> None:
-        payload = {
+        assert self._file is not None
+        payload: dict[str, Any] = {
             "text": match.text,
             "file": match.file,
             "type": match.type,
@@ -275,7 +281,7 @@ class JsonlWriter(OutputWriter):
         self._file.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
     def finalize(self, metadata: dict | None = None) -> None:
-        if metadata:
+        if metadata and self._file:
             self._file.write(
                 json.dumps({"_metadata": metadata}, ensure_ascii=False) + "\n"
             )
@@ -288,7 +294,7 @@ class JsonlWriter(OutputWriter):
         return True
 
     @property
-    def file_handle(self) -> TextIO:
+    def file_handle(self) -> TextIO | None:
         return self._file
 
 
@@ -580,7 +586,7 @@ class SarifWriter(OutputWriter):
                 {
                     "ruleId": m.type,
                     "ruleIndex": rule_index[m.type],
-                    "level": self._SEVERITY_MAP.get(m.severity, "note"),
+                    "level": self._SEVERITY_MAP.get(m.severity or "", "note"),
                     "message": {"text": truncated},
                     "locations": [
                         {

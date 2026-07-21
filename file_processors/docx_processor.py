@@ -2,6 +2,7 @@
 
 import docx
 import docx.opc.exceptions
+from docx.document import Document as DocxDocument
 
 from file_processors.base_processor import BaseFileProcessor
 
@@ -33,7 +34,7 @@ class DocxProcessor(BaseFileProcessor):
             FileNotFoundError: If file does not exist
             Exception: For other DOCX processing errors
         """
-        doc: docx.Document = docx.Document(file_path)
+        doc: DocxDocument = docx.Document(file_path)
         parts: list[str] = []
 
         # Body paragraphs
@@ -69,6 +70,6 @@ class DocxProcessor(BaseFileProcessor):
         return rows
 
     @staticmethod
-    def can_process(extension: str) -> bool:
+    def can_process(extension: str) -> bool:  # type: ignore[override]  # registry inspects arity; see base_processor.can_process
         """Check if this processor can handle DOCX files."""
         return extension.lower() == ".docx"

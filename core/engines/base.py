@@ -17,7 +17,7 @@ from multiple worker threads.  When absent or ``False``, calls are serialised.
 
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Any, Protocol
 
 
 @dataclass
@@ -53,6 +53,10 @@ class DetectionEngine(Protocol):
 
     enabled: bool
     """Whether this engine is currently enabled."""
+
+    def __init__(self, config: Any) -> None:
+        """Construct an engine from a ``Config`` (or config-like) object."""
+        ...
 
     @abstractmethod
     def detect(

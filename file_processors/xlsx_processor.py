@@ -108,7 +108,7 @@ class XlsxProcessor(BaseFileProcessor):
         return "\n".join(lines)
 
     @staticmethod
-    def can_process(extension: str) -> bool:
+    def can_process(extension: str) -> bool:  # type: ignore[override]  # registry inspects arity; see base_processor.can_process
         """Check if this processor can handle XLSX files."""
         return extension.lower() == ".xlsx"
 
@@ -164,6 +164,6 @@ class XlsProcessor(BaseFileProcessor):
         return "\n".join(lines)
 
     @staticmethod
-    def can_process(extension: str) -> bool:
+    def can_process(extension: str) -> bool:  # type: ignore[override]  # registry inspects arity; see base_processor.can_process
         """Check if this processor can handle XLS files."""
         return extension.lower() == ".xls"

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any, TextIO
 
 import typer
 
@@ -16,6 +16,11 @@ from core.context import ApplicationContext
 from core.exceptions import OutputError
 from core.matches import PiiMatch, PiiMatchContainer
 from core.severity import combined_file_risk
+
+if TYPE_CHECKING:
+    from core.protocols import AnalyticsStoreProtocol
+    from core.scanner import ScanResult
+    from core.statistics_aggregator import StatisticsAggregator
 
 
 def compute_file_risk_scores(
@@ -107,7 +112,7 @@ def build_output_metadata(
 def write_output(
     context: ApplicationContext,
     output_metadata: dict[str, Any],
-    csv_file_handle: object | None,
+    csv_file_handle: TextIO | None,
 ) -> None:
     """Write findings to the output writer and finalize."""
     if context.output_writer:
@@ -133,7 +138,7 @@ def write_output(
 def log_scan_results(
     context: ApplicationContext,
     errors: dict[str, list[str]],
-    scan_result: Any = None,
+    scan_result: ScanResult | None = None,
 ) -> None:
     """Write scan results to the logger."""
     context.logger.info(context._("Statistics"))
@@ -161,7 +166,7 @@ def log_scan_results(
     if scan_result and scan_result.skipped_files:
         context.logger.info(context._("Skipped Files"))
         context.logger.info("-------------\n")
-        for reason, file_list in context.scan_result.skipped_files.items():
+        for reason, file_list in scan_result.skipped_files.items():
             context.logger.info(f"\t{reason}: {len(file_list)} file(s)")
             for f in file_list:
                 context.logger.info(f"\t\t{f}")
@@ -169,9 +174,9 @@ def log_scan_results(
 
     context.logger.info(context._("Errors"))
     context.logger.info("------\n")
-    for k, v in errors.items():
-        context.logger.info(f"\t{k}")
-        for f in v:
+    for err_type, file_errors in errors.items():
+        context.logger.info(f"\t{err_type}")
+        for f in file_errors:
             context.logger.info(f"\t\t{f}")
 
     if context.statistics.skipped_content:
@@ -388,7 +393,7 @@ def print_console_summary(
 def write_statistics_output(
     context: ApplicationContext,
     args: object,
-    statistics_aggregator: object,
+    statistics_aggregator: StatisticsAggregator | None,
     output_dir: str,
     outslug: str,
 ) -> None:
@@ -435,7 +440,7 @@ def write_statistics_output(
         "statistics_strict": bool(getattr(args, "statistics_strict", False)),
     }
 
-    performance_metrics = {
+    performance_metrics: dict[str, Any] = {
         "files_per_second": context.statistics.files_per_second,
         "matches_per_second": round(
             (
@@ -475,7 +480,7 @@ def write_statistics_output(
 
 
 def finalize_analytics(
-    analytics_store: object | None,
+    analytics_store: AnalyticsStoreProtocol | None,
     analytics_session_id: str | None,
     context: ApplicationContext,
     logger: logging.Logger,

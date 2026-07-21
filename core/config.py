@@ -24,7 +24,6 @@ Configuration precedence (highest → lowest):
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import logging
 import os
@@ -34,6 +33,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    import _csv
+
     from gliner import GLiNER
 
 from core import constants
@@ -206,7 +207,7 @@ class Config:
 
     # Dependencies
     logger: logging.Logger | None = field(default=None)
-    csv_writer: csv.writer | None = field(default=None)
+    csv_writer: _csv.Writer | None = field(default=None)
     csv_file_handle: object | None = field(default=None)
 
     # Processing configuration
@@ -392,7 +393,7 @@ class Config:
         cls,
         args: argparse.Namespace,
         logger: logging.Logger,
-        csv_writer: csv.writer | None,
+        csv_writer: _csv.Writer | None,
         csv_file_handle: object | None,
         translate_func: Callable[[str], str],
     ) -> Config:

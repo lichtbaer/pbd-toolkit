@@ -29,7 +29,7 @@ import numpy as np
 from core.indexer.pii_queries import EXEMPLAR_PAIRS, PII_EXEMPLARS
 
 if TYPE_CHECKING:
-    pass
+    import faiss
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +112,7 @@ class DocumentIndexer:
 
         # Full-document index (optional, FAISS-backed)
         self._chunks: list[IndexedChunk] = []
-        self._faiss_index: object | None = None  # faiss.Index
+        self._faiss_index: faiss.Index | None = None
         self._index_lock = threading.Lock()
 
         self._initialized = False
@@ -189,11 +189,11 @@ class DocumentIndexer:
         # Merge custom exemplars if configured
         if self.custom_exemplars_path:
             custom = self._load_custom_exemplars(self.custom_exemplars_path)
-            for category, texts in custom.items():
+            for category, custom_texts in custom.items():
                 if category in exemplars:
-                    exemplars[category] = exemplars[category] + texts
+                    exemplars[category] = exemplars[category] + custom_texts
                 else:
-                    exemplars[category] = texts
+                    exemplars[category] = custom_texts
 
         categories: list[str] = []
         texts: list[str] = []
@@ -282,7 +282,7 @@ class DocumentIndexer:
         try:
             if path.lower().endswith((".yaml", ".yml")):
                 try:
-                    import yaml  # type: ignore
+                    import yaml
 
                     with open(path, encoding="utf-8") as fh:
                         data = yaml.safe_load(fh)
@@ -374,7 +374,7 @@ class DocumentIndexer:
         cutoff = threshold if threshold is not None else self.threshold
 
         # Cosine similarities: (n_exemplars,) because both sides are L2-normalised
-        sims: np.ndarray = self._exemplar_embeddings @ embedding  # type: ignore[operator]
+        sims: np.ndarray = self._exemplar_embeddings @ embedding
 
         # Aggregate: best similarity per category
         best: dict[str, tuple[float, str]] = {}
@@ -460,6 +460,7 @@ class DocumentIndexer:
         with self._index_lock:
             if not self._chunks:
                 return []
+            embeddings: list[np.ndarray] = []
             for c in self._chunks:
                 if c.embedding is None:
                     raise RuntimeError(
@@ -467,7 +468,8 @@ class DocumentIndexer:
                         "embedding (loaded from a FAISS index) but no FAISS index "
                         "is set — brute-force search cannot recover the vector."
                     )
-            matrix = np.stack([c.embedding for c in self._chunks])  # (n, dim)
+                embeddings.append(c.embedding)
+            matrix = np.stack(embeddings)  # (n, dim)
             sims = (matrix @ query).tolist()
             ranked = sorted(zip(sims, self._chunks), key=lambda x: x[0], reverse=True)
         return [(s, c) for s, c in ranked[:top_k] if s >= threshold]
@@ -514,7 +516,7 @@ class DocumentIndexer:
         try:
             import json
 
-            import faiss  # type: ignore
+            import faiss
 
             os.makedirs(os.path.dirname(os.path.abspath(target)), exist_ok=True)
             matrix = np.stack(
@@ -524,7 +526,7 @@ class DocumentIndexer:
                 ]
             )
             idx = faiss.IndexFlatIP(matrix.shape[1])
-            idx.add(matrix)  # type: ignore[arg-type]
+            idx.add(matrix)
             faiss.write_index(idx, target + ".faiss")
 
             meta = [
@@ -553,7 +555,7 @@ class DocumentIndexer:
         try:
             import json
 
-            import faiss  # type: ignore
+            import faiss
 
             self._faiss_index = faiss.read_index(path + ".faiss")
             with open(path + ".meta", encoding="utf-8") as fh:
@@ -600,7 +602,7 @@ class DocumentIndexer:
                 f"Chunk {position} ({chunk.file_path!r}) has no embedding and "
                 "no FAISS index is loaded to reconstruct it from."
             )
-        return self._faiss_index.reconstruct(position)  # type: ignore[union-attr]
+        return self._faiss_index.reconstruct(position)
 
     def _faiss_add(self, embedding: np.ndarray) -> None:
         """Add one vector to the FAISS index (must hold _index_lock)."""

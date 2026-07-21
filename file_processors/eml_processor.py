@@ -118,7 +118,7 @@ class EmlProcessor(BaseFileProcessor):
                 continue
 
             payload = part.get_payload(decode=True)
-            if not payload:
+            if not isinstance(payload, bytes):
                 continue
             if len(payload) > _MAX_ATTACHMENT_BYTES:
                 _logger.warning(
@@ -203,7 +203,7 @@ class EmlProcessor(BaseFileProcessor):
 
                 if content_type == "text/plain":
                     payload = part.get_payload(decode=True)
-                    if payload:
+                    if isinstance(payload, bytes):
                         try:
                             # Try to decode with charset from part
                             charset = part.get_content_charset() or "utf-8"
@@ -217,7 +217,7 @@ class EmlProcessor(BaseFileProcessor):
                 elif content_type == "text/html":
                     # Extract text from HTML (simple approach - just get the text)
                     payload = part.get_payload(decode=True)
-                    if payload:
+                    if isinstance(payload, bytes):
                         try:
                             charset = part.get_content_charset() or "utf-8"
                             html_content = payload.decode(charset, errors="replace")
@@ -244,7 +244,7 @@ class EmlProcessor(BaseFileProcessor):
         else:
             # Single part message
             payload = msg.get_payload(decode=True)
-            if payload:
+            if isinstance(payload, bytes):
                 try:
                     charset = msg.get_content_charset() or "utf-8"
                     text = payload.decode(charset, errors="replace")
@@ -256,6 +256,6 @@ class EmlProcessor(BaseFileProcessor):
         return " ".join(text_parts)
 
     @staticmethod
-    def can_process(extension: str) -> bool:
+    def can_process(extension: str) -> bool:  # type: ignore[override]  # registry inspects arity; see base_processor.can_process
         """Check if this processor can handle EML files."""
         return extension.lower() == ".eml"

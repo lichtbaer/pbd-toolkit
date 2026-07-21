@@ -10,7 +10,7 @@ _logger = logging.getLogger(__name__)
 try:
     import yaml
 except Exception:  # pragma: no cover - optional dependency
-    yaml = None  # type: ignore[assignment]
+    yaml = None
 
 
 class YamlProcessor(BaseFileProcessor):
@@ -49,7 +49,7 @@ class YamlProcessor(BaseFileProcessor):
         # Support tests that mock the module symbol with a callable that raises
         if callable(yaml):  # pragma: no cover
             try:
-                yaml()  # type: ignore[misc]
+                yaml()
             except ImportError as e:
                 raise ImportError(
                     "PyYAML is required for YAML processing. "
@@ -61,10 +61,10 @@ class YamlProcessor(BaseFileProcessor):
         try:
             with open(file_path, encoding="utf-8", errors="replace") as yamlfile:
                 try:
-                    data: Any = yaml.safe_load(yamlfile)  # type: ignore[union-attr]
+                    data: Any = yaml.safe_load(yamlfile)
                     if data is not None:
                         self._extract_strings(data, text_parts)
-                except yaml.YAMLError as e:  # type: ignore[union-attr]
+                except yaml.YAMLError as e:
                     # If YAML is invalid, try to extract strings using simple regex
                     _logger.debug(
                         "YAML parse failed, falling back to regex extraction: %s", e
@@ -117,6 +117,6 @@ class YamlProcessor(BaseFileProcessor):
         # Numbers, booleans, None are ignored as they're not useful for PII detection
 
     @staticmethod
-    def can_process(extension: str) -> bool:
+    def can_process(extension: str) -> bool:  # type: ignore[override]  # registry inspects arity; see base_processor.can_process
         """Check if this processor can handle YAML files."""
         return extension.lower() in [".yaml", ".yml"]

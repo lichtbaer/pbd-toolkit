@@ -33,7 +33,7 @@ class MboxProcessor(BaseFileProcessor):
         """
         with open(file_path, "rb") as f:
             # MBOX format: emails separated by "From " lines
-            current_message = []
+            current_message: list[bytes] = []
 
             for line in f:
                 # Check if this is a new message delimiter
@@ -98,7 +98,7 @@ class MboxProcessor(BaseFileProcessor):
                     content_type = part.get_content_type()
                     if content_type == "text/plain":
                         payload = part.get_payload(decode=True)
-                        if payload:
+                        if isinstance(payload, bytes):
                             try:
                                 charset = part.get_content_charset() or "utf-8"
                                 body_parts.append(
@@ -111,7 +111,7 @@ class MboxProcessor(BaseFileProcessor):
                     elif content_type == "text/html":
                         # Extract text from HTML (simple approach)
                         payload = part.get_payload(decode=True)
-                        if payload:
+                        if isinstance(payload, bytes):
                             try:
                                 charset = part.get_content_charset() or "utf-8"
                                 html_text = payload.decode(charset, errors="replace")
@@ -127,7 +127,7 @@ class MboxProcessor(BaseFileProcessor):
             else:
                 # Single part message
                 payload = msg.get_payload(decode=True)
-                if payload:
+                if isinstance(payload, bytes):
                     try:
                         charset = msg.get_content_charset() or "utf-8"
                         body_parts.append(payload.decode(charset, errors="replace"))
