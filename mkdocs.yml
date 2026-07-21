@@ -69,6 +69,7 @@ nav:
     - Configuration Reference: developer/config-reference.md
     - Testing: developer/testing.md
     - Type Checking: developer/typing.md
+    - Internationalization: developer/i18n.md
   - About:
     - Project Status: about/project-status.md
     - Roadmap: about/roadmap.md

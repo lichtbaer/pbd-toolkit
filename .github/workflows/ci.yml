@@ -86,6 +86,29 @@ jobs:
         run: |
           python -m mypy
 
+  i18n:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install babel
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "babel>=2.14.0"
+
+      - name: Catalog drift + completeness gate
+        run: |
+          # Fails if core/cli.py or core/scan_reporting.py contain strings not yet
+          # extracted into locales/base.pot, or if the de/en catalogs have
+          # fuzzy/untranslated entries.
+          python scripts/update_catalog.py check
+
   security:
     runs-on: ubuntu-latest
     steps:
