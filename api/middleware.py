@@ -49,19 +49,34 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Simple in-memory sliding-window rate limiter keyed by client IP."""
+    """Simple in-memory sliding-window rate limiter keyed by client IP.
+
+    Buckets are per-process: under multiple uvicorn workers or replicas the
+    effective limit multiplies (each process enforces its own window). See
+    the deployment docs for recommendations on multi-worker setups.
+
+    Idle client buckets are evicted after ``eviction_ttl`` seconds of
+    inactivity so memory does not grow unbounded under IP churn (e.g. behind
+    a reverse proxy rotating through many client addresses).
+    """
 
     def __init__(
         self,
         app: Callable,
         requests_per_minute: int = 60,
         scan_requests_per_minute: int = 5,
+        eviction_ttl: float = 300.0,
+        sweep_interval: float = 60.0,
     ) -> None:
         super().__init__(app)
         self.general_limit = requests_per_minute
         self.scan_limit = scan_requests_per_minute
+        self.eviction_ttl = eviction_ttl
+        self.sweep_interval = sweep_interval
         self._general_counts: dict[str, list[float]] = {}
         self._scan_counts: dict[str, list[float]] = {}
+        self._last_seen: dict[str, float] = {}
+        self._last_sweep = time.monotonic()
         self._lock = threading.Lock()
 
     def _is_rate_limited(
@@ -87,8 +102,35 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             timestamps.append(now)
             return False, 0
 
+    def _touch(self, key: str) -> None:
+        with self._lock:
+            self._last_seen[key] = time.monotonic()
+
+    def _evict_idle_buckets(self) -> None:
+        """Drop buckets for clients that have been idle past ``eviction_ttl``.
+
+        Runs at most once per ``sweep_interval`` so the O(clients) scan
+        doesn't happen on every request.
+        """
+        now = time.monotonic()
+        with self._lock:
+            if now - self._last_sweep < self.sweep_interval:
+                return
+            self._last_sweep = now
+            stale = [
+                key
+                for key, seen in self._last_seen.items()
+                if now - seen > self.eviction_ttl
+            ]
+            for key in stale:
+                self._last_seen.pop(key, None)
+                self._general_counts.pop(key, None)
+                self._scan_counts.pop(key, None)
+
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         client_ip = request.client.host if request.client else "unknown"
+        self._touch(client_ip)
+        self._evict_idle_buckets()
 
         # Stricter limit for scan creation
         if request.method == "POST" and request.url.path.rstrip("/") == "/api/v1/scans":

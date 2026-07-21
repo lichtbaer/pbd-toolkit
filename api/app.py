@@ -20,6 +20,18 @@ logger = logging.getLogger(__name__)
 # Safe defaults for CORS origins (common local dev servers).
 _DEFAULT_CORS_ORIGINS = ["http://localhost:3000", "http://localhost:8080"]
 
+# Default number of worker threads for background scans (see ScannerService).
+_DEFAULT_SCAN_WORKERS = 2
+
+
+def _env_flag(name: str) -> bool:
+    """Parse a boolean environment variable ("1", "true", "yes" -> True)."""
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+class UnauthenticatedAPIError(RuntimeError):
+    """Raised when the API would start without authentication and no opt-out was given."""
+
 
 def create_app(
     analytics_db_path: str = ".pbd_analytics.db",
@@ -28,6 +40,8 @@ def create_app(
     allowed_scan_roots: list[str] | None = None,
     rate_limit: int = 60,
     scan_rate_limit: int = 5,
+    allow_unauthenticated: bool = False,
+    scan_workers: int | None = None,
 ) -> FastAPI:
     """Create and configure the FastAPI application.
 
@@ -38,7 +52,36 @@ def create_app(
         allowed_scan_roots: Directories the scan API is allowed to access.
         rate_limit: General requests-per-minute limit per client IP.
         scan_rate_limit: Scan-creation requests-per-minute limit per client IP.
+        allow_unauthenticated: Explicit opt-out allowing the API to serve
+            without an API key. Also settable via ``PBD_ALLOW_UNAUTHENTICATED``.
+            Without this (or an API key), ``create_app`` refuses to start.
+        scan_workers: Worker-thread count for background scans. Defaults to
+            ``PBD_SCAN_WORKERS`` env var, then 2.
+
+    Raises:
+        UnauthenticatedAPIError: If no API key is configured and neither
+            ``allow_unauthenticated`` nor ``PBD_ALLOW_UNAUTHENTICATED`` opts out.
     """
+    # Resolve the API key from parameter or environment variable.
+    effective_api_key = api_key or os.environ.get("PBD_API_KEY")
+    effective_allow_unauthenticated = allow_unauthenticated or _env_flag(
+        "PBD_ALLOW_UNAUTHENTICATED"
+    )
+
+    if not effective_api_key and not effective_allow_unauthenticated:
+        raise UnauthenticatedAPIError(
+            "Refusing to start the API without authentication: no API key was "
+            "configured (--api-key / PBD_API_KEY). The API scans directories for "
+            "PII and stores findings metadata, so running it unauthenticated is "
+            "unsafe by default. Set an API key, or explicitly opt out with "
+            "--allow-unauthenticated / PBD_ALLOW_UNAUTHENTICATED=1 if you understand "
+            "the risk (e.g. a locked-down internal network)."
+        )
+
+    effective_scan_workers = scan_workers or int(
+        os.environ.get("PBD_SCAN_WORKERS", _DEFAULT_SCAN_WORKERS)
+    )
+
     # Shared state --------------------------------------------------------
     db = AnalyticsDatabase(db_path=analytics_db_path)
     store = AnalyticsStore(db_path=analytics_db_path)
@@ -46,6 +89,7 @@ def create_app(
     scanner_service = ScannerService(
         analytics_store=store,
         allowed_scan_roots=allowed_scan_roots,
+        max_workers=effective_scan_workers,
     )
 
     @asynccontextmanager
@@ -64,8 +108,6 @@ def create_app(
 
     # -- Security middleware (outermost first) -----------------------------
 
-    # Resolve the API key from parameter or environment variable.
-    effective_api_key = api_key or os.environ.get("PBD_API_KEY")
     if effective_api_key:
         app.add_middleware(APIKeyMiddleware, api_key=effective_api_key)
     else:

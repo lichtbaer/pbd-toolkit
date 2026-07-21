@@ -24,7 +24,7 @@ pytestmark = pytest.mark.skipif(
 def client(tmp_path):
     """Provide a FastAPI TestClient with a temporary analytics DB."""
     db_path = str(tmp_path / "test_api.db")
-    app = create_app(analytics_db_path=db_path)
+    app = create_app(analytics_db_path=db_path, allow_unauthenticated=True)
     with TestClient(app) as c:
         yield c
 
@@ -47,7 +47,7 @@ def seeded_client(tmp_path):
     )
     store.close()
 
-    app = create_app(analytics_db_path=db_path)
+    app = create_app(analytics_db_path=db_path, allow_unauthenticated=True)
     with TestClient(app) as c:
         yield {"client": c, "session_id": sid}
 
@@ -188,7 +188,11 @@ class TestPathTraversal:
         db_path = str(tmp_path / "pt.db")
         allowed = str(tmp_path / "safe")
         (tmp_path / "safe").mkdir()
-        app = create_app(analytics_db_path=db_path, allowed_scan_roots=[allowed])
+        app = create_app(
+            analytics_db_path=db_path,
+            allowed_scan_roots=[allowed],
+            allow_unauthenticated=True,
+        )
         with TestClient(app) as c:
             resp = c.post("/api/v1/scans", json={"path": "/etc"})
             assert resp.status_code == 400
@@ -201,7 +205,11 @@ class TestPathTraversal:
         db_path = str(tmp_path / "pt2.db")
         safe = tmp_path / "safe"
         safe.mkdir()
-        app = create_app(analytics_db_path=db_path, allowed_scan_roots=[str(safe)])
+        app = create_app(
+            analytics_db_path=db_path,
+            allowed_scan_roots=[str(safe)],
+            allow_unauthenticated=True,
+        )
         with TestClient(app) as c:
             resp = c.post("/api/v1/scans", json={"path": str(safe / ".." / "..")})
             assert resp.status_code == 400
@@ -211,7 +219,11 @@ class TestPathTraversal:
         db_path = str(tmp_path / "pt3.db")
         safe = tmp_path / "safe"
         safe.mkdir()
-        app = create_app(analytics_db_path=db_path, allowed_scan_roots=[str(safe)])
+        app = create_app(
+            analytics_db_path=db_path,
+            allowed_scan_roots=[str(safe)],
+            allow_unauthenticated=True,
+        )
         with TestClient(app) as c:
             resp = c.post("/api/v1/scans", json={"path": str(safe)})
             # 202 means the scan was accepted (it may fail later, but path validation passed)
@@ -254,7 +266,7 @@ class TestCORS:
 
     def test_default_origins_not_wildcard(self, tmp_path):
         db_path = str(tmp_path / "cors.db")
-        app = create_app(analytics_db_path=db_path)
+        app = create_app(analytics_db_path=db_path, allow_unauthenticated=True)
         # Check that CORS middleware is configured with non-wildcard origins
         from starlette.middleware.cors import CORSMiddleware as _CM
 
@@ -265,7 +277,9 @@ class TestCORS:
 
     def test_wildcard_disables_credentials(self, tmp_path):
         db_path = str(tmp_path / "cors2.db")
-        app = create_app(analytics_db_path=db_path, cors_origins=["*"])
+        app = create_app(
+            analytics_db_path=db_path, cors_origins=["*"], allow_unauthenticated=True
+        )
         from starlette.middleware.cors import CORSMiddleware as _CM
 
         for mw in app.user_middleware:
@@ -320,6 +334,7 @@ class TestRateLimiting:
             analytics_db_path=db_path,
             allowed_scan_roots=[str(safe)],
             scan_rate_limit=2,
+            allow_unauthenticated=True,
         )
         with TestClient(app) as c:
             # First two requests should succeed (202)
@@ -330,3 +345,89 @@ class TestRateLimiting:
             resp = c.post("/api/v1/scans", json={"path": str(safe)})
             assert resp.status_code == 429
             assert "Retry-After" in resp.headers
+
+    def test_idle_buckets_are_evicted(self, monkeypatch):
+        from api.middleware import RateLimitMiddleware
+
+        clock = [1000.0]
+        monkeypatch.setattr("api.middleware.time.monotonic", lambda: clock[0])
+
+        mw = RateLimitMiddleware(app=None, eviction_ttl=100.0, sweep_interval=0.0)
+        mw._touch("1.2.3.4")
+        mw._is_rate_limited(mw._general_counts, "1.2.3.4", 60)
+        assert "1.2.3.4" in mw._last_seen
+        assert "1.2.3.4" in mw._general_counts
+
+        # Advance the clock well past eviction_ttl and trigger a sweep for a
+        # different client; the idle bucket for 1.2.3.4 should be dropped.
+        clock[0] += 200.0
+        mw._touch("5.6.7.8")
+        mw._evict_idle_buckets()
+
+        assert "1.2.3.4" not in mw._last_seen
+        assert "1.2.3.4" not in mw._general_counts
+
+
+class TestSecureByDefault:
+    """Verify the API refuses to start unauthenticated unless opted out."""
+
+    def test_no_key_no_optout_raises(self, tmp_path, monkeypatch):
+        from api.app import UnauthenticatedAPIError
+
+        monkeypatch.delenv("PBD_API_KEY", raising=False)
+        monkeypatch.delenv("PBD_ALLOW_UNAUTHENTICATED", raising=False)
+        db_path = str(tmp_path / "secure.db")
+        with pytest.raises(UnauthenticatedAPIError):
+            create_app(analytics_db_path=db_path)
+
+    def test_no_key_with_explicit_optout_succeeds(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("PBD_API_KEY", raising=False)
+        monkeypatch.delenv("PBD_ALLOW_UNAUTHENTICATED", raising=False)
+        db_path = str(tmp_path / "secure2.db")
+        app = create_app(analytics_db_path=db_path, allow_unauthenticated=True)
+        with TestClient(app) as c:
+            resp = c.get("/api/v1/health")
+            assert resp.status_code == 200
+
+    def test_no_key_with_env_optout_succeeds(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("PBD_API_KEY", raising=False)
+        monkeypatch.setenv("PBD_ALLOW_UNAUTHENTICATED", "1")
+        db_path = str(tmp_path / "secure3.db")
+        app = create_app(analytics_db_path=db_path)
+        with TestClient(app) as c:
+            resp = c.get("/api/v1/health")
+            assert resp.status_code == 200
+
+    def test_api_key_alone_is_sufficient(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("PBD_ALLOW_UNAUTHENTICATED", raising=False)
+        db_path = str(tmp_path / "secure4.db")
+        # Should not raise even though allow_unauthenticated is False.
+        app = create_app(analytics_db_path=db_path, api_key="test-key")
+        with TestClient(app) as c:
+            resp = c.get("/api/v1/health")
+            assert resp.status_code == 200
+
+
+class TestScanWorkers:
+    """Verify the scan worker-thread count is configurable."""
+
+    def test_default_worker_count(self, tmp_path):
+        db_path = str(tmp_path / "workers.db")
+        app = create_app(analytics_db_path=db_path, allow_unauthenticated=True)
+        scanner_service = app.state.scanner_service
+        assert scanner_service._executor._max_workers == 2
+
+    def test_custom_worker_count(self, tmp_path):
+        db_path = str(tmp_path / "workers2.db")
+        app = create_app(
+            analytics_db_path=db_path, allow_unauthenticated=True, scan_workers=5
+        )
+        scanner_service = app.state.scanner_service
+        assert scanner_service._executor._max_workers == 5
+
+    def test_worker_count_from_env(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("PBD_SCAN_WORKERS", "7")
+        db_path = str(tmp_path / "workers3.db")
+        app = create_app(analytics_db_path=db_path, allow_unauthenticated=True)
+        scanner_service = app.state.scanner_service
+        assert scanner_service._executor._max_workers == 7

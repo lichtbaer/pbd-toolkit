@@ -1511,6 +1511,20 @@ def serve(
     cors_origins: str | None = typer.Option(
         None, "--cors-origins", help="Comma-separated allowed CORS origins"
     ),
+    allow_unauthenticated: bool = typer.Option(
+        False,
+        "--allow-unauthenticated",
+        help=(
+            "Explicitly opt out of authentication when no API key is set "
+            "(or set PBD_ALLOW_UNAUTHENTICATED=1). Without this, the server "
+            "refuses to start unauthenticated."
+        ),
+    ),
+    scan_workers: int | None = typer.Option(
+        None,
+        "--scan-workers",
+        help="Worker-thread count for background scans (default: 2, or PBD_SCAN_WORKERS)",
+    ),
 ) -> None:
     """Start the REST API server for scanning and analytics."""
     try:
@@ -1532,6 +1546,10 @@ def serve(
         argv.extend(["--allowed-scan-roots", allowed_scan_roots])
     if cors_origins:
         argv.extend(["--cors-origins", cors_origins])
+    if allow_unauthenticated:
+        argv.append("--allow-unauthenticated")
+    if scan_workers is not None:
+        argv.extend(["--scan-workers", str(scan_workers)])
     serve_main(argv)
 
 

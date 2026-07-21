@@ -44,6 +44,21 @@ def main(argv: list[str] | None = None) -> None:
         default=None,
         help="Comma-separated list of allowed CORS origins",
     )
+    parser.add_argument(
+        "--allow-unauthenticated",
+        action="store_true",
+        help=(
+            "Explicitly opt out of authentication when no API key is set "
+            "(or set PBD_ALLOW_UNAUTHENTICATED=1). Without this, the server "
+            "refuses to start unauthenticated."
+        ),
+    )
+    parser.add_argument(
+        "--scan-workers",
+        type=int,
+        default=None,
+        help="Worker-thread count for background scans (default: 2, or PBD_SCAN_WORKERS)",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -67,7 +82,7 @@ def main(argv: list[str] | None = None) -> None:
         os.environ["PBD_CORS_ORIGINS"] = args.cors_origins
 
     try:
-        from api.app import create_app
+        from api.app import UnauthenticatedAPIError, create_app
     except ImportError:
         # uvicorn can be present as a transitive dependency (e.g. pulled in by
         # pydantic-ai) even when fastapi itself is not installed, so this import
@@ -84,12 +99,18 @@ def main(argv: list[str] | None = None) -> None:
         args.allowed_scan_roots.split(",") if args.allowed_scan_roots else None
     )
 
-    app = create_app(
-        analytics_db_path=args.analytics_db,
-        cors_origins=cors_origins,
-        api_key=args.api_key,
-        allowed_scan_roots=allowed_roots,
-    )
+    try:
+        app = create_app(
+            analytics_db_path=args.analytics_db,
+            cors_origins=cors_origins,
+            api_key=args.api_key,
+            allowed_scan_roots=allowed_roots,
+            allow_unauthenticated=args.allow_unauthenticated,
+            scan_workers=args.scan_workers,
+        )
+    except UnauthenticatedAPIError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     uvicorn.run(
         app,

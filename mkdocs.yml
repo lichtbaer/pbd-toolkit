@@ -62,6 +62,7 @@ nav:
     - PII Detection Methods: user-guide/detection-methods.md
     - Open-Source Models: user-guide/open-source-models.md
     - Whitelist Usage: user-guide/whitelist.md
+    - REST API Server: user-guide/api-server.md
   - Developer Documentation:
     - Architecture: developer/architecture.md
     - Adding File Processors: developer/adding-processors.md
