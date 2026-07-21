@@ -7,6 +7,8 @@ import csv
 import html
 import json
 import logging
+import os
+import shutil
 from typing import Any, TextIO
 
 from core.exceptions import OutputError
@@ -14,8 +16,9 @@ from core.matches import PiiMatch
 
 _logger = logging.getLogger(__name__)
 
-# Threshold at which JsonWriter warns about high memory usage
-_JSON_MEMORY_WARNING_THRESHOLD = 50_000
+# Chunk size used when merging the streamed findings body into the final
+# JSON output file, so finalize() never holds more than one chunk in memory.
+_JSON_MERGE_CHUNK_SIZE = 1024 * 1024
 
 
 class OutputWriter(abc.ABC):
@@ -94,23 +97,28 @@ class CsvWriter(OutputWriter):
 
 
 class JsonWriter(OutputWriter):
-    """Writes findings to a JSON file.
+    """Writes findings to a JSON file with bounded memory usage.
 
-    Note: This writer accumulates all matches in memory before writing.
-    For very large scans (>50k findings), consider using JSONL format
-    instead, which supports true streaming.
+    Each match is appended to a temporary body file as it is written, so
+    memory usage stays constant regardless of how many findings a scan
+    produces. Metadata is only known at ``finalize()`` time (after the scan
+    completes) and must appear before the ``findings`` array in the output,
+    so finalize() merges the temporary body into the final file by copying
+    it in fixed-size chunks rather than loading it into memory as a whole.
+
+    Output structure is unchanged from previous versions::
+
+        {"metadata": {...}, "findings": [{...}, {...}, ...]}
     """
 
-    def __init__(
-        self,
-        file_path: str,
-        include_header: bool = True,
-        memory_warning_threshold: int = _JSON_MEMORY_WARNING_THRESHOLD,
-    ):
+    def __init__(self, file_path: str, include_header: bool = True):
         super().__init__(file_path, include_header)
-        self.matches: list[dict] = []
-        self._warned_memory = False
-        self._memory_warning_threshold = memory_warning_threshold
+        self._count = 0
+        self._body_path = file_path + ".findings.tmp"
+        try:
+            self._body_file = open(self._body_path, "w", encoding="utf-8")
+        except OSError as e:
+            raise OutputError(f"Failed to open output file: {e}")
 
     def write_match(self, match: PiiMatch) -> None:
         match_dict = {
@@ -128,30 +136,33 @@ class JsonWriter(OutputWriter):
             match_dict["context_after"] = match.context_after
         if match.char_offset is not None:
             match_dict["char_offset"] = match.char_offset
-        self.matches.append(match_dict)
 
-        if (
-            not self._warned_memory
-            and len(self.matches) >= self._memory_warning_threshold
-        ):
-            self._warned_memory = True
-            _logger.warning(
-                "JSON writer is holding %d+ findings in memory. "
-                "Consider using --format jsonl for streaming output.",
-                self._memory_warning_threshold,
-            )
+        prefix = ",\n" if self._count > 0 else ""
+        self._body_file.write(prefix + json.dumps(match_dict, ensure_ascii=False))
+        self._count += 1
 
     def finalize(self, metadata: dict | None = None) -> None:
-        output_data = {"metadata": metadata or {}, "findings": self.matches}
         try:
-            with open(self.file_path, "w", encoding="utf-8") as f:
-                json.dump(output_data, f, indent=2, ensure_ascii=False)
+            self._body_file.close()
+            with open(self.file_path, "w", encoding="utf-8") as out:
+                out.write(
+                    '{"metadata": '
+                    + json.dumps(metadata or {}, ensure_ascii=False)
+                    + ', "findings": ['
+                )
+                if self._count > 0:
+                    with open(self._body_path, encoding="utf-8") as body:
+                        shutil.copyfileobj(body, out, _JSON_MERGE_CHUNK_SIZE)
+                out.write("]}")
         except OSError as e:
             raise OutputError(f"Failed to write JSON output: {e}")
+        finally:
+            if os.path.exists(self._body_path):
+                os.remove(self._body_path)
 
     @property
     def supports_streaming(self) -> bool:
-        return False
+        return True
 
 
 class StreamingJsonWriter(OutputWriter):
@@ -612,11 +623,10 @@ def create_output_writer(
     output_format: str,
     file_path: str,
     include_header: bool = True,
-    json_memory_warning_threshold: int = _JSON_MEMORY_WARNING_THRESHOLD,
 ) -> OutputWriter:
     """Factory function to create the appropriate output writer."""
     if output_format == "json":
-        return JsonWriter(file_path, include_header, json_memory_warning_threshold)
+        return JsonWriter(file_path, include_header)
     elif output_format == "streaming-json":
         return StreamingJsonWriter(file_path, include_header)
     elif output_format == "jsonl":

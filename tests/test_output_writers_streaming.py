@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+from pathlib import Path
 
 import pytest
 
@@ -62,7 +64,77 @@ def test_json_writer_write_and_finalize(tmp_path):
     assert len(data["findings"]) == 1
     assert data["findings"][0]["text"] == "John Doe"
     assert data["metadata"]["scan_id"] == "123"
-    assert writer.supports_streaming is False
+    assert writer.supports_streaming is True
+
+
+def test_json_writer_streams_to_disk_before_finalize(tmp_path):
+    """Matches are flushed to a body file as they arrive, not buffered in a list."""
+    out = tmp_path / "findings.json"
+    writer = JsonWriter(str(out))
+
+    assert not hasattr(writer, "matches")
+
+    writer.write_match(
+        PiiMatch(
+            text="jane@example.com",
+            file="/tmp/a.txt",
+            type="REGEX_EMAIL",
+            ner_score=None,
+            engine="regex",
+            metadata={},
+        )
+    )
+
+    body_path = str(out) + ".findings.tmp"
+    writer._body_file.flush()
+    assert os.path.isfile(body_path)
+    assert "jane@example.com" in Path(body_path).read_text(encoding="utf-8")
+    # The final file does not exist yet -- it is only produced by finalize().
+    assert not out.exists()
+
+    writer.finalize(metadata={"scan_id": "abc"})
+
+    assert not os.path.exists(body_path)
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert len(data["findings"]) == 1
+    assert data["metadata"]["scan_id"] == "abc"
+
+
+def test_json_writer_large_match_count_produces_valid_json(tmp_path):
+    """A large run of matches still produces valid, complete JSON output."""
+    out = tmp_path / "findings.json"
+    writer = JsonWriter(str(out))
+
+    match_count = 5_000
+    for i in range(match_count):
+        writer.write_match(
+            PiiMatch(
+                text=f"user{i}@example.com",
+                file="/tmp/a.txt",
+                type="REGEX_EMAIL",
+                ner_score=None,
+                engine="regex",
+                metadata={},
+            )
+        )
+    writer.finalize(metadata={"scan_id": "large-run"})
+
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert len(data["findings"]) == match_count
+    assert data["findings"][0]["text"] == "user0@example.com"
+    assert data["findings"][-1]["text"] == f"user{match_count - 1}@example.com"
+    assert data["metadata"]["scan_id"] == "large-run"
+
+
+def test_json_writer_empty_findings(tmp_path):
+    """finalize() with no matches written still produces valid JSON."""
+    out = tmp_path / "findings.json"
+    writer = JsonWriter(str(out))
+    writer.finalize(metadata={"scan_id": "empty"})
+
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["findings"] == []
+    assert data["metadata"]["scan_id"] == "empty"
 
 
 def test_jsonl_writer_streams_and_appends_metadata(tmp_path):
@@ -188,29 +260,3 @@ def test_privacy_statistics_writer(tmp_path):
     assert "statistics_by_dimension" in data
     assert "summary" in data
     assert "metadata" in data
-
-
-def test_json_writer_configurable_memory_warning(tmp_path, caplog):
-    """Test JsonWriter warns at custom memory_warning_threshold."""
-    import logging
-
-    out = tmp_path / "findings.json"
-    writer = JsonWriter(str(out), memory_warning_threshold=3)
-
-    match = PiiMatch(
-        text="test@example.com",
-        file="/tmp/a.txt",
-        type="REGEX_EMAIL",
-        ner_score=None,
-        engine="regex",
-        metadata={},
-    )
-
-    with caplog.at_level(logging.WARNING, logger="core.writers"):
-        for _ in range(5):
-            writer.write_match(match)
-
-    assert any(
-        "3" in record.message and "memory" in record.message.lower()
-        for record in caplog.records
-    )
