@@ -39,7 +39,11 @@ pytest -m "not slow and not integration"
 
 ## Test Coverage
 
-The test suite aims for >80% code coverage. Run coverage reports to see current coverage:
+The test suite aims for >80% code coverage long-term. CI enforces a ratcheting
+floor via `fail_under` in `pyproject.toml` (`[tool.coverage.report]`) — currently
+65%, just below the ~67% measured after the #93 coverage push. Raise the floor
+as coverage improves; never lower it without explicit justification. Run
+coverage reports to see current coverage:
 
 ```bash
 pytest --cov=. --cov-report=term-missing
