@@ -1818,8 +1818,9 @@ def export_config(
             file_data = ConfigLoader.load_config(config)
             for key, value in file_data.items():
                 if hasattr(cfg, key):
+                    # Config.__setattr__ keeps cfg.scan/engine/output/runtime
+                    # live-synced, so no manual resync is needed here.
                     setattr(cfg, key, value)
-            cfg._sync_sub_configs()
         except Exception as exc:
             typer.echo(f"Warning: could not load config file: {exc}", err=True)
 

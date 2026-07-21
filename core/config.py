@@ -73,6 +73,68 @@ class ScanConfig:
     # Backpressure cap: limits the number of in-flight async file callbacks so
     # that the scanner does not exhaust OS file descriptors on deep directory trees.
     max_pending_futures: int = 512
+    # Glob patterns for files/directories to skip during scanning.
+    exclude_patterns: list[str] = field(default_factory=list)
+
+    def validate_path(
+        self, translate: Callable[[str], str] | None = None
+    ) -> tuple[bool, str | None]:
+        """Validate the search path.
+
+        Args:
+            translate: Optional translation function for the error message
+                (``Config`` passes its own ``_`` here so translated CLI output
+                is preserved even though ``ScanConfig`` has no translation
+                function of its own).
+
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        t = translate or (lambda x: x)
+        if not self.path:
+            return False, t("--path parameter cannot be empty")
+
+        if not os.path.exists(self.path):
+            return False, t("Path does not exist: {}").format(self.path)
+
+        if not os.path.isdir(self.path):
+            return False, t("Path is not a directory: {}").format(self.path)
+
+        if not os.access(self.path, os.R_OK):
+            return False, t("Path is not readable: {}").format(self.path)
+
+        return True, None
+
+    def validate_file_path(self, file_path: str) -> tuple[bool, str | None]:
+        """Validate file path and check for path traversal.
+
+        Args:
+            file_path: Path to validate
+
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        try:
+            # Resolve to absolute paths to prevent path traversal
+            real_base = os.path.realpath(self.path)
+            real_file = os.path.realpath(file_path)
+
+            # Check if file is within base directory
+            if not real_file.startswith(real_base + os.sep) and real_file != real_base:
+                return False, "Path traversal attempt detected"
+
+            # Check file size limit
+            if os.path.isfile(file_path):
+                file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+                if file_size_mb > self.max_file_size_mb:
+                    return (
+                        False,
+                        f"File too large: {file_size_mb:.2f} MB (max: {self.max_file_size_mb} MB)",
+                    )
+
+            return True, None
+        except (OSError, ValueError) as e:
+            return False, f"Path validation error: {str(e)}"
 
 
 @dataclass
@@ -147,6 +209,21 @@ class OutputConfig:
     analytics_db_path: str = ".pbd_analytics.db"
 
 
+@dataclass
+class RuntimeConfig:
+    """Runtime services shared across components: logging, verbosity, CSV sink.
+
+    These are cross-cutting dependencies rather than scan/engine/output
+    *settings*, but they are still needed by low-level components (e.g. the
+    scanner) that should not otherwise depend on the full ``Config`` object.
+    """
+
+    logger: logging.Logger | None = field(default=None)
+    verbose: bool = False
+    csv_writer: _csv.Writer | None = field(default=None)
+    csv_file_handle: object | None = field(default=None)
+
+
 def _build_sub_config_fields() -> dict[str, tuple[str, ...]]:
     """Derive sub-config field mappings from dataclass introspection.
 
@@ -160,10 +237,27 @@ def _build_sub_config_fields() -> dict[str, tuple[str, ...]]:
         "scan": tuple(f.name for f in _dc.fields(ScanConfig)),
         "engine": tuple(f.name for f in _dc.fields(EngineConfig)),
         "output": tuple(f.name for f in _dc.fields(OutputConfig)),
+        "runtime": tuple(f.name for f in _dc.fields(RuntimeConfig)),
     }
 
 
+def _build_field_to_sub_config() -> dict[str, str]:
+    """Reverse index: top-level field name -> owning sub-config attribute name.
+
+    Used by ``Config.__setattr__`` to keep the sub-configs live-synced whenever
+    a mirrored top-level field is assigned, including after construction
+    (e.g. ``config.verbose = True`` or config-file/CLI post-processing).
+    """
+    mapping: dict[str, str] = {}
+    for sub_attr, field_names in _build_sub_config_fields().items():
+        for name in field_names:
+            mapping[name] = sub_attr
+    return mapping
+
+
 _SUB_CONFIG_FIELDS = _build_sub_config_fields()
+_FIELD_TO_SUBCONFIG = _build_field_to_sub_config()
+_SUB_CONFIG_ATTRS = frozenset(_SUB_CONFIG_FIELDS.keys())
 
 
 @dataclass
@@ -173,15 +267,25 @@ class Config:
     This class centralizes all configuration and dependencies,
     enabling dependency injection and better testability.
 
-    Sub-configs ``scan``, ``engine``, and ``output`` group related fields.
-    For backward compatibility, all fields are also exposed as top-level
-    attributes via ``__getattr__`` / ``__setattr__``.
+    Sub-configs ``scan``, ``engine``, ``output``, and ``runtime`` group related
+    fields. For backward compatibility, all mirrored fields are also exposed
+    as top-level attributes; ``__setattr__`` keeps the sub-config in sync
+    *live*, on every assignment (not just at construction time), so
+    ``config.verbose = True`` after the fact is reflected in
+    ``config.runtime.verbose`` too. This only flows top-level -> sub-config:
+    mutating a sub-config object directly (``config.scan.path = ...``) does
+    not update the top-level mirror, so prefer setting the top-level
+    attribute when both need to stay consistent.
     """
 
-    # Grouped configuration
+    # Grouped configuration. Must be declared before any field they mirror,
+    # since the dataclass-generated __init__ assigns fields in declaration
+    # order and __setattr__ needs the target sub-config object to already
+    # exist when a mirrored field (e.g. ``path``, ``verbose``) is set.
     scan: ScanConfig = field(default_factory=ScanConfig)
     engine: EngineConfig = field(default_factory=EngineConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
+    runtime: RuntimeConfig = field(default_factory=RuntimeConfig)
 
     # CLI Arguments (top-level for convenience)
     path: str = ""
@@ -317,19 +421,36 @@ class Config:
         if self._ is None or not callable(self._):
             # Fallback if translation not set
             self._ = lambda x: x
-        self._sync_sub_configs()
+
+    def __setattr__(self, name: str, value) -> None:
+        """Set a field and, if it mirrors a sub-config field, sync it live.
+
+        This is what makes ``config.scan``/``config.engine``/``config.output``/
+        ``config.runtime`` a reliable single source of truth for scoped
+        components (e.g. ``FileScanner`` reading only ``config.scan``): any
+        assignment to a mirrored top-level attribute — at construction time
+        *or* later, such as a config-file/CLI post-processing step — is
+        reflected in the owning sub-config immediately, not just once in
+        ``__post_init__``.
+        """
+        super().__setattr__(name, value)
+        if name in _SUB_CONFIG_ATTRS:
+            return  # assigning a sub-config container itself; nothing to mirror
+        sub_attr = _FIELD_TO_SUBCONFIG.get(name)
+        if sub_attr is None:
+            return
+        sub = self.__dict__.get(sub_attr)
+        if sub is not None:
+            setattr(sub, name, value)
 
     def _sync_sub_configs(self) -> None:
-        """Sync top-level fields into grouped sub-config objects.
+        """Force a full top-level -> sub-config resync.
 
-        This keeps backward compatibility: all fields remain accessible at
-        the top level, but are also available via ``config.scan.*``,
-        ``config.engine.*``, and ``config.output.*``.
-
-        The mapping is derived automatically from each sub-config's
-        dataclass fields, so new fields only need to be added to the
-        sub-config dataclass and the top-level ``Config`` — this method
-        requires no manual update.
+        Kept as a public no-op-in-practice safety net for backward
+        compatibility: ``__setattr__`` already keeps sub-configs live-synced
+        on every assignment, so this is only needed if a sub-config object
+        was replaced wholesale (``config.scan = ScanConfig(...)``) and needs
+        to be repopulated from the current top-level values.
         """
         for attr, field_names in _SUB_CONFIG_FIELDS.items():
             sub = getattr(self, attr)
@@ -343,22 +464,16 @@ class Config:
         Returns:
             Tuple of (is_valid, error_message)
         """
-        if not self.path:
-            return False, self._("--path parameter cannot be empty")
-
-        if not os.path.exists(self.path):
-            return False, self._("Path does not exist: {}").format(self.path)
-
-        if not os.path.isdir(self.path):
-            return False, self._("Path is not a directory: {}").format(self.path)
-
-        if not os.access(self.path, os.R_OK):
-            return False, self._("Path is not readable: {}").format(self.path)
-
-        return True, None
+        return self.scan.validate_path(self._)
 
     def validate_file_path(self, file_path: str) -> tuple[bool, str | None]:
         """Validate file path and check for path traversal.
+
+        Delegates to ``self.scan`` — kept as a thin top-level convenience
+        method since most callers still hold a full ``Config``, but the
+        scan-scoped logic itself lives on ``ScanConfig`` so components that
+        only depend on ``config.scan`` (e.g. ``FileScanner``) can call it
+        without needing the full ``Config`` object.
 
         Args:
             file_path: Path to validate
@@ -366,27 +481,7 @@ class Config:
         Returns:
             Tuple of (is_valid, error_message)
         """
-        try:
-            # Resolve to absolute paths to prevent path traversal
-            real_base = os.path.realpath(self.path)
-            real_file = os.path.realpath(file_path)
-
-            # Check if file is within base directory
-            if not real_file.startswith(real_base + os.sep) and real_file != real_base:
-                return False, "Path traversal attempt detected"
-
-            # Check file size limit
-            if os.path.isfile(file_path):
-                file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
-                if file_size_mb > self.max_file_size_mb:
-                    return (
-                        False,
-                        f"File too large: {file_size_mb:.2f} MB (max: {self.max_file_size_mb} MB)",
-                    )
-
-            return True, None
-        except (OSError, ValueError) as e:
-            return False, f"Path validation error: {str(e)}"
+        return self.scan.validate_file_path(file_path)
 
     @classmethod
     def from_args(

@@ -43,6 +43,36 @@ The `ConfigLoader` handles:
 - Loading configuration from YAML or JSON files
 - Merging config file values with CLI arguments (CLI takes precedence)
 
+**Scoped sub-configs.** `Config` groups related fields into four typed,
+immutable-in-spirit sub-configs so individual components can depend on only
+the settings they actually need instead of the entire object:
+
+- `config.scan` (`ScanConfig`) — file discovery and safety limits (path,
+  excludes, size/time caps, magic detection). Owns `validate_path()` /
+  `validate_file_path()`.
+- `config.engine` (`EngineConfig`) — detection engine selection and tuning
+  (models, API URLs, thresholds).
+- `config.output` (`OutputConfig`) — result formatting and streaming
+  (output path, deduplication, chunking, analytics).
+- `config.runtime` (`RuntimeConfig`) — cross-cutting runtime services:
+  logger, verbosity, CSV sink.
+
+Every sub-config field also exists as a top-level `Config` attribute for
+backward compatibility (e.g. `config.verbose` and `config.runtime.verbose`
+are the same value). `Config.__setattr__` keeps the sub-config **live**
+in sync with the top-level mirror on every assignment — at construction
+time and afterwards (e.g. CLI/config-file post-processing that does
+`setattr(cfg, key, value)` in a loop). This only flows top-level ->
+sub-config; mutating a sub-config object directly does not update the
+top-level mirror.
+
+`FileScanner` (`core/scanner.py`) is the first component migrated to depend
+only on `config.scan` and `config.runtime` rather than the full `Config` —
+new low-level components should follow the same pattern rather than reading
+arbitrary top-level `Config` attributes. Engine and output/writer code still
+receive the full `Config` object; narrowing those is tracked as follow-up
+work (see issue #77).
+
 ### File Processing
 
 **Directory**: `file_processors/`

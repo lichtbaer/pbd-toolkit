@@ -3,7 +3,7 @@
 import os
 
 from core import constants
-from core.config import Config, load_extended_config
+from core.config import Config, ScanConfig, load_extended_config
 
 
 class TestConfig:
@@ -234,6 +234,123 @@ class TestConfig:
         assert config.openai_model == "gpt-4"
         assert config.use_magic_detection is True
         assert config.magic_detection_fallback is False
+
+
+class TestScopedSubConfigs:
+    """Tests for the scoped sub-config objects (scan/engine/output/runtime)
+    and the live top-level -> sub-config sync (see #77)."""
+
+    def test_construction_populates_sub_configs(self):
+        """Sub-configs reflect constructor kwargs immediately."""
+        config = Config(path="/tmp/x", verbose=True, max_pending_futures=7)
+
+        assert config.scan.path == "/tmp/x"
+        assert config.scan.max_pending_futures == 7
+        assert config.runtime.verbose is True
+
+    def test_post_construction_assignment_is_live_synced(self):
+        """Setting a mirrored top-level field after construction updates the
+        owning sub-config immediately -- not just at __post_init__ time."""
+        config = Config()
+
+        config.verbose = True
+        config.max_file_size_mb = 42.0
+        config.exclude_patterns = ["*.bak"]
+        config.use_magic_detection = True
+
+        assert config.runtime.verbose is True
+        assert config.scan.max_file_size_mb == 42.0
+        assert config.scan.exclude_patterns == ["*.bak"]
+        assert config.scan.use_magic_detection is True
+
+    def test_bulk_attribute_load_stays_in_sync(self):
+        """Simulates the config-file/profile loading pattern used by the CLI
+        (``for key, value in file_data.items(): setattr(cfg, key, value)``) --
+        every field lands in its sub-config without a manual resync call."""
+        config = Config()
+        file_data = {"max_pending_futures": 99, "verbose": True, "outname": "out.csv"}
+
+        for key, value in file_data.items():
+            if hasattr(config, key):
+                setattr(config, key, value)
+
+        assert config.scan.max_pending_futures == 99
+        assert config.runtime.verbose is True
+        assert config.output.outname == "out.csv"
+
+    def test_runtime_config_holds_logger_and_verbose(self):
+        from unittest.mock import Mock
+
+        logger = Mock()
+        config = Config(logger=logger, verbose=True)
+
+        assert config.runtime.logger is logger
+        assert config.runtime.verbose is True
+
+    def test_scan_config_validate_path_standalone(self, temp_dir):
+        """ScanConfig.validate_path works without a full Config -- this is
+        what lets scan-scoped components validate without depending on the
+        rest of Config."""
+        scan_config = ScanConfig(path=temp_dir)
+        is_valid, error_msg = scan_config.validate_path()
+        assert is_valid is True
+        assert error_msg is None
+
+        missing = ScanConfig(path="/nonexistent/path/12345")
+        is_valid, error_msg = missing.validate_path()
+        assert is_valid is False
+        assert "does not exist" in error_msg.lower()
+
+    def test_scan_config_validate_path_uses_translate_func(self, temp_dir):
+        translated = []
+
+        def translate(msg: str) -> str:
+            translated.append(msg)
+            return f"[de] {msg}"
+
+        scan_config = ScanConfig(path="")
+        is_valid, error_msg = scan_config.validate_path(translate)
+
+        assert is_valid is False
+        assert error_msg.startswith("[de] ")
+        assert translated  # translate() was actually invoked
+
+    def test_scan_config_validate_file_path_standalone(self, temp_dir):
+        scan_config = ScanConfig(path=temp_dir, max_file_size_mb=500.0)
+        valid_file = os.path.join(temp_dir, "test.txt")
+
+        is_valid, error_msg = scan_config.validate_file_path(valid_file)
+        assert is_valid is True
+
+        traversal_path = os.path.join(temp_dir, "..", "etc", "passwd")
+        is_valid, error_msg = scan_config.validate_file_path(traversal_path)
+        assert is_valid is False
+        assert "Path traversal" in error_msg
+
+    def test_config_validate_path_delegates_and_translates(self):
+        """Config.validate_path still routes through Config._ for translated
+        CLI output, even though the underlying logic now lives on ScanConfig."""
+        calls = []
+
+        def translate(msg: str) -> str:
+            calls.append(msg)
+            return msg
+
+        config = Config(path="", _=translate)
+        is_valid, error_msg = config.validate_path()
+
+        assert is_valid is False
+        assert calls  # Config's translate function was used, not skipped
+
+    def test_replacing_sub_config_wholesale_can_be_resynced(self):
+        """_sync_sub_configs() is kept as an explicit escape hatch for the one
+        case __setattr__ can't handle: replacing a sub-config object outright."""
+        config = Config(max_pending_futures=5)
+        config.scan = ScanConfig()  # fresh, out of sync with top-level
+        assert config.scan.max_pending_futures != 5
+
+        config._sync_sub_configs()
+        assert config.scan.max_pending_futures == 5
 
 
 class TestExtendedConfig:
