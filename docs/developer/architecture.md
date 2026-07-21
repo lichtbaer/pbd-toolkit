@@ -102,7 +102,7 @@ The detection system consists of:
 - Output directory configuration
 - NER model configuration
 
-**Note**: The `globals.py` file exists but is no longer used. Global state has been eliminated through dependency injection and the ApplicationContext pattern.
+**Note**: The `globals.py` file exists but is no longer used. Most runtime state now flows through dependency injection and the `ApplicationContext` pattern — the two exceptions are `FileProcessorRegistry` and `EngineRegistry` (see "Registry Lifecycle" below), which remain process-global by default but can be used in an isolated, non-global form.
 
 ## Design Patterns
 
@@ -127,6 +127,8 @@ The `FileProcessorRegistry` automatically discovers and manages processors:
 - Processors register themselves on import
 - Registry selects appropriate processor for each file
 - Caching for performance optimization
+
+See "Registry Lifecycle" below for how this relates to test isolation and API/server usage.
 
 ### Strategy Pattern
 
@@ -182,6 +184,60 @@ ownership centralized in one place (issue #79):
   always take the sequential path through the same `ScanRunner`.
 - Each detection engine handles thread safety internally (locks for model calls)
 - Match storage uses locks for thread safety
+
+## Registry Lifecycle
+
+`FileProcessorRegistry` (`file_processors/registry.py`) and `EngineRegistry`
+(`core/engines/registry.py`) are the two places process-global mutable state still
+exists in the codebase (issue #78), used because there is exactly one file-processor
+list and one engine list per Python process, populated once at import time:
+
+- `file_processors/__init__.py` registers every built-in processor unconditionally.
+- `core/engines/__init__.py` registers `regex`/`gliner` unconditionally and wraps
+  optional engines (`spacy-ner`, `pydantic-ai`, `vector-search`) in
+  `try/except ImportError` so a missing optional dependency never breaks import of
+  the rest of the module. A registered engine can still independently report itself
+  unavailable via `is_available()` at construction time (e.g. spaCy's class always
+  imports, but reports unavailable if the `spacy` package or model isn't installed) —
+  `EngineRegistry.get_engine()` treats both cases the same way: return `None`, never
+  raise.
+
+CLI scans use this default, process-global registry unchanged — nothing above
+requires opting in to anything.
+
+**Isolated registries.** For tests, plugin experiments, or long-running processes
+that must not mutate — or be affected by mutation of — that global state, both
+registries expose the same two factory classmethods:
+
+- `create_isolated()` — an empty registry (`IsolatedFileProcessorRegistry` /
+  `IsolatedEngineRegistry`) a caller populates independently; nothing registered on
+  it is visible anywhere else.
+- `snapshot()` — an isolated registry pre-populated with a **copy** of whatever is
+  currently registered globally. `api/scanner_service.py`'s `ScannerService` calls
+  this once at construction time and reuses the same snapshot pair for every scan it
+  runs, so all scans in that process see a stable processor/engine set independent
+  of whatever else might register against (or `clear()`) the global registries at
+  runtime.
+
+Both isolated classes expose the same method names as their classmethod
+counterparts (`register`, `get_processor`/`get_engine`, etc.), so a component that
+accepts "a registry" — `FileScanner`, `TextProcessor`, and, via `ScanRequest`, the
+shared `ScanRunner` — can be handed either the registry class itself (the default)
+or an isolated instance interchangeably, with no other code changes:
+
+```python
+# Default: reads/writes the global registry, exactly like before isolation existed.
+scanner = FileScanner(config)
+
+# Isolated: this scanner's magic-detection lookups never touch global state.
+scanner = FileScanner(config, file_processor_registry=FileProcessorRegistry.create_isolated())
+```
+
+Thread safety expectations mirror the threading model above: registration (on
+either the global or an isolated registry) is expected to happen once, before
+concurrent reads begin — not necessarily at import time for an isolated instance,
+but before it is shared across scanner worker threads. Reads are safe under
+CPython's GIL once registration has settled.
 
 ## Error Handling
 

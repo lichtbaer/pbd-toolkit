@@ -45,6 +45,27 @@ def test_run_scan_pipeline_completes(tmp_path):
     assert session["total_matches"] >= 1
 
 
+def test_scanner_service_uses_stable_registry_snapshots(tmp_path):
+    """ScannerService captures registry snapshots once at construction and
+    reuses them for every scan (issue #78), rather than reading whatever the
+    global ``FileProcessorRegistry``/``EngineRegistry`` look like at scan time.
+    """
+    from core.engines.registry import IsolatedEngineRegistry
+    from file_processors.registry import IsolatedFileProcessorRegistry
+
+    store = AnalyticsStore(db_path=str(tmp_path / "analytics.db"))
+    try:
+        service = ScannerService(store, allowed_scan_roots=[str(tmp_path)])
+        assert isinstance(
+            service._file_processor_registry, IsolatedFileProcessorRegistry
+        )
+        assert isinstance(service._engine_registry, IsolatedEngineRegistry)
+        assert "regex" in service._engine_registry.list_engines()
+        assert len(service._file_processor_registry.get_all_processors()) > 0
+    finally:
+        store.close()
+
+
 def test_run_scan_invalid_path_marks_session_failed(tmp_path):
     """A scan whose path is not a directory ends in a failed session."""
     store = AnalyticsStore(db_path=str(tmp_path / "analytics.db"))

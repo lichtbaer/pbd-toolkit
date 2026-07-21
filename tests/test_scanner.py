@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from core.scanner import FileInfo, FileScanner, ScanResult
+from file_processors.registry import FileProcessorRegistry
 
 
 class TestFileScanner:
@@ -18,6 +19,30 @@ class TestFileScanner:
         assert scanner.runtime_config == mock_config.runtime
         assert scanner._extension_counts == {}
         assert scanner._errors == {}
+
+    def test_file_scanner_defaults_to_global_registry(self, mock_config):
+        """With no override, FileScanner reads the process-global registry (issue #78)."""
+        scanner = FileScanner(mock_config)
+        assert scanner.file_processor_registry is FileProcessorRegistry
+
+    def test_file_scanner_uses_injected_isolated_registry(self, mock_config, temp_dir):
+        """An injected isolated registry is used instead of the global default.
+
+        Proves the DI wiring is real, not just unused surface: scanning with an
+        empty isolated registry finds the file on disk but processes none of
+        it, because none of the (isolated, empty) registry's processors claim
+        the extension.
+        """
+        (Path(temp_dir) / "test1.txt").write_text("test content")
+
+        empty_registry = FileProcessorRegistry.create_isolated()
+        scanner = FileScanner(mock_config, file_processor_registry=empty_registry)
+        assert scanner.file_processor_registry is empty_registry
+
+        result = scanner.scan(temp_dir)
+
+        assert result.total_files_found == 1
+        assert result.files_processed == 0
 
     def test_scan_empty_directory(self, mock_config, temp_dir):
         """Test scanning an empty directory."""

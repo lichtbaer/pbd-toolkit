@@ -35,6 +35,7 @@ import threading
 import time
 from collections.abc import Callable
 from contextlib import nullcontext
+from typing import Any
 
 import docx.opc.exceptions
 
@@ -75,6 +76,8 @@ class TextProcessor:
         config: Config,
         match_container: PiiMatchContainer,
         statistics: Statistics | None = None,
+        engine_registry: Any = None,
+        file_processor_registry: Any = None,
     ):
         """Initialize text processor.
 
@@ -82,10 +85,26 @@ class TextProcessor:
             config: Configuration object with detection settings
             match_container: Container for storing detected PII matches
             statistics: Optional statistics tracker (uses config.ner_stats if None)
+            engine_registry: Registry used to resolve detection engines. Defaults
+                to the process-global ``EngineRegistry`` class; pass an isolated
+                instance (``EngineRegistry.create_isolated()`` / ``.snapshot()``)
+                to avoid depending on global state (see issue #78). Accepts
+                anything exposing ``get_engine(...)`` with the same signature.
+            file_processor_registry: Registry used to resolve file processors.
+                Same default/isolation story as ``engine_registry``, via
+                ``FileProcessorRegistry``.
         """
         self.config = config
         self.match_container = match_container
         self.statistics = statistics
+        self.engine_registry = (
+            engine_registry if engine_registry is not None else EngineRegistry
+        )
+        self.file_processor_registry = (
+            file_processor_registry
+            if file_processor_registry is not None
+            else FileProcessorRegistry
+        )
 
         # Thread locks for thread-safe operations
         self._process_lock = threading.Lock()
@@ -105,7 +124,7 @@ class TextProcessor:
         self._enabled_engine_names = enabled_engines
 
         for engine_name in enabled_engines:
-            engine = EngineRegistry.get_engine(engine_name, self.config)
+            engine = self.engine_registry.get_engine(engine_name, self.config)
             if engine and engine.is_available():
                 self.engines.append(engine)
                 if self.config.verbose and self.config.logger:
@@ -428,7 +447,9 @@ class TextProcessor:
                     break
 
         # Get appropriate processor for this file type
-        processor = FileProcessorRegistry.get_processor(ext, full_path, mime_type)
+        processor = self.file_processor_registry.get_processor(
+            ext, full_path, mime_type
+        )
 
         if processor is None:
             if self.config.verbose:

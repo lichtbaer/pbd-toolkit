@@ -5,6 +5,7 @@ import os
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 from tqdm import tqdm
 
@@ -65,7 +66,11 @@ class FileScanner:
     - Progress tracking
     """
 
-    def __init__(self, config: Config):
+    def __init__(
+        self,
+        config: Config,
+        file_processor_registry: Any = None,
+    ):
         """Initialize file scanner.
 
         Only ``config.scan`` (file discovery/safety settings) and
@@ -76,10 +81,22 @@ class FileScanner:
 
         Args:
             config: Configuration object with validation settings
+            file_processor_registry: Registry used to look up processors for
+                magic-detection extension support checks. Defaults to the
+                process-global ``FileProcessorRegistry`` class; pass an isolated
+                instance (``FileProcessorRegistry.create_isolated()`` /
+                ``.snapshot()``) to avoid depending on global state (see
+                issue #78). Accepts anything exposing ``get_processor(...)``
+                with the same signature as ``FileProcessorRegistry``.
         """
         self.config = config
         self.scan_config = config.scan
         self.runtime_config = config.runtime
+        self.file_processor_registry = (
+            file_processor_registry
+            if file_processor_registry is not None
+            else FileProcessorRegistry
+        )
         self._error_lock = threading.Lock()
         self._extension_counts: dict[str, int] = {}
         self._errors: dict[str, list[str]] = {}
@@ -240,7 +257,7 @@ class FileScanner:
                         # 2. magic_detection_fallback is enabled AND the extension is unsupported
                         magic_fallback = self.scan_config.magic_detection_fallback
                         ext_supported = bool(ext) and (
-                            FileProcessorRegistry.get_processor(ext) is not None
+                            self.file_processor_registry.get_processor(ext) is not None
                         )
                         should_detect = (not ext) or (
                             bool(magic_fallback) and not ext_supported
@@ -268,7 +285,7 @@ class FileScanner:
                     # Determine whether the file is eligible (supported) before invoking callback.
                     # This keeps "files_processed" aligned with "qualified/analyzed" semantics.
                     mime_type_str = mime_type or ""
-                    processor = FileProcessorRegistry.get_processor(
+                    processor = self.file_processor_registry.get_processor(
                         ext, full_path, mime_type_str
                     )
                     if processor is None:

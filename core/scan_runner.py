@@ -21,7 +21,7 @@ import logging
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, TextIO
+from typing import TYPE_CHECKING, Any, TextIO
 
 import typer
 
@@ -91,6 +91,14 @@ class ScanRequest:
 
     # CI/CD gate decision data.
     fail_on_severity: str | None = None
+
+    # Registry overrides (issue #78): defaults (None) fall back to the
+    # process-global ``FileProcessorRegistry``/``EngineRegistry``, matching
+    # existing CLI behavior. Pass an isolated registry (``.create_isolated()``
+    # / ``.snapshot()``) so a caller (e.g. the REST API) can use a stable set
+    # of processors/engines without depending on runtime global state.
+    file_processor_registry: Any = None
+    engine_registry: Any = None
 
 
 @dataclass
@@ -263,8 +271,16 @@ class ScanRunner:
             )
 
         # --- Processor + scanner ----------------------------------------------
-        text_processor = TextProcessor(config, pmc, statistics=statistics)
-        scanner = FileScanner(config)
+        text_processor = TextProcessor(
+            config,
+            pmc,
+            statistics=statistics,
+            engine_registry=request.engine_registry,
+            file_processor_registry=request.file_processor_registry,
+        )
+        scanner = FileScanner(
+            config, file_processor_registry=request.file_processor_registry
+        )
 
         worker_count = max(1, int(request.worker_count))
         _stats_lock = threading.Lock()

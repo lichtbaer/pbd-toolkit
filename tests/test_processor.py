@@ -4,8 +4,10 @@ import re
 from unittest.mock import Mock, patch
 
 from core.config import NerStats
+from core.engines.registry import EngineRegistry
 from core.matches import PiiMatchContainer
 from core.processor import TextProcessor
+from file_processors.registry import FileProcessorRegistry
 
 
 class TestTextProcessor:
@@ -20,6 +22,34 @@ class TestTextProcessor:
         assert processor.match_container == pmc
         assert processor._process_lock is not None
         assert processor._ner_lock is not None
+
+    def test_text_processor_defaults_to_global_registries(self, mock_config):
+        """With no override, TextProcessor reads the process-global registries
+        (issue #78)."""
+        pmc = PiiMatchContainer()
+        processor = TextProcessor(mock_config, pmc)
+        assert processor.engine_registry is EngineRegistry
+        assert processor.file_processor_registry is FileProcessorRegistry
+
+    def test_text_processor_uses_injected_isolated_engine_registry(self, mock_config):
+        """An injected isolated engine registry is used instead of the global
+        default: with no engines registered on it, regex detection finds
+        nothing even though it's enabled and would normally match.
+        """
+        pmc = PiiMatchContainer()
+        empty_engine_registry = EngineRegistry.create_isolated()
+        processor = TextProcessor(
+            mock_config, pmc, engine_registry=empty_engine_registry
+        )
+        assert processor.engine_registry is empty_engine_registry
+
+        mock_config.use_regex = True
+        mock_config.regex_pattern = re.compile(r"\b\w+@\w+\.\w+\b")
+
+        text = "Contact me at test@example.com"
+        processor.process_text(text, "/test/file.txt")
+
+        assert len(pmc.pii_matches) == 0
 
     def test_process_text_with_regex(self, mock_config):
         """Test processing text with regex detection."""
