@@ -21,10 +21,12 @@ from core.engines.llm_retry import retry_with_backoff
 try:
     # Optional dependency: used for text-only LLM detection.
     from pydantic_ai import Agent
+    from pydantic_ai.settings import ModelSettings
 
     _PYDANTIC_AI_AVAILABLE = True
 except ImportError:  # pragma: no cover
-    Agent = None
+    Agent = None  # type: ignore[assignment, misc]
+    ModelSettings = None  # type: ignore[assignment, misc]
     _PYDANTIC_AI_AVAILABLE = False
 
 
@@ -302,8 +304,8 @@ class PydanticAIEngine:
                     provider_kwargs["api_key"] = self.api_key
                 if self.base_url:
                     provider_kwargs["base_url"] = self.base_url
-                provider = OpenAIProvider(**provider_kwargs)
-                model_input = OpenAIChatModel(self.model, provider=provider)
+                openai_provider = OpenAIProvider(**provider_kwargs)
+                model_input = OpenAIChatModel(self.model, provider=openai_provider)
             elif self.provider == "anthropic" and self.api_key:
                 try:
                     from pydantic_ai.models.anthropic import (
@@ -313,8 +315,10 @@ class PydanticAIEngine:
                         AnthropicProvider,
                     )
 
-                    provider = AnthropicProvider(api_key=self.api_key)
-                    model_input = AnthropicModel(self.model, provider=provider)
+                    anthropic_provider = AnthropicProvider(api_key=self.api_key)
+                    model_input = AnthropicModel(
+                        self.model, provider=anthropic_provider
+                    )
                 except ImportError as exc:
                     # Fall back to model string if anthropic provider is not available
                     self.config.logger.debug(
@@ -332,11 +336,11 @@ class PydanticAIEngine:
                     )
 
                     # Ollama exposes an OpenAI-compatible API
-                    provider = OpenAIProvider(
+                    ollama_provider = OpenAIProvider(
                         base_url=self.base_url + "/v1",
                         api_key="ollama",  # Ollama accepts any key
                     )
-                    model_input = OpenAIChatModel(self.model, provider=provider)
+                    model_input = OpenAIChatModel(self.model, provider=ollama_provider)
                 except ImportError as exc:
                     self.config.logger.debug(
                         "OpenAI-compatible provider extras not installed, falling "
@@ -344,7 +348,9 @@ class PydanticAIEngine:
                         exc,
                     )
 
-            model_settings = {"timeout": self.timeout} if self.timeout else None
+            model_settings: ModelSettings | None = (
+                ModelSettings(timeout=self.timeout) if self.timeout else None
+            )
 
             # Configure agent with system prompt and output type
             self._agent = Agent(
@@ -647,7 +653,7 @@ class PydanticAIEngine:
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
 
-        payload = {
+        payload: dict[str, Any] = {
             "model": model,
             "messages": [
                 {"role": "system", "content": system_prompt},
