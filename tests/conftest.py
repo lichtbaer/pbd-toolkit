@@ -6,7 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from core.config import Config, NerStats
+from core.config import Config, NerStats, RuntimeConfig, ScanConfig
 
 
 @pytest.fixture
@@ -110,5 +110,20 @@ def mock_config():
 
     config.validate_file_path = validate_file_path
     config.max_file_size_mb = 500.0
+
+    # FileScanner reads only config.scan / config.runtime (see core/scanner.py).
+    # A plain Mock(spec=Config) doesn't auto-populate these as real
+    # ScanConfig/RuntimeConfig objects, so wire them explicitly to mirror the
+    # flat attributes set above.
+    config.scan = ScanConfig(
+        use_magic_detection=config.use_magic_detection,
+        magic_detection_fallback=config.magic_detection_fallback,
+        max_pending_futures=config.max_pending_futures,
+        max_file_size_mb=config.max_file_size_mb,
+        max_processing_time_seconds=config.max_processing_time_seconds,
+        exclude_patterns=[],
+    )
+    config.scan.validate_file_path = validate_file_path
+    config.runtime = RuntimeConfig(logger=config.logger, verbose=config.verbose)
 
     return config

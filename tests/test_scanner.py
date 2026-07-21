@@ -14,6 +14,8 @@ class TestFileScanner:
         """Test FileScanner can be initialized."""
         scanner = FileScanner(mock_config)
         assert scanner.config == mock_config
+        assert scanner.scan_config == mock_config.scan
+        assert scanner.runtime_config == mock_config.runtime
         assert scanner._extension_counts == {}
         assert scanner._errors == {}
 
@@ -117,7 +119,7 @@ class TestFileScanner:
                 return False, "Path traversal detected"
             return True, None
 
-        mock_config.validate_file_path = validate_reject_some
+        mock_config.scan.validate_file_path = validate_reject_some
 
         scanner = FileScanner(mock_config)
         result = scanner.scan(temp_dir)

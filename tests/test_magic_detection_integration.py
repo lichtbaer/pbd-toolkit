@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from core.config import Config
+from core.config import Config, RuntimeConfig, ScanConfig
 from core.scanner import FileInfo, FileScanner
 
 
@@ -32,6 +32,16 @@ class TestMagicDetectionIntegration:
         config.validate_file_path = validate_file_path
         config.max_file_size_mb = 500.0
 
+        # FileScanner reads only config.scan / config.runtime (see core/scanner.py).
+        config.scan = ScanConfig(
+            use_magic_detection=config.use_magic_detection,
+            magic_detection_fallback=config.magic_detection_fallback,
+            max_pending_futures=512,
+            max_file_size_mb=config.max_file_size_mb,
+        )
+        config.scan.validate_file_path = validate_file_path
+        config.runtime = RuntimeConfig(logger=config.logger, verbose=config.verbose)
+
         return config
 
     @pytest.fixture
@@ -53,6 +63,15 @@ class TestMagicDetectionIntegration:
 
         config.validate_file_path = validate_file_path
         config.max_file_size_mb = 500.0
+
+        config.scan = ScanConfig(
+            use_magic_detection=config.use_magic_detection,
+            magic_detection_fallback=config.magic_detection_fallback,
+            max_pending_futures=512,
+            max_file_size_mb=config.max_file_size_mb,
+        )
+        config.scan.validate_file_path = validate_file_path
+        config.runtime = RuntimeConfig(logger=config.logger, verbose=config.verbose)
 
         return config
 

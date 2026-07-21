@@ -68,16 +68,24 @@ class FileScanner:
     def __init__(self, config: Config):
         """Initialize file scanner.
 
+        Only ``config.scan`` (file discovery/safety settings) and
+        ``config.runtime`` (logger, verbosity) are actually used internally —
+        the full ``Config`` is accepted (and kept as ``self.config``) purely
+        for backward compatibility with existing callers, not because the
+        scanner needs the rest of it.
+
         Args:
             config: Configuration object with validation settings
         """
         self.config = config
+        self.scan_config = config.scan
+        self.runtime_config = config.runtime
         self._error_lock = threading.Lock()
         self._extension_counts: dict[str, int] = {}
         self._errors: dict[str, list[str]] = {}
 
         # Initialize file type detector if enabled
-        use_magic = config.use_magic_detection
+        use_magic = self.scan_config.use_magic_detection
         self.file_type_detector = (
             FileTypeDetector(enabled=use_magic) if use_magic else None
         )
@@ -96,7 +104,7 @@ class FileScanner:
         Returns:
             True if the path should be excluded from scanning.
         """
-        patterns = getattr(self.config, "exclude_patterns", [])
+        patterns = self.scan_config.exclude_patterns
         if not patterns:
             return False
         for pattern in patterns:
@@ -142,7 +150,7 @@ class FileScanner:
         # Prevent unbounded growth of pending futures when scanning large trees.
         # This is especially important for multi-worker runs where file_callback
         # submits to a ThreadPoolExecutor and returns futures.
-        max_pending_futures = self.config.max_pending_futures
+        max_pending_futures = self.scan_config.max_pending_futures
 
         # Estimate total files for progress bar (if verbose and no stop_count)
         # This can double runtime on huge directory trees, so it's opt-in.
@@ -150,23 +158,25 @@ class FileScanner:
         total_files_estimate = None
         if (
             not stop_count
-            and self.config.verbose
+            and self.runtime_config.verbose
             and os.environ.get("PII_TOOLKIT_PROGRESS_ESTIMATE") == "1"
         ):
-            self.config.logger.debug("Counting files for progress estimation...")
+            self.runtime_config.logger.debug(
+                "Counting files for progress estimation..."
+            )
             try:
                 total_files_estimate = sum(len(files) for _, _, files in os.walk(path))
-                self.config.logger.debug(
+                self.runtime_config.logger.debug(
                     f"Estimated total files: {total_files_estimate}"
                 )
             except Exception as e:
-                self.config.logger.warning(f"Failed to count files: {e}")
+                self.runtime_config.logger.warning(f"Failed to count files: {e}")
 
         # Initialize progress bar (verbose-only).
         # Note: tqdm telemetry is disabled by default in recent versions.
         # For additional privacy, set TQDM_DISABLE_TELEMETRY=1 environment variable.
         progress_bar = None
-        if self.config.verbose:
+        if self.runtime_config.verbose:
             progress_bar = tqdm(
                 total=total_files_estimate if total_files_estimate else None,
                 desc="Processing files",
@@ -199,15 +209,17 @@ class FileScanner:
                         )
 
                     # Validate file path
-                    is_valid, error_msg = self.config.validate_file_path(full_path)
+                    is_valid, error_msg = self.scan_config.validate_file_path(full_path)
                     if not is_valid:
                         if error_msg:
                             if "Path traversal" in error_msg:
-                                self.config.logger.warning(
+                                self.runtime_config.logger.warning(
                                     f"Security: {error_msg} - {full_path}"
                                 )
                             else:
-                                self.config.logger.warning(f"{error_msg} - {full_path}")
+                                self.runtime_config.logger.warning(
+                                    f"{error_msg} - {full_path}"
+                                )
                             self._add_error(error_msg, full_path)
                         continue
 
@@ -216,7 +228,7 @@ class FileScanner:
                     try:
                         file_size_mb = os.path.getsize(full_path) / (1024 * 1024)
                     except OSError as e:
-                        self.config.logger.debug(
+                        self.runtime_config.logger.debug(
                             "Could not determine file size for %s: %s", full_path, e
                         )
 
@@ -226,7 +238,7 @@ class FileScanner:
                         # Use magic detection if:
                         # 1. File has no extension, OR
                         # 2. magic_detection_fallback is enabled AND the extension is unsupported
-                        magic_fallback = self.config.magic_detection_fallback
+                        magic_fallback = self.scan_config.magic_detection_fallback
                         ext_supported = bool(ext) and (
                             FileProcessorRegistry.get_processor(ext) is not None
                         )
@@ -235,8 +247,8 @@ class FileScanner:
                         )
                         if should_detect:
                             mime_type = self.file_type_detector.detect_type(full_path)
-                            if mime_type and self.config.verbose:
-                                self.config.logger.debug(
+                            if mime_type and self.runtime_config.verbose:
+                                self.runtime_config.logger.debug(
                                     f"Detected MIME type for {full_path}: {mime_type}"
                                 )
                             # If file has no extension but we detected a type, update extension
@@ -248,8 +260,8 @@ class FileScanner:
                                 )
                                 if detected_ext:
                                     ext = detected_ext
-                                    if self.config.verbose:
-                                        self.config.logger.debug(
+                                    if self.runtime_config.verbose:
+                                        self.runtime_config.logger.debug(
                                             f"Inferred extension from MIME type: {ext}"
                                         )
 
@@ -264,13 +276,13 @@ class FileScanner:
                         continue
 
                     # Log file processing in verbose mode
-                    if self.config.verbose:
+                    if self.runtime_config.verbose:
                         if file_size_mb is not None:
-                            self.config.logger.debug(
+                            self.runtime_config.logger.debug(
                                 f"Processing file {total_files_found}: {full_path} ({file_size_mb:.2f} MB)"
                             )
                         else:
-                            self.config.logger.debug(
+                            self.runtime_config.logger.debug(
                                 f"Processing file {total_files_found}: {full_path} (size unknown)"
                             )
 
@@ -309,9 +321,9 @@ class FileScanner:
                                                     fut, "<unknown>"
                                                 )
                                                 error_msg = f"Callback async error: {type(e).__name__}: {str(e)}"
-                                                self.config.logger.error(
+                                                self.runtime_config.logger.error(
                                                     f"{error_msg}: {fpath}",
-                                                    exc_info=self.config.verbose,
+                                                    exc_info=self.runtime_config.verbose,
                                                 )
                                                 if fpath != "<unknown>":
                                                     self._add_error(error_msg, fpath)
@@ -319,17 +331,17 @@ class FileScanner:
                                                     self._add_error(error_msg, "")
                                     except Exception as drain_exc:
                                         # Keep scanning even if draining fails, but log for debuggability.
-                                        self.config.logger.warning(
+                                        self.runtime_config.logger.warning(
                                             "Failed to drain pending futures: %s: %s",
                                             type(drain_exc).__name__,
                                             drain_exc,
-                                            exc_info=self.config.verbose,
+                                            exc_info=self.runtime_config.verbose,
                                         )
                         except Exception as e:
                             error_msg = f"Callback error: {type(e).__name__}: {str(e)}"
-                            self.config.logger.error(
+                            self.runtime_config.logger.error(
                                 f"{error_msg}: {full_path}",
-                                exc_info=self.config.verbose,
+                                exc_info=self.runtime_config.verbose,
                             )
                             self._add_error(error_msg, full_path)
                     else:
@@ -371,9 +383,9 @@ class FileScanner:
                         error_msg = (
                             f"Callback async error: {type(e).__name__}: {str(e)}"
                         )
-                        self.config.logger.error(
+                        self.runtime_config.logger.error(
                             f"{error_msg}: {full_path}",
-                            exc_info=self.config.verbose,
+                            exc_info=self.runtime_config.verbose,
                         )
                         if full_path != "<unknown>":
                             self._add_error(error_msg, full_path)
@@ -381,11 +393,11 @@ class FileScanner:
                             self._add_error(error_msg, "")
             except Exception as wait_exc:
                 # If waiting itself fails, log and continue with scan result.
-                self.config.logger.warning(
+                self.runtime_config.logger.warning(
                     "Failed to wait for pending futures at scan end: %s: %s",
                     type(wait_exc).__name__,
                     wait_exc,
-                    exc_info=self.config.verbose,
+                    exc_info=self.runtime_config.verbose,
                 )
 
         # Build and return result
