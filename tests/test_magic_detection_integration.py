@@ -31,6 +31,8 @@ class TestMagicDetectionIntegration:
 
         config.validate_file_path = validate_file_path
         config.max_file_size_mb = 500.0
+        config.exclude_patterns = []
+        config.max_pending_futures = 512
 
         return config
 
@@ -53,6 +55,8 @@ class TestMagicDetectionIntegration:
 
         config.validate_file_path = validate_file_path
         config.max_file_size_mb = 500.0
+        config.exclude_patterns = []
+        config.max_pending_futures = 512
 
         return config
 

@@ -99,6 +99,7 @@ def mock_config():
     config.use_magic_detection = False
     config.magic_detection_fallback = True
     config.max_pending_futures = 512
+    config.exclude_patterns = []
 
     # Tuning limits
     config.dedup_max_entries = 500_000

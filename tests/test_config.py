@@ -1,9 +1,20 @@
 """Tests for configuration management."""
 
+import logging
 import os
+from unittest.mock import Mock
+
+import pytest
 
 from core import constants
-from core.config import Config, load_extended_config
+from core.config import (
+    Config,
+    EngineConfig,
+    OutputConfig,
+    RuntimeConfig,
+    ScanConfig,
+    load_extended_config,
+)
 
 
 class TestConfig:
@@ -234,6 +245,102 @@ class TestConfig:
         assert config.openai_model == "gpt-4"
         assert config.use_magic_detection is True
         assert config.magic_detection_fallback is False
+
+
+class TestSubConfigDelegation:
+    """Tests for the scan/engine/output/runtime single-source-of-truth split (#77)."""
+
+    @pytest.mark.parametrize(
+        ("attr", "group", "value"),
+        [
+            ("max_file_size_mb", "scan", 42.0),
+            ("exclude_patterns", "scan", ["*.bak"]),
+            ("whitelist_path", "scan", "/tmp/whitelist.txt"),
+            ("use_ner", "engine", True),
+            ("ner_threshold", "engine", 0.9),
+            ("ollama_model", "engine", "llama2"),
+            ("outname", "output", "out.csv"),
+            ("min_severity", "output", "high"),
+            ("dedup_max_entries", "output", 123),
+            ("verbose", "runtime", True),
+        ],
+    )
+    def test_set_via_top_level_visible_via_subconfig(self, attr, group, value):
+        """Setting `config.<attr>` must be immediately visible via `config.<group>.<attr>`."""
+        config = Config()
+        setattr(config, attr, value)
+        assert getattr(getattr(config, group), attr) == value
+        # And reading back through the top level returns the identical value.
+        assert getattr(config, attr) == value
+
+    @pytest.mark.parametrize(
+        ("attr", "group", "value"),
+        [
+            ("max_pending_futures", "scan", 7),
+            ("vector_threshold", "engine", 0.42),
+            ("text_chunk_size", "output", 999),
+            ("logger", "runtime", logging.getLogger("x")),
+        ],
+    )
+    def test_set_via_subconfig_visible_via_top_level(self, attr, group, value):
+        """Setting `config.<group>.<attr>` directly must be visible at the top level too."""
+        config = Config()
+        setattr(getattr(config, group), attr, value)
+        assert getattr(config, attr) == value
+
+    def test_no_duplicate_storage_construction_time_value_stays_live(self):
+        """Regression test for the bug this ticket fixes: previously, syncing only
+        happened once at construction, so a later mutation via one path silently
+        went stale relative to the other. There must be exactly one value now.
+        """
+        config = Config(max_file_size_mb=10.0)
+        assert config.scan.max_file_size_mb == 10.0
+
+        config.scan.max_file_size_mb = 20.0
+        assert config.max_file_size_mb == 20.0
+
+        config.max_file_size_mb = 30.0
+        assert config.scan.max_file_size_mb == 30.0
+
+    def test_construct_from_prebuilt_subconfigs(self):
+        """Config can be built directly from pre-built scoped sub-configs."""
+        scan = ScanConfig(path="/data", max_file_size_mb=5.0)
+        engine = EngineConfig(use_regex=True)
+        output = OutputConfig(outname="report.csv")
+        runtime = RuntimeConfig(verbose=True)
+
+        config = Config(scan=scan, engine=engine, output=output, runtime=runtime)
+
+        assert config.scan is scan
+        assert config.engine is engine
+        assert config.output is output
+        assert config.runtime is runtime
+        assert config.path == "/data"
+        assert config.use_regex is True
+        assert config.outname == "report.csv"
+        assert config.verbose is True
+
+    def test_mixing_subconfig_object_and_flattened_field_raises(self):
+        """Passing both scan= and a flattened scan field is ambiguous and rejected."""
+        with pytest.raises(TypeError, match="scan"):
+            Config(scan=ScanConfig(), path="/data")
+
+    def test_unknown_flattened_kwarg_raises(self):
+        """An unrecognized flattened keyword isn't silently swallowed."""
+        with pytest.raises(TypeError, match="unexpected keyword argument"):
+            Config(not_a_real_field=123)
+
+    def test_mock_spec_config_still_permits_delegated_fields(self):
+        """Mock(spec=Config), used throughout the test suite, must still recognize
+        every previously-flat field name as legitimate (regression guard for the
+        dir(Config) visibility that the property-based delegation relies on).
+        """
+        mock = Mock(spec=Config)
+        mock.max_file_size_mb = 1.0
+        mock.exclude_patterns = []
+        mock.logger = Mock()
+        assert mock.max_file_size_mb == 1.0
+        assert mock.exclude_patterns == []
 
 
 class TestExtendedConfig:

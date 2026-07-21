@@ -4,15 +4,23 @@ Design rationale – sub-config grouping
 ---------------------------------------
 ``Config`` is the single dependency-injection object passed through the entire call
 stack (CLI → scanner → processor → engines → writers).  To keep it manageable it
-groups related fields into three typed sub-configs:
+groups related fields into four typed sub-configs, each the sole owner of its fields:
 
-  ``scan``   – file discovery and safety limits (paths, timeouts, size caps)
-  ``engine`` – detection engine selection and tuning (API URLs, models, thresholds)
-  ``output`` – result formatting and streaming (output path, deduplication, chunking)
+  ``scan``    – file discovery and safety limits (paths, timeouts, size caps, excludes)
+  ``engine``  – detection engine selection and tuning (API URLs, models, thresholds, NER)
+  ``output``  – result formatting and streaming (output path, deduplication, chunking)
+  ``runtime`` – cross-cutting services (logger, CSV handles, verbosity, i18n)
 
-All fields remain accessible at the top level for backward compatibility; ``__post_init__``
-syncs them into the sub-config objects via ``_sync_sub_configs``.  This means callers
-that were written before the sub-config refactor continue to work unchanged.
+Every field lives in exactly one sub-config. For backward compatibility with the
+~200 call sites written before this split, all fields remain readable/writable at
+the top level too (``config.max_file_size_mb`` as well as ``config.scan.max_file_size_mb``)
+via properties attached to ``Config`` (one per delegated field, generated below the
+class body), which transparently proxy to the owning sub-config. There is no
+duplicate storage and no separate "sync" step: the top-level name and the
+sub-config attribute are the same value, so mutating either one is always immediately
+visible through the other. New code — especially component constructors migrating to
+depend on a single scoped config — should prefer ``config.scan``/``config.engine``/
+``config.output``/``config.runtime`` directly.
 
 Configuration precedence (highest → lowest):
   1. CLI flags  – explicit user intent; never overridden
@@ -73,6 +81,10 @@ class ScanConfig:
     # Backpressure cap: limits the number of in-flight async file callbacks so
     # that the scanner does not exhaust OS file descriptors on deep directory trees.
     max_pending_futures: int = 512
+    # Glob patterns for files/directories to skip during scanning.
+    exclude_patterns: list[str] = field(default_factory=list)
+    # Tuning limit for the compiled whitelist regex (configurable via settings file).
+    max_whitelist_regex_len: int = 500
 
 
 @dataclass
@@ -132,6 +144,23 @@ class EngineConfig:
     # Concurrency
     engine_concurrency_limits: dict[str, int] = field(default_factory=dict)
 
+    # Regex engine: compiled combined pattern (built from config_types.json at load time)
+    regex_pattern: re.Pattern | None = field(default=None)
+
+    # NER (GLiNER) engine state
+    ner_model: GLiNER | None = field(default=None)
+    ner_labels: list[str] = field(default_factory=list)
+    ner_threshold: float = field(default=constants.NER_THRESHOLD)
+    # Optional per-label confidence thresholds for GLiNER, keyed by the GLiNER label
+    # (e.g. {"Person's Name": 0.7, "Health Data": 0.4}).  Labels not listed fall back
+    # to ner_threshold.  Lets operators tighten high-precision categories while keeping
+    # recall on harder ones.
+    ner_label_thresholds: dict = field(default_factory=dict)
+    ner_stats: NerStats = field(default_factory=NerStats)
+
+    # Ollama NER label configuration
+    ollama_labels: list[dict] = field(default_factory=list)
+
 
 @dataclass
 class OutputConfig:
@@ -145,197 +174,240 @@ class OutputConfig:
     context_chars: int = 0
     analytics_enabled: bool = False
     analytics_db_path: str = ".pbd_analytics.db"
+    # Output severity filter: only include findings at or above this level in output
+    min_severity: str | None = None
+    # CI/CD: exit with non-zero code when findings at or above this level are present
+    fail_on_severity: str | None = None
+    # Tuning limit for deduplication (configurable via settings file)
+    dedup_max_entries: int = 500_000
 
 
-def _build_sub_config_fields() -> dict[str, tuple[str, ...]]:
+@dataclass
+class RuntimeConfig:
+    """Cross-cutting runtime services: logging, I/O handles, verbosity, i18n.
+
+    These aren't scan/engine/output concerns in their own right — they're
+    infrastructure threaded through every layer of the call stack.
+    """
+
+    logger: logging.Logger | None = field(default=None)
+    csv_writer: _csv.Writer | None = field(default=None)
+    csv_file_handle: object | None = field(default=None)
+    verbose: bool = False
+    # Translation function
+    _: Callable[[str], str] = field(default=lambda x: x)
+
+
+_SUB_CONFIG_TYPES: dict[str, type] = {
+    "scan": ScanConfig,
+    "engine": EngineConfig,
+    "output": OutputConfig,
+    "runtime": RuntimeConfig,
+}
+
+
+def _build_field_groups() -> dict[str, tuple[str, ...]]:
     """Derive sub-config field mappings from dataclass introspection.
 
-    Adding a new field to a sub-config only requires adding it to the
-    sub-config dataclass and the top-level Config —
-    ``_sync_sub_configs()`` needs no manual update.
+    Adding a new field only requires adding it to the owning sub-config
+    dataclass — the top-level ``Config`` delegation picks it up automatically.
     """
     import dataclasses as _dc
 
     return {
-        "scan": tuple(f.name for f in _dc.fields(ScanConfig)),
-        "engine": tuple(f.name for f in _dc.fields(EngineConfig)),
-        "output": tuple(f.name for f in _dc.fields(OutputConfig)),
+        group: tuple(f.name for f in _dc.fields(cls))
+        for group, cls in _SUB_CONFIG_TYPES.items()
     }
 
 
-_SUB_CONFIG_FIELDS = _build_sub_config_fields()
+_FIELD_GROUPS = _build_field_groups()
+
+# Reverse mapping: top-level attribute name -> owning sub-config group name.
+_ATTR_TO_GROUP: dict[str, str] = {
+    name: group for group, names in _FIELD_GROUPS.items() for name in names
+}
 
 
-@dataclass
 class Config:
     """Configuration object for pbD Toolkit.
 
-    This class centralizes all configuration and dependencies,
-    enabling dependency injection and better testability.
+    This class centralizes all configuration and dependencies, enabling
+    dependency injection and better testability.
 
-    Sub-configs ``scan``, ``engine``, and ``output`` group related fields.
-    For backward compatibility, all fields are also exposed as top-level
-    attributes via ``__getattr__`` / ``__setattr__``.
+    Every field is owned by exactly one of the ``scan``/``engine``/``output``/
+    ``runtime`` sub-configs (see the module docstring). There is no separate
+    storage for the top-level name: ``config.max_file_size_mb`` and
+    ``config.scan.max_file_size_mb`` are the same value. Each delegated name is
+    a real ``property`` on this class (attached below the class body) whose
+    getter/setter proxy to the owning sub-config — deliberately *not*
+    ``__getattr__``/``__setattr__`` interception, because ``unittest.mock.Mock(spec=Config)``
+    (used throughout the test suite) validates attribute names against
+    ``dir(Config)``, which only sees real class attributes. Construct it either
+    the old flattened way (``Config(path=..., use_regex=..., logger=...)``, for
+    ~200 existing call sites) or by passing pre-built sub-config objects
+    (``Config(scan=ScanConfig(...), engine=EngineConfig(...))``).
     """
 
-    # Grouped configuration
-    scan: ScanConfig = field(default_factory=ScanConfig)
-    engine: EngineConfig = field(default_factory=EngineConfig)
-    output: OutputConfig = field(default_factory=OutputConfig)
+    if TYPE_CHECKING:
+        # Static mirror of the properties attached dynamically below the class
+        # body, purely so mypy resolves `config.<field>` access. Never executes
+        # at runtime (TYPE_CHECKING is False), so it has no effect on `dir()` /
+        # `Mock(spec=Config)`. Keep in sync with ScanConfig/EngineConfig/
+        # OutputConfig/RuntimeConfig — a mismatch here only breaks type-checking,
+        # never runtime behaviour, since the real properties are what's used.
 
-    # CLI Arguments (top-level for convenience)
-    path: str = ""
-    use_regex: bool = False
-    use_ner: bool = False
-    verbose: bool = False
-    outname: str | None = None
-    whitelist_path: str | None = None
-    stop_count: int | None = None
+        # ScanConfig
+        path: str
+        whitelist_path: str | None
+        stop_count: int | None
+        use_magic_detection: bool
+        magic_detection_fallback: bool
+        use_incremental: bool
+        cache_path: str | None
+        max_file_size_mb: float
+        max_processing_time_seconds: int
+        max_pending_futures: int
+        exclude_patterns: list[str]
+        max_whitelist_regex_len: int
 
-    # New engine flags
-    use_spacy_ner: bool = False
-    use_ollama: bool = False
-    use_openai_compatible: bool = False
-    use_multimodal: bool = False
-    use_pydantic_ai: bool = (
-        False  # Unified LLM engine (replaces ollama, openai-compatible, multimodal)
-    )
+        # EngineConfig
+        use_regex: bool
+        use_ner: bool
+        use_spacy_ner: bool
+        use_ollama: bool
+        use_openai_compatible: bool
+        use_multimodal: bool
+        use_pydantic_ai: bool
+        spacy_model_name: str
+        ollama_base_url: str
+        ollama_model: str
+        ollama_timeout: int
+        openai_api_base: str
+        openai_api_key: str | None
+        openai_model: str
+        openai_timeout: int
+        multimodal_api_base: str | None
+        multimodal_api_key: str | None
+        multimodal_model: str
+        multimodal_timeout: int
+        pydantic_ai_provider: str
+        pydantic_ai_model: str | None
+        pydantic_ai_api_key: str | None
+        pydantic_ai_base_url: str | None
+        llm_max_retries: int
+        llm_retry_base_delay: float
+        use_vector_search: bool
+        use_vector_triage: bool
+        vector_model: str
+        vector_threshold: float
+        vector_save_index: str | None
+        vector_load_index: str | None
+        vector_custom_exemplars: str | None
+        engine_concurrency_limits: dict[str, int]
+        regex_pattern: re.Pattern | None
+        ner_model: GLiNER | None
+        ner_labels: list[str]
+        ner_threshold: float
+        ner_label_thresholds: dict
+        ner_stats: NerStats
+        ollama_labels: list[dict]
 
-    # File type detection
-    use_magic_detection: bool = False
-    magic_detection_fallback: bool = True
+        # OutputConfig
+        outname: str | None
+        enable_deduplication: bool
+        min_confidence: float
+        text_chunk_size: int
+        text_chunk_overlap: int
+        context_chars: int
+        analytics_enabled: bool
+        analytics_db_path: str
+        min_severity: str | None
+        fail_on_severity: str | None
+        dedup_max_entries: int
 
-    # Dependencies
-    logger: logging.Logger | None = field(default=None)
-    csv_writer: _csv.Writer | None = field(default=None)
-    csv_file_handle: object | None = field(default=None)
+        # RuntimeConfig
+        logger: logging.Logger | None
+        csv_writer: _csv.Writer | None
+        csv_file_handle: object | None
+        verbose: bool
+        _: Callable[[str], str]
 
-    # Processing configuration
-    regex_pattern: re.Pattern | None = field(default=None)
-    ner_model: GLiNER | None = field(default=None)
-    ner_labels: list[str] = field(default_factory=list)
-    ner_threshold: float = field(default=constants.NER_THRESHOLD)
-    # Optional per-label confidence thresholds for GLiNER, keyed by the GLiNER label
-    # (e.g. {"Person's Name": 0.7, "Health Data": 0.4}).  Labels not listed fall back
-    # to ner_threshold.  Lets operators tighten high-precision categories while keeping
-    # recall on harder ones.
-    ner_label_thresholds: dict = field(default_factory=dict)
-    ner_stats: NerStats = field(default_factory=NerStats)
+    def __init__(
+        self,
+        *,
+        scan: ScanConfig | None = None,
+        engine: EngineConfig | None = None,
+        output: OutputConfig | None = None,
+        runtime: RuntimeConfig | None = None,
+        **flat_kwargs: object,
+    ) -> None:
+        """Create a Config from either sub-config objects or flattened kwargs.
 
-    # Ollama configuration
-    ollama_labels: list[dict] = field(default_factory=list)
+        Args:
+            scan: Pre-built ScanConfig. Mutually exclusive with flattened scan fields.
+            engine: Pre-built EngineConfig. Mutually exclusive with flattened engine fields.
+            output: Pre-built OutputConfig. Mutually exclusive with flattened output fields.
+            runtime: Pre-built RuntimeConfig. Mutually exclusive with flattened runtime fields.
+            **flat_kwargs: Backward-compatible flattened fields (e.g. ``path=``,
+                ``use_regex=``, ``logger=``), routed to the sub-config that owns
+                each name.
 
-    # Engine-specific configuration
-    spacy_model_name: str = "de_core_news_lg"
-    ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "llama3.2"
-    ollama_timeout: int = 30
-    openai_api_base: str = "https://api.openai.com/v1"
-    openai_api_key: str | None = None
-    openai_model: str = "gpt-4o-mini"
-    openai_timeout: int = 30
-
-    # Multimodal engine configuration
-    multimodal_api_base: str | None = None
-    multimodal_api_key: str | None = None
-    multimodal_model: str = "gpt-4-vision-preview"
-    multimodal_timeout: int = 60
-
-    # PydanticAI unified engine configuration
-    pydantic_ai_provider: str = "openai"  # ollama, openai, anthropic
-    pydantic_ai_model: str | None = None  # Auto-determined from provider if None
-    pydantic_ai_api_key: str | None = None
-    pydantic_ai_base_url: str | None = None
-
-    # Exponential backoff for transient LLM errors (rate limits, 503s).
-    # 3 retries with 1 s base delay → waits 1 s, 2 s, 4 s before giving up.
-    # Not applied to auth errors (401/403) or model-not-found errors (404),
-    # which are permanent and should surface immediately to the operator.
-    llm_max_retries: int = 3
-    llm_retry_base_delay: float = 1.0
-
-    # Incremental scanning: skip files whose content has not changed since last scan
-    use_incremental: bool = False
-    cache_path: str | None = None
-
-    # Deduplication: skip identical (text, file, type) matches across engines
-    enable_deduplication: bool = False
-
-    # Vector search engine configuration
-    use_vector_search: bool = False
-    use_vector_triage: bool = False  # Use vector engine as pre-filter for other engines
-    vector_model: str = "sentence-transformers/all-MiniLM-L6-v2"
-    vector_threshold: float = 0.75
-    vector_save_index: str | None = None  # Path prefix to save FAISS index after scan
-    vector_load_index: str | None = None  # Path prefix to load pre-built FAISS index
-    vector_custom_exemplars: str | None = (
-        None  # Path to YAML/JSON with custom PII exemplar categories
-    )
-
-    # Text chunking: split large texts into overlapping segments for NER.
-    # 0 disables chunking (default). Recommended value: 2000 characters.
-    text_chunk_size: int = 0
-    text_chunk_overlap: int = 200
-
-    # Context extraction: number of chars to capture around each finding (0 = disabled)
-    context_chars: int = 0
-
-    # Analytics: persist scan results to an analytics database for dashboards
-    analytics_enabled: bool = False
-    analytics_db_path: str = ".pbd_analytics.db"
-
-    # Minimum confidence threshold for all engines (0.0 = accept all, 1.0 = only perfect matches)
-    min_confidence: float = 0.0
-
-    # Output severity filter: only include findings at or above this level in output
-    min_severity: str | None = None
-
-    # CI/CD: exit with non-zero code when findings at or above this level are present
-    fail_on_severity: str | None = None
-
-    # Path exclusion: glob patterns for files/directories to skip during scanning
-    exclude_patterns: list[str] = field(default_factory=list)
-
-    # Resource limits
-    max_file_size_mb: float = 500.0
-    max_processing_time_seconds: int = 300
-    # Performance tuning
-    # - max_pending_futures: bounds memory usage in FileScanner for async callbacks
-    # - engine_concurrency_limits: per-engine concurrency caps (applied by engines that manage concurrency internally)
-    max_pending_futures: int = 512
-    engine_concurrency_limits: dict[str, int] = field(default_factory=dict)
-
-    # Tuning limits (configurable via settings file)
-    dedup_max_entries: int = 500_000
-    max_whitelist_regex_len: int = 500
-
-    # Translation function
-    _: Callable[[str], str] = field(default=lambda x: x)
-
-    def __post_init__(self):
-        """Initialize derived configuration after object creation."""
-        if self._ is None or not callable(self._):
-            # Fallback if translation not set
-            self._ = lambda x: x
-        self._sync_sub_configs()
-
-    def _sync_sub_configs(self) -> None:
-        """Sync top-level fields into grouped sub-config objects.
-
-        This keeps backward compatibility: all fields remain accessible at
-        the top level, but are also available via ``config.scan.*``,
-        ``config.engine.*``, and ``config.output.*``.
-
-        The mapping is derived automatically from each sub-config's
-        dataclass fields, so new fields only need to be added to the
-        sub-config dataclass and the top-level ``Config`` — this method
-        requires no manual update.
+        Raises:
+            TypeError: If a flattened kwarg name isn't owned by any sub-config,
+                or if both a pre-built sub-config and its flattened fields are given.
         """
-        for attr, field_names in _SUB_CONFIG_FIELDS.items():
-            sub = getattr(self, attr)
-            for name in field_names:
-                if hasattr(self, name):
-                    setattr(sub, name, getattr(self, name))
+        grouped_kwargs: dict[str, dict[str, object]] = {
+            "scan": {},
+            "engine": {},
+            "output": {},
+            "runtime": {},
+        }
+        for name, value in flat_kwargs.items():
+            group = _ATTR_TO_GROUP.get(name)
+            if group is None:
+                raise TypeError(f"Config() got an unexpected keyword argument {name!r}")
+            grouped_kwargs[group][name] = value
+
+        provided = {
+            "scan": scan,
+            "engine": engine,
+            "output": output,
+            "runtime": runtime,
+        }
+        for group, sub in provided.items():
+            if sub is not None and grouped_kwargs[group]:
+                raise TypeError(
+                    f"Config() got both {group}= and flattened {group} field(s) "
+                    f"{tuple(grouped_kwargs[group])!r}; pass one or the other"
+                )
+
+        # The flattened kwargs are heterogeneous by design (any mix of the four
+        # sub-configs' fields keyed by name); correctness is enforced at runtime
+        # by the _ATTR_TO_GROUP partitioning above, not statically checkable here.
+        self.scan = (
+            scan if scan is not None else ScanConfig(**grouped_kwargs["scan"])  # type: ignore[arg-type]
+        )
+        self.engine = (
+            engine if engine is not None else EngineConfig(**grouped_kwargs["engine"])  # type: ignore[arg-type]
+        )
+        self.output = (
+            output if output is not None else OutputConfig(**grouped_kwargs["output"])  # type: ignore[arg-type]
+        )
+        self.runtime = (
+            runtime
+            if runtime is not None
+            else RuntimeConfig(**grouped_kwargs["runtime"])  # type: ignore[arg-type]
+        )
+
+        if self.runtime._ is None or not callable(self.runtime._):
+            # Fallback if translation not set (e.g. explicit _=None was passed).
+            self.runtime._ = lambda x: x
+
+    def __repr__(self) -> str:
+        return (
+            f"Config(scan={self.scan!r}, engine={self.engine!r}, "
+            f"output={self.output!r}, runtime={self.runtime!r})"
+        )
 
     def validate_path(self) -> tuple[bool, str | None]:
         """Validate the search path.
@@ -718,6 +790,29 @@ class Config:
             error_msg = self._("Failed to load NER model: {}").format(str(e))
             self.logger.error(error_msg, exc_info=True)
             raise RuntimeError(error_msg) from e
+
+
+def _make_delegated_property(name: str, group: str) -> property:
+    """Build a property proxying attribute *name* to ``self.<group>.<name>``."""
+
+    def getter(self: Config) -> object:
+        return getattr(getattr(self, group), name)
+
+    def setter(self: Config, value: object) -> None:
+        setattr(getattr(self, group), name, value)
+
+    getter.__name__ = name
+    return property(getter, setter, doc=f"Proxy for ``{group}.{name}``.")
+
+
+# Attach one property per sub-config field directly on the Config class so that
+# every delegated name is a real class attribute: this keeps `dir(Config)` (and
+# therefore `unittest.mock.Mock(spec=Config)`) accurate, and — because properties
+# are data descriptors — guarantees the top-level name can never silently shadow
+# or go stale relative to the owning sub-config's value.
+for _name, _group in _ATTR_TO_GROUP.items():
+    setattr(Config, _name, _make_delegated_property(_name, _group))
+del _name, _group
 
 
 def load_extended_config(config_file: str = constants.CONFIG_FILE) -> dict:

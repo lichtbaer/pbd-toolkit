@@ -1819,7 +1819,6 @@ def export_config(
             for key, value in file_data.items():
                 if hasattr(cfg, key):
                     setattr(cfg, key, value)
-            cfg._sync_sub_configs()
         except Exception as exc:
             typer.echo(f"Warning: could not load config file: {exc}", err=True)
 
