@@ -322,8 +322,8 @@ class ScanRunner:
             if executor is not None:
                 try:
                     executor.shutdown(wait=True)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("Error shutting down scan worker pool: %s", exc)
             if scan_cache is not None:
                 scan_cache.close()
 

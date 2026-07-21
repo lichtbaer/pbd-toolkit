@@ -38,6 +38,10 @@ class Statistics:
     errors_by_type: dict[str, int] = field(default_factory=dict)
     # Per-engine match counts (engine_name -> number of matches found)
     matches_by_engine: dict[str, int] = field(default_factory=dict)
+    # Content skipped without failing the whole file/scan (e.g. an undecodable
+    # BLOB, an unparseable email attachment, an LLM response that didn't match
+    # the expected schema) — reason -> number of skipped records.
+    skipped_content: dict[str, int] = field(default_factory=dict)
 
     # NER statistics
     ner_stats: NerStats = field(default_factory=NerStats)
@@ -130,6 +134,19 @@ class Statistics:
         self.total_errors += 1
         self.errors_by_type[error_type] = self.errors_by_type.get(error_type, 0) + 1
 
+    def add_skip(self, reason: str, count: int = 1) -> None:
+        """Record that *count* records/entries were skipped during extraction.
+
+        Unlike :meth:`add_error`, this is for content silently dropped while the
+        containing file/scan otherwise succeeds (e.g. one undecodable BLOB out of
+        many rows) — visibility into recall loss that wouldn't otherwise surface.
+
+        Args:
+            reason: Short, stable category for the skip (e.g. ``"sqlite_blob_undecodable"``).
+            count: Number of skipped records to add (default 1).
+        """
+        self.skipped_content[reason] = self.skipped_content.get(reason, 0) + count
+
     def update_from_scan_result(
         self,
         total_files: int,
@@ -174,6 +191,15 @@ class Statistics:
             if self.matches_by_engine
             else None,
             "errors": self.total_errors,
+            "skipped_content": dict(
+                sorted(
+                    self.skipped_content.items(),
+                    key=lambda item: item[1],
+                    reverse=True,
+                )
+            )
+            if self.skipped_content
+            else None,
             "throughput_files_per_sec": self.files_per_second,
             "file_extensions": dict(
                 sorted(

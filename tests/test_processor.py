@@ -178,6 +178,52 @@ class TestTextProcessor:
         assert result is False
         assert len(errors_caught) > 0
 
+    def test_process_file_drains_skip_counters_into_statistics(
+        self, mock_config, temp_dir
+    ):
+        """Skips recorded by a file processor during extract_text reach Statistics.
+
+        File processors record content skipped during extraction (e.g. an
+        undecodable BLOB, an unparseable attachment) against the thread-local
+        core.skip_counters helper rather than raising. process_file must drain
+        that into the shared Statistics object after each file so it's visible
+        in scan summaries.
+        """
+        from pathlib import Path
+
+        from core import skip_counters
+        from core.scanner import FileInfo
+        from core.statistics import Statistics
+
+        pmc = PiiMatchContainer()
+        statistics = Statistics()
+        processor = TextProcessor(mock_config, pmc, statistics=statistics)
+
+        test_file = Path(temp_dir) / "test.txt"
+        test_file.write_text("nothing interesting here")
+        mock_config.use_regex = False
+        mock_config.regex_pattern = None
+
+        fake_file_processor = Mock()
+        fake_file_processor.extract_text = Mock(
+            side_effect=lambda path: (
+                skip_counters.record_skip("fake_skip_reason", count=2) or "some text"
+            )
+        )
+
+        file_info = FileInfo(path=str(test_file), extension=".txt", size_mb=0.001)
+
+        with patch(
+            "core.processor.FileProcessorRegistry.get_processor",
+            return_value=fake_file_processor,
+        ):
+            result = processor.process_file(file_info)
+
+        assert result is True
+        assert statistics.skipped_content == {"fake_skip_reason": 2}
+        # The thread-local counter is drained, not left for the next file.
+        assert skip_counters.drain() == {}
+
 
 class TestTextChunking:
     """Tests for the _split_into_chunks helper."""

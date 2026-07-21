@@ -13,6 +13,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from core import skip_counters
 from core.config import Config
 from core.engines.base import DetectionResult
 from core.engines.llm_retry import retry_with_backoff
@@ -314,9 +315,13 @@ class PydanticAIEngine:
 
                     provider = AnthropicProvider(api_key=self.api_key)
                     model_input = AnthropicModel(self.model, provider=provider)
-                except ImportError:
+                except ImportError as exc:
                     # Fall back to model string if anthropic provider is not available
-                    pass
+                    self.config.logger.debug(
+                        "Anthropic provider extras not installed, falling back to "
+                        "model string: %s",
+                        exc,
+                    )
             elif self.provider == "ollama" and self.base_url:
                 try:
                     from pydantic_ai.models.openai import (
@@ -332,8 +337,12 @@ class PydanticAIEngine:
                         api_key="ollama",  # Ollama accepts any key
                     )
                     model_input = OpenAIChatModel(self.model, provider=provider)
-                except ImportError:
-                    pass
+                except ImportError as exc:
+                    self.config.logger.debug(
+                        "OpenAI-compatible provider extras not installed, falling "
+                        "back to model string: %s",
+                        exc,
+                    )
 
             model_settings = {"timeout": self.timeout} if self.timeout else None
 
@@ -452,8 +461,15 @@ class PydanticAIEngine:
                     try:
                         parsed = PIIDetectionResponse.model_validate(output)
                         return self._convert_results(parsed, source_text=text)
-                    except Exception:
-                        pass
+                    except Exception as parse_exc:
+                        skip_counters.record_skip("llm_response_parse_failed")
+                        if self.config.verbose:
+                            # Only logged at debug/verbose since the raw output may
+                            # contain PII from the source document.
+                            self.config.logger.debug(
+                                "PydanticAI dict response failed schema validation: %s",
+                                parse_exc,
+                            )
 
                 if isinstance(output, str):
                     json_text = self._extract_first_json_object(output)
@@ -462,8 +478,14 @@ class PydanticAIEngine:
                             payload = json.loads(json_text)
                             parsed = PIIDetectionResponse.model_validate(payload)
                             return self._convert_results(parsed, source_text=text)
-                        except Exception:
-                            pass
+                        except Exception as parse_exc:
+                            skip_counters.record_skip("llm_response_parse_failed")
+                            if self.config.verbose:
+                                self.config.logger.debug(
+                                    "PydanticAI string response failed JSON/schema "
+                                    "parsing: %s",
+                                    parse_exc,
+                                )
 
                 output_type = type(output).__name__ if output is not None else "None"
                 self.config.logger.warning(
@@ -550,9 +572,15 @@ class PydanticAIEngine:
                     timeout=self.multimodal_timeout,
                     use_response_format=True,
                 )
-            except Exception:
+            except Exception as strict_exc:
                 # Endpoint rejected strict response_format or failed in a way where a
                 # retry without response_format might still work (OpenAI-compatible variance).
+                if self.config.verbose:
+                    self.config.logger.debug(
+                        "Strict response_format request failed, retrying without "
+                        "it: %s",
+                        strict_exc,
+                    )
                 response_data = self._retry_with_backoff(
                     self._openai_chat_completions_with_image,
                     system_prompt=system_prompt,
@@ -695,7 +723,12 @@ class PydanticAIEngine:
                 .get("message", {})
                 .get("content", "")
             )
-        except Exception:
+        except Exception as exc:
+            self.config.logger.debug(
+                "Multimodal response missing expected choices/message structure: %s",
+                exc,
+            )
+            skip_counters.record_skip("llm_response_malformed_structure")
             content = ""
 
         if not isinstance(content, str) or not content.strip():

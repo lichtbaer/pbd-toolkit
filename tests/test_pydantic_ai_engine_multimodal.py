@@ -185,6 +185,27 @@ def test_multimodal_ollama_provider_is_not_supported(minimal_config, tmp_path):
     assert results[0].text == "Bob"
 
 
+def test_parse_openai_response_malformed_structure_records_skip(minimal_config):
+    """A response missing the expected choices/message shape must not raise.
+
+    Previously the ``except Exception: content = ""`` here was completely
+    silent. It must now log at debug and record a skip counter so recall loss
+    from malformed provider responses is visible in scan statistics.
+    """
+    from core import skip_counters
+
+    skip_counters.drain()  # start clean
+    engine = PydanticAIEngine(minimal_config)
+
+    # "choices" is a string here, not a list: response_data["choices"][0] indexes
+    # a character, and .get("message", ...) on that character raises AttributeError.
+    result = engine._parse_openai_response_as_pii_detection({"choices": "oops"})
+
+    assert result is None
+    assert skip_counters.drain() == {"llm_response_malformed_structure": 1}
+    assert minimal_config.logger.debug.called
+
+
 def test_convert_results_recovers_offsets_from_source_text(minimal_config):
     """_convert_results locates each entity's offset in the source text (forward-only)."""
     from core.engines.pydantic_ai_engine import (

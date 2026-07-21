@@ -158,6 +158,19 @@ class TestStatistics:
         assert stats.total_errors == 3
         assert stats.errors_by_type["Permission denied"] == 2
 
+    def test_add_skip(self):
+        """Test adding skipped-content counters."""
+        stats = Statistics()
+
+        stats.add_skip("sqlite_blob_undecodable")
+        assert stats.skipped_content["sqlite_blob_undecodable"] == 1
+
+        stats.add_skip("sqlite_blob_undecodable")
+        assert stats.skipped_content["sqlite_blob_undecodable"] == 2
+
+        stats.add_skip("llm_response_parse_failed", count=3)
+        assert stats.skipped_content["llm_response_parse_failed"] == 3
+
     def test_update_from_scan_result(self):
         """Test updating from scan result."""
         stats = Statistics()
@@ -219,6 +232,22 @@ class TestStatistics:
         assert ".pdf" in summary["file_extensions"]
         assert summary["ner_statistics"] is not None
         assert summary["ner_statistics"]["chunks_processed"] == 10
+        # No skips recorded -> None, not an empty dict, to match errors/ner_statistics
+        # conventions elsewhere in this summary.
+        assert summary["skipped_content"] is None
+
+    def test_get_summary_dict_includes_skipped_content_when_present(self):
+        """skipped_content appears, sorted by count descending, when non-empty."""
+        stats = Statistics()
+        stats.add_skip("mbox_message_unparseable", count=1)
+        stats.add_skip("sqlite_table_read_error", count=5)
+
+        summary = stats.get_summary_dict()
+
+        assert summary["skipped_content"] == {
+            "sqlite_table_read_error": 5,
+            "mbox_message_unparseable": 1,
+        }
 
 
 class TestNerStats:

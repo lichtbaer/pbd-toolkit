@@ -38,6 +38,7 @@ from contextlib import nullcontext
 
 import docx.opc.exceptions
 
+from core import skip_counters
 from core.config import Config
 from core.engines import EngineRegistry
 from core.engines.base import DetectionEngine
@@ -532,6 +533,17 @@ class TextProcessor:
             )
             self._add_error(error_msg, full_path, error_callback)
             return False
+        finally:
+            # File processors and the LLM engine record content skipped during
+            # extraction/detection (e.g. an undecodable BLOB, an unparseable
+            # attachment) against this thread's skip_counters rather than raising,
+            # so the resilience behavior above is unaffected. Drain them into the
+            # shared per-scan Statistics here so they're visible in scan summaries.
+            skipped = skip_counters.drain()
+            if skipped and self.statistics:
+                with self._process_lock:
+                    for reason, count in skipped.items():
+                        self.statistics.add_skip(reason, count)
 
     def _vector_triage_pass(self, text: str) -> bool:
         """Return True if the vector engine detects a PII signal in *text*.
