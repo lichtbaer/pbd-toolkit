@@ -8,8 +8,10 @@ try:
     from pptx import Presentation
     from pptx.exc import PackageNotFoundError
 except Exception:  # pragma: no cover - optional dependency
-    Presentation = None
-    PackageNotFoundError = None
+    # python-pptx ships type stubs (py.typed), so these optional-dependency
+    # fallbacks reassign typed names; the ignores keep the pattern mypy-clean.
+    Presentation = None  # type: ignore[assignment]
+    PackageNotFoundError = None  # type: ignore[assignment,misc]
 
 try:
     import olefile

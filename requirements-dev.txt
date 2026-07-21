@@ -2,18 +2,18 @@ python-docx~=1.2.0
 beautifulsoup4
 gliner~=0.2.26
 # Security: keep pinned to a patched version (pip-audit blocking in CI).
-pdfminer.six==20251230
-pytest~=9.0.3
-pytest-cov~=4.1.0
+pdfminer.six==20260107
+pytest>=9.0.3,<9.2.0
+pytest-cov~=7.1.0
 pytest-mock~=3.15.1
 mypy>=1.10.0
 tqdm>=4.67.3,<4.70.0
-striprtf~=0.0.26
+striprtf~=0.0.29
 odfpy~=1.4.1
 openpyxl~=3.1.5
-xlrd~=2.0.1
+xlrd~=2.0.2
 extract-msg>=0.41,<0.57
-python-pptx~=0.6.23
+python-pptx~=1.0.2
 olefile>=0.46,<1.0.0
 PyYAML~=6.0.3
 xlwt~=1.3.0  # Only used to generate a real .xls fixture in tests/test_file_processors.py
