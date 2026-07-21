@@ -19,7 +19,7 @@ PyYAML~=6.0.3
 # Optional dependencies for additional engines
 spacy>=3.7.0  # For spaCy NER engine
 requests>=2.31.0  # For Ollama and OpenAI-compatible engines (legacy)
-pydantic-ai>=0.0.10  # Unified LLM engine (replaces ollama, openai-compatible, multimodal)
+pydantic-ai>=0.0.10,<2.0.0  # Unified LLM engine (replaces ollama, openai-compatible, multimodal)
 pydantic>=2.0.0  # Required by pydantic-ai
 
 # Optional dependencies for file type detection
