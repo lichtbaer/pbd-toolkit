@@ -126,6 +126,110 @@ class TestCliScan:
         assert not any("skip.txt" in f for f in files_hit)
 
 
+class TestCliPostScanIntegrations:
+    """Tests for the --redact/--pseudonymize/--webhook-url post-scan handlers (issue #80)."""
+
+    def test_redact_writes_files_and_prints_summary(self, temp_dir):
+        (Path(temp_dir) / "test.txt").write_text("Contact: user@example.com")
+        redact_dir = Path(temp_dir) / "redacted_out"
+        result = runner.invoke(
+            app,
+            ["scan", temp_dir, "--regex", "--redact", "--redact-dir", str(redact_dir)],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert list(redact_dir.iterdir())
+        assert "Redacted" in result.output
+
+    def test_pseudonymize_writes_files_and_prints_summary(self, temp_dir):
+        (Path(temp_dir) / "test.txt").write_text("Contact: user@example.com")
+        pseudo_dir = Path(temp_dir) / "pseudo_out"
+        result = runner.invoke(
+            app,
+            [
+                "scan",
+                temp_dir,
+                "--regex",
+                "--pseudonymize",
+                "--pseudonymize-dir",
+                str(pseudo_dir),
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert list(pseudo_dir.iterdir())
+        assert "Pseudo-anonymized" in result.output
+
+    def test_redact_and_pseudonymize_are_silent_with_no_findings(self, temp_dir):
+        """No PII, no matches_by_file -- handlers must not run or print anything."""
+        (Path(temp_dir) / "test.txt").write_text("nothing interesting here")
+        redact_dir = Path(temp_dir) / "redacted_out"
+        result = runner.invoke(
+            app,
+            ["scan", temp_dir, "--regex", "--redact", "--redact-dir", str(redact_dir)],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert not redact_dir.exists()
+        assert "Redacted" not in result.output
+
+    def test_webhook_delivery_uses_injected_sender_no_network(
+        self, temp_dir, monkeypatch
+    ):
+        """Delivery goes through urllib -- monkeypatch urlopen so no real network call happens."""
+
+        class _FakeResponse:
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc_info):
+                return False
+
+        captured = {}
+
+        def fake_urlopen(req, timeout=None):
+            captured["url"] = req.full_url
+            return _FakeResponse()
+
+        monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+        (Path(temp_dir) / "test.txt").write_text("Contact: user@example.com")
+        result = runner.invoke(
+            app,
+            [
+                "scan",
+                temp_dir,
+                "--regex",
+                "--webhook-url",
+                "https://example.test/hook",
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert captured["url"] == "https://example.test/hook"
+        assert "Webhook delivered (HTTP 200)" in result.output
+
+    def test_webhook_failure_is_reported_without_crashing_the_scan(
+        self, temp_dir, monkeypatch
+    ):
+        def failing_urlopen(req, timeout=None):
+            raise TimeoutError("endpoint unreachable")
+
+        monkeypatch.setattr("urllib.request.urlopen", failing_urlopen)
+
+        (Path(temp_dir) / "test.txt").write_text("Contact: user@example.com")
+        result = runner.invoke(
+            app,
+            ["scan", temp_dir, "--regex", "--webhook-url", "https://example.test/hook"],
+            catch_exceptions=False,
+        )
+        # A failed webhook must not fail the scan itself.
+        assert result.exit_code == 0
+        assert "Webhook delivery failed" in result.output
+
+
 class TestCliQuery:
     """Tests for query command."""
 

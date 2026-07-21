@@ -9,10 +9,11 @@ exit-code decision.  It deliberately performs **no** presentation: it never call
 :class:`~core.config.Config` plus runtime/output options via :class:`ScanRequest`
 and receive a :class:`ScanRunResult` they can present or persist as they see fit.
 
-Post-scan *side effects* (redaction, pseudonymisation, webhook) intentionally
-stay with the CLI for now; :class:`ScanRunResult` exposes ``matches_by_file`` /
-``file_risk_scores`` / ``severity_counts`` so callers can still drive them.  They
-are slated for extraction into dedicated handlers under issue #80.
+Post-scan *side effects* (redaction, pseudonymisation, webhook) are intentionally
+not run by the runner itself; :class:`ScanRunResult` exposes ``matches_by_file`` /
+``file_risk_scores`` / ``severity_counts`` so callers can drive them through the
+:class:`~core.post_scan.PostScanHandler` handlers (issue #80) instead of ad-hoc
+inline code.
 """
 
 from __future__ import annotations
