@@ -103,7 +103,6 @@ def mock_config():
     # Tuning limits
     config.dedup_max_entries = 500_000
     config.max_whitelist_regex_len = 500
-    config.json_memory_warning_threshold = 50_000
 
     # Mock validate_file_path to always return valid
     def validate_file_path(path):

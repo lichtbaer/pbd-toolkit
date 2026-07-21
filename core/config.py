@@ -307,7 +307,6 @@ class Config:
     # Tuning limits (configurable via settings file)
     dedup_max_entries: int = 500_000
     max_whitelist_regex_len: int = 500
-    json_memory_warning_threshold: int = 50_000
 
     # Translation function
     _: Callable[[str], str] = field(default=lambda x: x)
