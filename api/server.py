@@ -66,7 +66,18 @@ def main(argv: list[str] | None = None) -> None:
     if args.cors_origins:
         os.environ["PBD_CORS_ORIGINS"] = args.cors_origins
 
-    from api.app import create_app
+    try:
+        from api.app import create_app
+    except ImportError:
+        # uvicorn can be present as a transitive dependency (e.g. pulled in by
+        # pydantic-ai) even when fastapi itself is not installed, so this import
+        # needs its own guard rather than relying on the uvicorn check above.
+        print(
+            "fastapi is required to run the API server.\n"
+            "Install it with:  pip install 'pbd-toolkit[api]'",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     cors_origins = args.cors_origins.split(",") if args.cors_origins else None
     allowed_roots = (

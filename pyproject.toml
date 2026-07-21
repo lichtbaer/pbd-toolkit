@@ -139,6 +139,11 @@ exclude_lines = [
   "pragma: no cover",
   "if __name__ == .__main__.:",
 ]
+# Ratchet floor: measured total was ~67% after the #93 coverage push (previously
+# 61% with no gate at all). Set a few points below that measurement so minor
+# environment/version drift doesn't flake CI; raise this as coverage improves,
+# never lower it without an explicit justification in the PR description.
+fail_under = 65
 
 [tool.mypy]
 # Pragmatic baseline: catch real bugs (undefined names, bad calls, obvious type
