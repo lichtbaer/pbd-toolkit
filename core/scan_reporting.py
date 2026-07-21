@@ -174,6 +174,16 @@ def log_scan_results(
         for f in v:
             context.logger.info(f"\t\t{f}")
 
+    if context.statistics.skipped_content:
+        context.logger.info("\n" + context._("Skipped Content"))
+        context.logger.info("---------------\n")
+        for reason, count in sorted(
+            context.statistics.skipped_content.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        ):
+            context.logger.info(f"\t{reason}: {count}")
+
     context.logger.info("\n")
     context.logger.info(
         context._("Analysis finished at {}").format(context.statistics.end_time)
@@ -262,6 +272,9 @@ def print_console_summary(
             "errors_summary": (
                 {k: len(v) for k, v in errors.items()} if errors else {}
             ),
+            "skipped_content": dict(context.statistics.skipped_content)
+            if context.statistics.skipped_content
+            else {},
             "file_risk_scores": file_risk_scores,
         }
         typer.echo(json.dumps(summary_data, indent=2))
@@ -304,6 +317,16 @@ def print_console_summary(
         typer.echo(context._("Errors Summary:"))
         for k, v in errors.items():
             typer.echo(f"  {k}: {len(v)} {context._('files')}")
+        typer.echo()
+
+    if context.statistics.skipped_content:
+        typer.echo(context._("Skipped Content Summary:"))
+        for reason, count in sorted(
+            context.statistics.skipped_content.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        ):
+            typer.echo(f"  {reason}: {count}")
         typer.echo()
 
     # Per-file risk summary

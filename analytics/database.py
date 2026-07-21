@@ -144,8 +144,10 @@ class AnalyticsDatabase:
             if self._conn:
                 try:
                     self._conn.close()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    self._logger.debug(
+                        "AnalyticsDatabase: error closing '%s': %s", self._path, exc
+                    )
                 self._conn = None
 
     # ------------------------------------------------------------------

@@ -4,6 +4,7 @@ import email
 import logging
 from collections.abc import Iterator
 
+from core import skip_counters
 from file_processors.base_processor import BaseFileProcessor
 
 _logger = logging.getLogger(__name__)
@@ -50,6 +51,7 @@ class MboxProcessor(BaseFileProcessor):
                                 file_path,
                                 exc,
                             )
+                            skip_counters.record_skip("mbox_message_unparseable")
                         current_message = []
 
                 current_message.append(line)
@@ -66,6 +68,7 @@ class MboxProcessor(BaseFileProcessor):
                         file_path,
                         exc,
                     )
+                    skip_counters.record_skip("mbox_message_unparseable")
 
     def _process_message(self, message_bytes: bytes) -> str:
         """Process a single email message.
@@ -173,7 +176,7 @@ class MboxProcessor(BaseFileProcessor):
                     # MBOX files typically start with "From " followed by email address
                     if first_line.startswith(b"From "):
                         return True
-            except Exception:
-                pass
+            except Exception as exc:
+                _logger.debug("Could not read file header for %s: %s", file_path, exc)
 
         return False

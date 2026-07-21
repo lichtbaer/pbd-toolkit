@@ -22,9 +22,12 @@ The cache is cleared whenever a new processor is registered.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from file_processors.base_processor import BaseFileProcessor
+
+_logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -105,8 +108,11 @@ class FileProcessorRegistry:
                 count = 3
             count = max(1, min(3, count))
             return _CanProcessMeta(positional_param_count=count)
-        except Exception:
+        except Exception as exc:
             # Conservative: assume the most flexible signature.
+            _logger.debug(
+                "Could not inspect can_process signature for %r: %s", processor, exc
+            )
             return _CanProcessMeta(positional_param_count=3)
 
     @classmethod

@@ -660,8 +660,10 @@ def scan(
         typer.echo(f"Configuration error: {e}", err=True)
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
     except Exception as e:
-        # Other configuration errors
-        typer.echo(f"Configuration error: {e}", err=True)
+        # Other configuration errors: keep the specific exception type visible
+        # instead of collapsing every cause into the same generic message.
+        typer.echo(f"Configuration error: {type(e).__name__}: {e}", err=True)
+        logger.debug("Configuration error details", exc_info=True)
         raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)
 
     # Apply extra CLI flags to config object

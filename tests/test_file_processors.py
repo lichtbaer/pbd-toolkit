@@ -578,6 +578,36 @@ Content-Type: text/html; charset=utf-8
         assert "recipient@example.com" in text
         assert "test@example.com" in text
 
+    def test_html_part_with_bogus_charset_falls_back_instead_of_dropping_content(
+        self, temp_dir
+    ):
+        """An unrecognised charset on the HTML part must not silently lose the body.
+
+        Previously a ``LookupError``/``UnicodeDecodeError`` while decoding the
+        text/html part was swallowed with a bare ``pass``, dropping the entire
+        HTML body. It must now fall back to utf-8, like the text/plain branch.
+        """
+        file_path = os.path.join(temp_dir, "bad_charset.eml")
+        eml_content = (
+            "From: sender@example.com\n"
+            "To: recipient@example.com\n"
+            "Subject: Bad Charset\n"
+            "MIME-Version: 1.0\n"
+            'Content-Type: multipart/alternative; boundary="boundary123"\n'
+            "\n"
+            "--boundary123\n"
+            'Content-Type: text/html; charset="not-a-real-charset"\n'
+            "\n"
+            "<html><body>Contact: contact@example.com</body></html>\n"
+            "\n"
+            "--boundary123--\n"
+        )
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(eml_content)
+
+        text = EmlProcessor().extract_text(file_path)
+        assert "contact@example.com" in text
+
     def test_file_not_found(self, temp_dir):
         """Test that FileNotFoundError is raised for non-existent file."""
         processor = EmlProcessor()
@@ -993,6 +1023,28 @@ class TestSqliteProcessor:
         assert "john@example.com" in text
         assert "contacts" in text.lower()
 
+    def test_extract_text_handles_binary_blob_without_raising(self, temp_dir):
+        """Binary BLOB payloads don't crash extraction of the sibling text column.
+
+        latin-1 can decode any byte value, so the "skip undecodable BLOB" branch
+        is a defensive fallback rather than something reachable with real bytes;
+        this asserts the row (and its non-BLOB column) still comes through.
+        """
+        db_path = os.path.join(temp_dir, "blob.db")
+        conn = sqlite3.connect(db_path)
+        conn.execute("CREATE TABLE files (name TEXT, payload BLOB)")
+        conn.execute(
+            "INSERT INTO files VALUES (?, ?)",
+            ("report.pdf", b"\x89PNG\r\n\x1a\n\x00\x01\x02\x03"),
+        )
+        conn.commit()
+        conn.close()
+
+        processor = SqliteProcessor()
+        chunks = list(processor.extract_text(db_path))
+        text = " ".join(chunks)
+        assert "report.pdf" in text
+
 
 class TestZipProcessor:
     """Tests for ZIP processor."""
@@ -1174,3 +1226,24 @@ class TestMboxProcessor:
         assert "sender@example.com" in text
         assert "recipient@example.com" in text
         assert "contact@example.com" in text
+
+    def test_can_process_logs_instead_of_silently_swallowing_read_errors(
+        self, temp_dir, caplog
+    ):
+        """can_process's header probe must log, not bare-``pass``, on read failure.
+
+        A directory path reliably raises ``IsADirectoryError`` (an ``OSError``
+        subclass) from ``open()``, regardless of process privileges.
+        """
+        dir_path = os.path.join(temp_dir, "not_a_file")
+        os.makedirs(dir_path)
+
+        processor = MboxProcessor()
+        with caplog.at_level("DEBUG"):
+            result = processor.can_process("", dir_path, "")
+
+        assert result is False
+        assert any(
+            "Could not read file header" in record.getMessage()
+            for record in caplog.records
+        )

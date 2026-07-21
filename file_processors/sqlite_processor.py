@@ -4,6 +4,7 @@ import logging
 import sqlite3
 from collections.abc import Iterator
 
+from core import skip_counters
 from file_processors.base_processor import BaseFileProcessor
 
 _logger = logging.getLogger(__name__)
@@ -104,6 +105,19 @@ class SqliteProcessor(BaseFileProcessor):
                                                 value = value.decode("latin-1")
                                             except UnicodeDecodeError:
                                                 # Skip binary BLOBs
+                                                col_name = (
+                                                    text_columns[i]
+                                                    if i < len(text_columns)
+                                                    else "?"
+                                                )
+                                                _logger.debug(
+                                                    "Skipping undecodable BLOB in %s.%s",
+                                                    table_name,
+                                                    col_name,
+                                                )
+                                                skip_counters.record_skip(
+                                                    "sqlite_blob_undecodable"
+                                                )
                                                 continue
                                     row_text_parts.append(str(value))
 
@@ -118,10 +132,12 @@ class SqliteProcessor(BaseFileProcessor):
                         _logger.debug(
                             "SQLite error reading table %s: %s", table_name, e
                         )
+                        skip_counters.record_skip("sqlite_table_read_error")
                         continue
                     except (UnicodeDecodeError, ValueError) as e:
                         # Skip tables with encoding or value errors
                         _logger.debug("Error processing table %s: %s", table_name, e)
+                        skip_counters.record_skip("sqlite_table_processing_error")
                         continue
             finally:
                 conn.close()

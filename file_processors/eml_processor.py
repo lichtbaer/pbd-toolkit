@@ -6,6 +6,7 @@ import os
 import tempfile
 from email.policy import default
 
+from core import skip_counters
 from file_processors.base_processor import BaseFileProcessor
 
 _logger = logging.getLogger(__name__)
@@ -125,6 +126,7 @@ class EmlProcessor(BaseFileProcessor):
                     len(payload) // (1024 * 1024),
                     filename or "<unnamed>",
                 )
+                skip_counters.record_skip("eml_attachment_oversized")
                 continue
 
             count += 1
@@ -132,6 +134,7 @@ class EmlProcessor(BaseFileProcessor):
                 _logger.warning(
                     "Too many attachments; stopping at %d", _MAX_ATTACHMENTS
                 )
+                skip_counters.record_skip("eml_attachment_limit_reached")
                 break
 
             text = self._extract_attachment_payload(
@@ -173,13 +176,14 @@ class EmlProcessor(BaseFileProcessor):
             return "\n".join(chunk for chunk in result)
         except Exception as exc:
             _logger.debug("Skipping unreadable email attachment %s: %s", filename, exc)
+            skip_counters.record_skip("eml_attachment_unreadable")
             return ""
         finally:
             if tmp_path:
                 try:
                     os.unlink(tmp_path)
-                except OSError:
-                    pass
+                except OSError as exc:
+                    _logger.debug("Failed to remove temp file %s: %s", tmp_path, exc)
 
     def _extract_body_text(self, msg: email.message.EmailMessage) -> str:
         """Extract text from email body, handling multipart messages.
@@ -217,18 +221,26 @@ class EmlProcessor(BaseFileProcessor):
                         try:
                             charset = part.get_content_charset() or "utf-8"
                             html_content = payload.decode(charset, errors="replace")
-                            # Simple HTML tag removal (basic approach)
-                            # For better results, could use BeautifulSoup, but keeping it simple
-                            import re
+                        except (UnicodeDecodeError, LookupError) as exc:
+                            # Unknown/unsupported charset name: fall back to utf-8
+                            # rather than silently dropping the whole HTML body,
+                            # matching the text/plain branch above.
+                            _logger.debug(
+                                "Falling back to utf-8 for text/html part (charset=%r): %s",
+                                charset,
+                                exc,
+                            )
+                            html_content = payload.decode("utf-8", errors="replace")
+                        # Simple HTML tag removal (basic approach)
+                        # For better results, could use BeautifulSoup, but keeping it simple
+                        import re
 
-                            # Remove HTML tags
-                            text = re.sub(r"<[^>]+>", " ", html_content)
-                            # Clean up whitespace
-                            text = " ".join(text.split())
-                            if text.strip():
-                                text_parts.append(text)
-                        except (UnicodeDecodeError, LookupError):
-                            pass
+                        # Remove HTML tags
+                        text = re.sub(r"<[^>]+>", " ", html_content)
+                        # Clean up whitespace
+                        text = " ".join(text.split())
+                        if text.strip():
+                            text_parts.append(text)
         else:
             # Single part message
             payload = msg.get_payload(decode=True)
