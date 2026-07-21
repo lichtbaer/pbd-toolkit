@@ -128,6 +128,31 @@ The `FileProcessorRegistry` automatically discovers and manages processors:
 - Registry selects appropriate processor for each file
 - Caching for performance optimization
 
+The `EngineRegistry` follows the same pattern for detection engines.
+
+**Registration lifecycle**: both registries hold process-wide, class-level state
+populated exactly once, at import time — `file_processors/__init__.py` and
+`core/engines/__init__.py` respectively call `register()` at module scope before
+any worker thread or request handler runs. Application code (CLI, API, scanner
+workers) never registers anything itself; it only reads the registry through
+`get_processor`/`get_engine` and friends.
+
+**Thread safety**: `register()` is not thread-safe and must only be called during
+import or from a single-threaded setup/test context. Reads are safe to call
+concurrently once import-time registration has finished — CPython's GIL makes
+individual dict/list reads atomic, and the tables are not mutated during a scan.
+
+**Isolation for tests and API/server use**: because the registries are shared,
+process-wide state, calling `register()` or `clear()` directly in a test leaks
+into every test that runs afterwards in the same process. Both registries expose:
+- `isolated()` — a context manager that scopes `register()`/`clear()` calls to a
+  `with` block and restores the previous table on exit, even if the block raises.
+  Use this in tests instead of calling `register()`/`clear()` directly.
+- `snapshot()` — returns an independent, read-only view (`EngineRegistrySnapshot` /
+  `FileProcessorRegistrySnapshot`) of what was registered at that moment, unaffected
+  by later `register()` calls against the global registry. Useful for a long-lived
+  API/server process that wants a stable engine/processor set for a request.
+
 ### Strategy Pattern
 
 Detection methods (regex vs. NER) are implemented as strategies:
