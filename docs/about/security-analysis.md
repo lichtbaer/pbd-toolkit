@@ -42,9 +42,18 @@ When enabled, the toolkit sends image content to the configured `--multimodal-ap
 - Keep output directories protected; findings files are sensitive.
 - Consider running scans in isolated environments and limiting logs in production.
 
+## Analytics database retention
+
+The `serve` API and `--analytics` scan option persist scan sessions, findings metadata, and file paths to a local SQLite database (default path `.pbd_analytics.db`, see `analytics/database.py`). This file is sensitive: it lists which files contained PII and where, even though it does not duplicate full finding values.
+
+- **Treat it like a findings report**: apply the same access controls and storage protections as scan output artifacts (see "Operational safeguards" above).
+- **No built-in expiry**: the toolkit does not currently delete or age out old sessions automatically. If you run scans on a schedule, periodically prune or rotate the database (e.g. delete it, or move it aside and let a fresh one be created) to limit how long historical findings metadata is retained.
+- **Back up deliberately, not by accident**: exclude `.pbd_analytics.db` from ad-hoc backups of the working directory unless you specifically intend to retain findings history; if you do back it up, apply the same encryption/access controls as the source data it references.
+- **Multi-tenant / shared hosts**: since the DB accumulates across scans, avoid sharing one analytics database across users or projects with different data-sensitivity levels.
+
 ## Known limitations / TODOs
 
 - This is a best-effort analysis; the project should add:
   - CI security scanning (e.g. Bandit, dependency audit) and a documented disclosure process.
-  - Clear data retention guidance for output artifacts.
+  - An automated retention/expiry mechanism for the analytics database (currently manual, see guidance above).
 
