@@ -4,6 +4,16 @@ This module provides:
 - Embedding of text chunks using sentence-transformers (local) or OpenAI embeddings
 - Exemplar-based PII category detection via cosine similarity
 - Optional persistence of the document index (FAISS) for cross-document analysis
+
+Persistence contract: ``save_index()`` writes the embedding vectors into the
+FAISS file (``<path>.faiss``); ``<path>.meta`` only carries per-chunk text and
+metadata (file path, chunk index, file hash), not the vectors themselves.
+Consequently, after ``_load_faiss_index()`` reconstructs ``IndexedChunk``
+objects from ``.meta``, ``IndexedChunk.embedding`` is ``None`` — the real
+vector lives only inside the loaded FAISS index, addressable by the chunk's
+position. Code that needs the vector for a loaded chunk must either go
+through FAISS (``_faiss_index.reconstruct(position)``) or must not assume
+``embedding`` is populated.
 """
 
 from __future__ import annotations
@@ -39,12 +49,19 @@ class CategoryMatch:
 
 @dataclass
 class IndexedChunk:
-    """A document chunk stored in the full-document index."""
+    """A document chunk stored in the full-document index.
+
+    ``embedding`` is ``None`` for chunks reconstructed from a disk-loaded
+    FAISS index (the vector lives only in FAISS, not in this field) — see
+    the module docstring for the persistence contract. Any code reading
+    ``embedding`` must handle ``None`` explicitly rather than assume a
+    vector is always present.
+    """
 
     file_path: str
     chunk_idx: int
     text: str
-    embedding: np.ndarray = field(repr=False)
+    embedding: np.ndarray | None = field(repr=False)
     file_hash: str = ""  # SHA-256 of file content; empty if not tracked
 
 
@@ -443,6 +460,13 @@ class DocumentIndexer:
         with self._index_lock:
             if not self._chunks:
                 return []
+            for c in self._chunks:
+                if c.embedding is None:
+                    raise RuntimeError(
+                        f"Chunk {c.chunk_idx} of {c.file_path!r} has no in-memory "
+                        "embedding (loaded from a FAISS index) but no FAISS index "
+                        "is set — brute-force search cannot recover the vector."
+                    )
             matrix = np.stack([c.embedding for c in self._chunks])  # (n, dim)
             sims = (matrix @ query).tolist()
             ranked = sorted(zip(sims, self._chunks), key=lambda x: x[0], reverse=True)
@@ -493,7 +517,12 @@ class DocumentIndexer:
             import faiss  # type: ignore
 
             os.makedirs(os.path.dirname(os.path.abspath(target)), exist_ok=True)
-            matrix = np.stack([c.embedding for c in self._chunks])
+            matrix = np.stack(
+                [
+                    self._resolve_embedding(position, chunk)
+                    for position, chunk in enumerate(self._chunks)
+                ]
+            )
             idx = faiss.IndexFlatIP(matrix.shape[1])
             idx.add(matrix)  # type: ignore[arg-type]
             faiss.write_index(idx, target + ".faiss")
@@ -530,13 +559,14 @@ class DocumentIndexer:
             with open(path + ".meta", encoding="utf-8") as fh:
                 meta = json.load(fh)
 
-            # Reconstruct chunk list (embeddings are in FAISS, not reloaded here)
+            # Reconstruct chunk list; embeddings stay None (vectors live in
+            # FAISS, not reloaded into memory here — see module docstring).
             self._chunks = [
                 IndexedChunk(
                     file_path=m["file_path"],
                     chunk_idx=m["chunk_idx"],
                     text=m["text"],
-                    embedding=np.zeros(1, dtype=np.float32),  # placeholder
+                    embedding=None,
                     file_hash=m.get("file_hash", ""),
                 )
                 for m in meta
@@ -551,6 +581,26 @@ class DocumentIndexer:
             logger.warning("[vector] faiss-cpu not installed; cannot load index.")
         except Exception as exc:
             logger.warning(f"[vector] Failed to load index: {exc}")
+
+    def _resolve_embedding(self, position: int, chunk: IndexedChunk) -> np.ndarray:
+        """Return *chunk*'s real embedding vector for re-saving the index.
+
+        ``chunk.embedding`` is ``None`` when the chunk was reconstructed from
+        a disk-loaded FAISS index (see module docstring). In that case the
+        vector is recovered from the loaded index by *position* — chunk
+        positions and FAISS vector positions stay aligned because chunks are
+        only ever appended (via ``_load_faiss_index`` then ``add_chunk``),
+        never reordered or removed. This avoids silently re-saving a
+        placeholder vector after load → add → save.
+        """
+        if chunk.embedding is not None:
+            return chunk.embedding
+        if self._faiss_index is None:
+            raise RuntimeError(
+                f"Chunk {position} ({chunk.file_path!r}) has no embedding and "
+                "no FAISS index is loaded to reconstruct it from."
+            )
+        return self._faiss_index.reconstruct(position)  # type: ignore[union-attr]
 
     def _faiss_add(self, embedding: np.ndarray) -> None:
         """Add one vector to the FAISS index (must hold _index_lock)."""

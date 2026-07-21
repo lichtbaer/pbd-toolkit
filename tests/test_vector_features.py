@@ -372,3 +372,132 @@ class TestVectorEngineSetCurrentFile:
 
         assert results["t1"] == "/path/a.txt"
         assert results["t2"] == "/path/b.txt"
+
+
+# ---------------------------------------------------------------------------
+# FAISS placeholder-embedding fix: loaded chunks get None, not zeros
+# ---------------------------------------------------------------------------
+
+
+class TestLoadedChunkEmbeddingIsNone:
+    def test_load_faiss_index_sets_embedding_none(self, tmp_path):
+        try:
+            import faiss
+        except ImportError:
+            pytest.skip("faiss not installed")
+
+        dim = 4
+        idx = faiss.IndexFlatIP(dim)
+        idx.add(np.zeros((2, dim), dtype=np.float32))
+        faiss.write_index(idx, str(tmp_path / "idx.faiss"))
+        meta = [
+            {"file_path": "a.txt", "chunk_idx": 0, "text": "hello"},
+            {"file_path": "b.txt", "chunk_idx": 0, "text": "world"},
+        ]
+        (tmp_path / "idx.meta").write_text(json.dumps(meta))
+
+        indexer = _make_indexer(load_index_path=str(tmp_path / "idx"))
+        indexer._initialized = True
+        indexer._load_faiss_index(str(tmp_path / "idx"))
+
+        assert all(c.embedding is None for c in indexer._chunks)
+
+    def test_brute_force_search_raises_on_none_embedding_without_faiss_index(self):
+        """A None embedding with no FAISS index to fall back on must fail loudly."""
+        indexer = _make_indexer()
+        indexer._initialized = True
+        indexer._faiss_index = None
+        indexer._chunks = [
+            IndexedChunk(
+                file_path="orphan.txt", chunk_idx=0, text="orphaned", embedding=None
+            )
+        ]
+        indexer.embed_text = lambda t: np.zeros(4, dtype=np.float32)
+
+        with pytest.raises(RuntimeError):
+            indexer.query_similar_chunks("query", top_k=5, threshold=0.0)
+
+
+class TestSaveLoadQueryRoundTrip:
+    """save_index -> load_faiss_index -> query_similar_chunks must be lossless,
+    and re-saving a loaded index must not write placeholder vectors (#91).
+    """
+
+    def _embeddings(self):
+        a = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+        b = np.array([0.0, 1.0, 0.0, 0.0], dtype=np.float32)
+        return a, b
+
+    def test_round_trip_query_results_unchanged(self, tmp_path):
+        try:
+            import faiss  # noqa: F401
+        except ImportError:
+            pytest.skip("faiss not installed")
+
+        emb_a, emb_b = self._embeddings()
+        indexer = _make_indexer(save_index_path=str(tmp_path / "idx"))
+        indexer._initialized = True
+        indexer._faiss_index = __import__("faiss").IndexFlatIP(4)
+        _inject_chunks(
+            indexer,
+            [
+                _make_chunk("doc a", file_path="a.txt", embedding=emb_a),
+                _make_chunk("doc b", file_path="b.txt", embedding=emb_b),
+            ],
+        )
+        indexer._faiss_index.add(np.stack([emb_a, emb_b]))
+
+        query = emb_a.copy()
+        indexer.embed_text = lambda t: query
+        before = indexer.query_similar_chunks("q", top_k=5, threshold=0.5)
+        assert [c.file_path for _, c in before] == ["a.txt"]
+
+        indexer.save_index()
+
+        loaded = _make_indexer(load_index_path=str(tmp_path / "idx"))
+        loaded._initialized = True
+        loaded._load_faiss_index(str(tmp_path / "idx"))
+        loaded.embed_text = lambda t: query
+
+        after = loaded.query_similar_chunks("q", top_k=5, threshold=0.5)
+        assert [c.file_path for _, c in after] == ["a.txt"]
+        assert before[0][0] == pytest.approx(after[0][0])
+
+    def test_resave_after_load_does_not_write_placeholder_vectors(self, tmp_path):
+        """Loading an index then immediately re-saving it must preserve the
+        real vectors, not the zeros/None placeholder used for in-memory chunks.
+        """
+        try:
+            import faiss
+        except ImportError:
+            pytest.skip("faiss not installed")
+
+        emb_a, emb_b = self._embeddings()
+        original = _make_indexer(save_index_path=str(tmp_path / "idx"))
+        original._initialized = True
+        original._faiss_index = faiss.IndexFlatIP(4)
+        _inject_chunks(
+            original,
+            [
+                _make_chunk("doc a", file_path="a.txt", embedding=emb_a),
+                _make_chunk("doc b", file_path="b.txt", embedding=emb_b),
+            ],
+        )
+        original._faiss_index.add(np.stack([emb_a, emb_b]))
+        original.save_index()
+
+        # Load, then re-save immediately without adding anything new.
+        loaded = _make_indexer(
+            load_index_path=str(tmp_path / "idx"),
+            save_index_path=str(tmp_path / "idx2"),
+        )
+        loaded._initialized = True
+        loaded._load_faiss_index(str(tmp_path / "idx"))
+        assert all(c.embedding is None for c in loaded._chunks)
+        loaded.save_index()
+
+        resaved = faiss.read_index(str(tmp_path / "idx2.faiss"))
+        recovered_a = resaved.reconstruct(0)
+        recovered_b = resaved.reconstruct(1)
+        np.testing.assert_allclose(recovered_a, emb_a, atol=1e-6)
+        np.testing.assert_allclose(recovered_b, emb_b, atol=1e-6)
