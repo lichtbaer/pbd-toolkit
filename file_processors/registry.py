@@ -33,6 +33,20 @@ Use ``FileProcessorRegistry.snapshot()`` to obtain an independent, read-only vie
 of the processors registered at a point in time — useful for a long-lived
 API/server process that wants a stable processor set for a request, decoupled
 from whatever the global registry looks like by the time the request is served.
+
+Injecting a registry
+--------------------
+``FileProcessorRegistry`` (the class itself) and ``FileProcessorRegistrySnapshot``
+expose the same lookup surface, described by the ``FileProcessorRegistryLike``
+protocol. Scan-pipeline components (``FileScanner``, ``TextProcessor``, and
+``ScanRunner`` via ``ScanRequest``) accept an optional registry of that shape and
+fall back to the global class when none is given, so CLI behaviour is unchanged
+while the API can pin a snapshot per service instance.
+
+Note that a snapshot only captures what has been registered *by the time it is
+taken*. Registration happens as an import side effect of ``file_processors``
+(see ``file_processors/__init__.py``), so a caller that snapshots before that
+import gets an empty registry; import the package first.
 """
 
 from __future__ import annotations
@@ -41,6 +55,7 @@ import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from typing import Protocol
 
 from file_processors.base_processor import BaseFileProcessor
 
@@ -139,6 +154,77 @@ def _find_processor(
     return None
 
 
+# Extensions probed by ``get_supported_extensions``. Processors are not required
+# to enumerate what they handle, so the registry asks each one about a fixed list
+# of known formats instead.
+_COMMON_EXTENSIONS = (
+    ".pdf",
+    ".docx",
+    ".html",
+    ".htm",
+    ".txt",
+    ".csv",
+    ".json",
+    ".rtf",
+    ".odt",
+    ".xlsx",
+    ".xls",
+    ".xml",
+    ".pptx",
+    ".ppt",
+    ".eml",
+    ".msg",
+    ".ods",
+    ".yaml",
+    ".yml",
+    ".md",
+)
+
+
+def _supported_extensions(processors: list[BaseFileProcessor]) -> list[str]:
+    """Return the sorted extensions claimed by any processor in *processors*.
+
+    Shared by ``FileProcessorRegistry.get_supported_extensions`` and
+    ``FileProcessorRegistrySnapshot.get_supported_extensions`` so a snapshot
+    reports the same extensions the global registry would for the same
+    processor list.
+    """
+    extensions: list[str] = []
+    for processor in processors:
+        # Heuristic: processors should ideally expose this themselves.
+        if not hasattr(processor, "can_process"):
+            continue
+        for ext in _COMMON_EXTENSIONS:
+            if ext not in extensions and processor.can_process(ext):
+                extensions.append(ext)
+    return sorted(extensions)
+
+
+class FileProcessorRegistryLike(Protocol):
+    """Lookup surface shared by ``FileProcessorRegistry`` and its snapshots.
+
+    Both the ``FileProcessorRegistry`` class object (whose classmethods bind to
+    exactly these signatures) and a ``FileProcessorRegistrySnapshot`` instance
+    satisfy this protocol, so a component that accepts a
+    ``FileProcessorRegistryLike`` can be handed either — or a test double — with
+    no special-casing at the call site.
+    """
+
+    def get_processor(
+        self, extension: str, file_path: str = "", mime_type: str = ""
+    ) -> BaseFileProcessor | None:
+        """Return the processor claiming *extension*, or ``None``."""
+        ...
+
+    def get_all_processors(self) -> list[BaseFileProcessor]:
+        """Return every processor this registry knows about."""
+        ...
+
+    def get_supported_extensions(self) -> list[str]:
+        """Return the sorted extensions this registry can dispatch."""
+        ...
+
+
 class FileProcessorRegistrySnapshot:
     """Independent, read-only view of the processors registered at snapshot time.
 
@@ -173,6 +259,10 @@ class FileProcessorRegistrySnapshot:
     def get_all_processors(self) -> list[BaseFileProcessor]:
         """Get all processors captured in this snapshot."""
         return list(self._processors)
+
+    def get_supported_extensions(self) -> list[str]:
+        """Get the extensions supported by the processors in this snapshot."""
+        return _supported_extensions(self._processors)
 
 
 class FileProcessorRegistry:
@@ -311,36 +401,4 @@ class FileProcessorRegistry:
         Returns:
             List of supported extensions (e.g., ['.pdf', '.docx', ...])
         """
-        extensions = []
-        for processor in cls._processors:
-            # Try to determine supported extensions from processor
-            # This is a heuristic - processors should ideally expose this
-            if hasattr(processor, "can_process"):
-                # Test common extensions
-                common_extensions = [
-                    ".pdf",
-                    ".docx",
-                    ".html",
-                    ".htm",
-                    ".txt",
-                    ".csv",
-                    ".json",
-                    ".rtf",
-                    ".odt",
-                    ".xlsx",
-                    ".xls",
-                    ".xml",
-                    ".pptx",
-                    ".ppt",
-                    ".eml",
-                    ".msg",
-                    ".ods",
-                    ".yaml",
-                    ".yml",
-                    ".md",
-                ]
-                for ext in common_extensions:
-                    if processor.can_process(ext):
-                        if ext not in extensions:
-                            extensions.append(ext)
-        return sorted(extensions)
+        return _supported_extensions(cls._processors)

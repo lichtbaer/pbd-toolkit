@@ -39,7 +39,9 @@ from core.writers import OutputWriter
 if TYPE_CHECKING:
     import _csv
 
+    from core.engines.registry import EngineRegistryLike
     from core.protocols import AnalyticsStoreProtocol
+    from file_processors.registry import FileProcessorRegistryLike
 
 _SEVERITY_LEVELS = ("CRITICAL", "HIGH", "MEDIUM", "LOW")
 
@@ -92,6 +94,14 @@ class ScanRequest:
 
     # CI/CD gate decision data.
     fail_on_severity: str | None = None
+
+    # Registry injection (issue #78): pin the processor/engine set for this scan
+    # instead of reading whatever the process-global registries look like at the
+    # moment each file is dispatched. ``None`` keeps the global registries, which
+    # is what the CLI wants (it registers once at import and never mutates them);
+    # the API passes snapshots taken when its ``ScannerService`` was constructed.
+    file_processor_registry: FileProcessorRegistryLike | None = None
+    engine_registry: EngineRegistryLike | None = None
 
 
 @dataclass
@@ -264,8 +274,16 @@ class ScanRunner:
             )
 
         # --- Processor + scanner ----------------------------------------------
-        text_processor = TextProcessor(config, pmc, statistics=statistics)
-        scanner = FileScanner(config)
+        text_processor = TextProcessor(
+            config,
+            pmc,
+            statistics=statistics,
+            file_processor_registry=request.file_processor_registry,
+            engine_registry=request.engine_registry,
+        )
+        scanner = FileScanner(
+            config, file_processor_registry=request.file_processor_registry
+        )
 
         worker_count = max(1, int(request.worker_count))
         _stats_lock = threading.Lock()
