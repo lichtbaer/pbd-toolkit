@@ -42,11 +42,13 @@ from core import skip_counters
 from core.config import Config
 from core.engines import EngineRegistry
 from core.engines.base import DetectionEngine
+from core.engines.registry import EngineRegistryLike
 from core.matches import PiiMatchContainer
 from core.scanner import FileInfo
 from core.statistics import Statistics
 from file_processors import FileProcessorRegistry
 from file_processors.image_processor import ImageProcessor
+from file_processors.registry import FileProcessorRegistryLike
 
 _ASCII_CONTROL_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")
 # Remove ASCII control chars (except \n, \t, \r). This is what typically breaks NLP.
@@ -75,6 +77,8 @@ class TextProcessor:
         config: Config,
         match_container: PiiMatchContainer,
         statistics: Statistics | None = None,
+        file_processor_registry: FileProcessorRegistryLike | None = None,
+        engine_registry: EngineRegistryLike | None = None,
     ):
         """Initialize text processor.
 
@@ -82,10 +86,25 @@ class TextProcessor:
             config: Configuration object with detection settings
             match_container: Container for storing detected PII matches
             statistics: Optional statistics tracker (uses config.ner_stats if None)
+            file_processor_registry: Registry used to route a file to its
+                processor. Defaults to the process-global
+                ``FileProcessorRegistry``, so existing callers are unaffected.
+            engine_registry: Registry used to instantiate detection engines.
+                Defaults to the process-global ``EngineRegistry``. Pass a
+                snapshot (or a test double) to pin an engine set that later
+                registrations cannot change.
         """
         self.config = config
         self.match_container = match_container
         self.statistics = statistics
+        self.file_processor_registry: FileProcessorRegistryLike = (
+            file_processor_registry
+            if file_processor_registry is not None
+            else FileProcessorRegistry
+        )
+        self.engine_registry: EngineRegistryLike = (
+            engine_registry if engine_registry is not None else EngineRegistry
+        )
 
         # Thread locks for thread-safe operations
         self._process_lock = threading.Lock()
@@ -105,7 +124,7 @@ class TextProcessor:
         self._enabled_engine_names = enabled_engines
 
         for engine_name in enabled_engines:
-            engine = EngineRegistry.get_engine(engine_name, self.config)
+            engine = self.engine_registry.get_engine(engine_name, self.config)
             if engine and engine.is_available():
                 self.engines.append(engine)
                 if self.config.verbose and self.config.logger:
@@ -428,7 +447,9 @@ class TextProcessor:
                     break
 
         # Get appropriate processor for this file type
-        processor = FileProcessorRegistry.get_processor(ext, full_path, mime_type)
+        processor = self.file_processor_registry.get_processor(
+            ext, full_path, mime_type
+        )
 
         if processor is None:
             if self.config.verbose:

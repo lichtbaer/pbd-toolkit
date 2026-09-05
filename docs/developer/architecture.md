@@ -153,6 +153,34 @@ into every test that runs afterwards in the same process. Both registries expose
   by later `register()` calls against the global registry. Useful for a long-lived
   API/server process that wants a stable engine/processor set for a request.
 
+**Injecting a registry into the scan pipeline**: a snapshot is only useful if the
+pipeline can be told to use it, so the scan components accept one explicitly:
+
+| Component | Parameter(s) | Default when omitted |
+| --- | --- | --- |
+| `FileScanner` | `file_processor_registry` | global `FileProcessorRegistry` |
+| `TextProcessor` | `file_processor_registry`, `engine_registry` | global registries |
+| `ScanRequest` → `ScanRunner.run` | `file_processor_registry`, `engine_registry` | `None` → globals |
+| `ScannerService` | — (snapshots both at construction) | n/a |
+
+The parameters are typed against the `FileProcessorRegistryLike` /
+`EngineRegistryLike` protocols. Both the registry *class object* (whose
+classmethods bind to exactly those signatures) and a snapshot instance satisfy
+them, so a call site can be handed either — or a test double — unchanged.
+
+Omitting the parameters preserves the previous behaviour exactly, which is what
+the CLI wants: it is a short-lived process that registers once at import and
+never mutates the registries afterwards. `ScannerService` is the opposite case —
+it lives as long as the API server — so it captures one snapshot pair in
+`__init__` and reuses it for every scan, ensuring a scan's processor/engine set
+cannot shift underneath it.
+
+> **Snapshot timing.** Registration happens as an *import side effect* of the
+> `file_processors` and `core.engines` packages. `api/app.py` imports neither, so
+> `ScannerService.__init__` imports them explicitly before snapshotting. Without
+> that, the snapshots would capture empty registries and every API scan would
+> silently process zero files.
+
 ### Strategy Pattern
 
 Detection methods (regex vs. NER) are implemented as strategies:

@@ -2,6 +2,15 @@
 
 Scans are run in a ``ThreadPoolExecutor`` so the API can accept new
 requests while scans are in progress.
+
+Registry snapshots (issue #78)
+------------------------------
+Unlike the CLI — a short-lived process that registers processors and engines once
+at import and then exits — this service lives for the whole lifetime of the API
+server. Reading the process-global registries at dispatch time would mean every
+scan sees whatever happens to be registered at that instant. Instead, each
+``ScannerService`` captures one snapshot pair at construction and reuses it for
+every scan it runs, so a scan's processor/engine set cannot shift underneath it.
 """
 
 from __future__ import annotations
@@ -27,6 +36,17 @@ class ScannerService:
         allowed_scan_roots: list[str] | None = None,
     ) -> None:
         self._store = analytics_store
+        # Registration is an import side effect of these two packages, so import
+        # them *before* snapshotting. api/app.py imports neither, so without this
+        # the snapshots would capture empty registries and every API scan would
+        # silently process zero files.
+        import core.engines  # noqa: F401  (import for registration side effect)
+        import file_processors  # noqa: F401  (import for registration side effect)
+        from core.engines.registry import EngineRegistry
+        from file_processors.registry import FileProcessorRegistry
+
+        self._file_processor_registry = FileProcessorRegistry.snapshot()
+        self._engine_registry = EngineRegistry.snapshot()
         self._executor = ThreadPoolExecutor(
             max_workers=max_workers, thread_name_prefix="scan"
         )
@@ -223,6 +243,8 @@ class ScannerService:
                     analytics_store=self._store,
                     analytics_session_id=session_id,
                     finalize_analytics_session=False,
+                    file_processor_registry=self._file_processor_registry,
+                    engine_registry=self._engine_registry,
                 )
             )
 

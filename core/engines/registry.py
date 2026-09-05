@@ -28,11 +28,24 @@ Use ``EngineRegistry.snapshot()`` to obtain an independent, read-only view of th
 engines registered at a point in time (e.g. for a long-lived API/server process
 that wants a stable engine set for a request, decoupled from whatever the global
 registry looks like by the time the request is actually served).
+
+Injecting a registry
+--------------------
+``EngineRegistry`` (the class itself) and ``EngineRegistrySnapshot`` expose the
+same lookup surface, described by the ``EngineRegistryLike`` protocol.
+``TextProcessor`` (and ``ScanRunner`` via ``ScanRequest``) accepts an optional
+registry of that shape and falls back to the global class when none is given, so
+CLI behaviour is unchanged while the API can pin a snapshot per service instance.
+
+A snapshot only captures what has been registered *by the time it is taken*.
+Registration happens as an import side effect of ``core.engines`` (see
+``core/engines/__init__.py``), so a caller that snapshots before that import gets
+an empty registry; import the package first.
 """
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, Protocol
 
 from core.engines.base import DetectionEngine
 
@@ -68,6 +81,28 @@ def _instantiate_engine(
                 exc_info=True,
             )
         return None
+
+
+class EngineRegistryLike(Protocol):
+    """Lookup surface shared by ``EngineRegistry`` and its snapshots.
+
+    Both the ``EngineRegistry`` class object (whose classmethods bind to exactly
+    these signatures) and an ``EngineRegistrySnapshot`` instance satisfy this
+    protocol, so a component that accepts an ``EngineRegistryLike`` can be handed
+    either — or a test double — with no special-casing at the call site.
+    """
+
+    def get_engine(self, name: str, config: Any) -> DetectionEngine | None:
+        """Instantiate the engine registered as *name*, or return ``None``."""
+        ...
+
+    def list_engines(self) -> list[str]:
+        """Return every engine name this registry knows about."""
+        ...
+
+    def is_registered(self, name: str) -> bool:
+        """Return whether *name* is registered."""
+        ...
 
 
 class EngineRegistrySnapshot:
