@@ -144,7 +144,9 @@ def test_multimodal_strict_falls_back_without_response_format(
     assert results[0].text == "Alice"
 
 
-def test_multimodal_ollama_provider_is_not_supported(minimal_config, tmp_path):
+def test_multimodal_ollama_provider_is_not_supported(
+    minimal_config, tmp_path, monkeypatch
+):
     img_path = tmp_path / "test.jpg"
     img_path.write_bytes(b"FAKEJPEG")
 
@@ -176,8 +178,10 @@ def test_multimodal_ollama_provider_is_not_supported(minimal_config, tmp_path):
 
     import requests
 
-    # Monkeypatch requests.post directly (this test is sync and isolated)
-    requests.post = fake_post  # type: ignore
+    # Use monkeypatch so the patched requests.post is restored afterwards;
+    # assigning the attribute directly leaked into later tests (found by
+    # pytest-randomly).
+    monkeypatch.setattr(requests, "post", fake_post)
 
     engine = PydanticAIEngine(minimal_config)
     results = engine.detect("", labels=["PERSON"], image_path=str(img_path))

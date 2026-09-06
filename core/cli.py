@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import re
 from pathlib import Path
 
 import typer
@@ -209,6 +210,11 @@ def scan(
         "--vector-load-index",
         help="Path prefix of a previously saved FAISS index to load before scanning",
     ),
+    vector_index_no_text: bool = typer.Option(
+        False,
+        "--vector-index-no-text",
+        help="Do not store chunk text in the saved index metadata (.meta). Query previews become unavailable, but the index no longer duplicates scanned PII.",
+    ),
     vector_custom_exemplars: str | None = typer.Option(
         None,
         "--vector-custom-exemplars",
@@ -347,6 +353,11 @@ def scan(
         "--pseudonymize-dir",
         help="Directory for pseudo-anonymized output files (default: output_dir/pseudonymized/)",
     ),
+    pseudonymize_key_file: str | None = typer.Option(
+        None,
+        "--pseudonymize-key-file",
+        help="Hex key file that keeps pseudonyms stable across scans (created with mode 0600 if missing). Without it each run uses a fresh random key. Keep it out of the output directory.",
+    ),
     # Webhook notification
     webhook_url: str | None = typer.Option(
         None,
@@ -476,6 +487,7 @@ def scan(
         "vector_threshold": vector_threshold,
         "vector_save_index": vector_save_index,
         "vector_load_index": vector_load_index,
+        "vector_index_no_text": vector_index_no_text,
         "vector_custom_exemplars": vector_custom_exemplars,
         "use_magic_detection": use_magic_detection,
         "magic_fallback": magic_fallback,
@@ -505,6 +517,7 @@ def scan(
         "redact_dir": redact_dir,
         "pseudonymize": pseudonymize,
         "pseudonymize_dir": pseudonymize_dir,
+        "pseudonymize_key_file": pseudonymize_key_file,
         "webhook_url": webhook_url,
         "context_chars": context_chars,
         "min_confidence": min_confidence,
@@ -513,6 +526,7 @@ def scan(
         "min_severity": min_severity.upper() if min_severity else None,
         "fail_on_severity": fail_on_severity.upper() if fail_on_severity else None,
         "exclude": list(exclude),
+        "profile": profile,
     }
 
     args = _create_argparse_namespace_from_typer_args(**typer_args)
@@ -879,7 +893,9 @@ def scan(
     # Pseudo-anonymization: create files with realistic fake replacements
     if getattr(args, "pseudonymize", False) and matches_by_file:
         _pseudo_handler = build_pseudonymization_handler(
-            getattr(args, "pseudonymize_dir", None), output_dir
+            getattr(args, "pseudonymize_dir", None),
+            output_dir,
+            key_file=getattr(args, "pseudonymize_key_file", None),
         )
         pseudo_paths = _pseudo_handler.handle(run_result, logger=context.logger)
         if pseudo_paths and not _quiet:
@@ -1096,7 +1112,11 @@ def query(
                     ).format(i, score, chunk.file_path, chunk.chunk_idx)
                 )
                 preview = chunk.text.replace("\n", " ").strip()
-                if len(preview) > 300:
+                if not preview:
+                    preview = translate_func(
+                        "(text not stored in index; saved with --vector-index-no-text)"
+                    )
+                elif len(preview) > 300:
                     preview = preview[:300] + " …"
                 typer.echo(f"    {preview}")
             typer.echo(sep)
@@ -1591,7 +1611,14 @@ def serve(
         False, "--reload", help="Auto-reload on code changes (dev only)"
     ),
     api_key: str | None = typer.Option(
-        None, "--api-key", help="API key for Bearer auth (or PBD_API_KEY env)"
+        None,
+        "--api-key",
+        help="DEPRECATED: API key for Bearer auth. Visible in the process list; set PBD_API_KEY instead.",
+    ),
+    trust_proxy_headers: bool = typer.Option(
+        False,
+        "--trust-proxy-headers",
+        help="Rate-limit by the left-most X-Forwarded-For address (or PBD_TRUST_PROXY_HEADERS=1). Only behind a reverse proxy you control.",
     ),
     allowed_scan_roots: str | None = typer.Option(
         None,
@@ -1633,7 +1660,15 @@ def serve(
     if reload:
         argv.append("--reload")
     if api_key:
+        typer.echo(
+            translate_func(
+                "Warning: --api-key is deprecated because the key is visible in the process list; set PBD_API_KEY instead."
+            ),
+            err=True,
+        )
         argv.extend(["--api-key", api_key])
+    if trust_proxy_headers:
+        argv.append("--trust-proxy-headers")
     if allowed_scan_roots:
         argv.extend(["--allowed-scan-roots", allowed_scan_roots])
     if cors_origins:
@@ -1643,6 +1678,13 @@ def serve(
     if scan_workers is not None:
         argv.extend(["--scan-workers", str(scan_workers)])
     serve_main(argv)
+
+
+# Allowed shapes for values interpolated into the generated git hook script.
+_HOOK_TYPE_RE = re.compile(r"[A-Za-z][A-Za-z0-9_-]{0,63}")
+_HOOK_ENGINE_TOKEN_RE = re.compile(
+    r"(--?[A-Za-z][A-Za-z0-9_-]*(=[A-Za-z0-9_.,:/@+-]*)?|[A-Za-z0-9_.,:/@+-]+)"
+)
 
 
 @app.command("install-hook")
@@ -1677,9 +1719,38 @@ def install_hook(
 
         pbd-toolkit install-hook --engines "--regex --ner" --force
     """
+    import shlex
     import stat
 
     translate_func = i18n.get_translator()
+
+    # Both values are interpolated into a shell script that is later executed
+    # with the user's privileges, so restrict them to option-like tokens and
+    # shell-quote every token individually.  Quoting the whole ``engines``
+    # string would turn "--regex --ner" into a single argument, hence per-token.
+    if not _HOOK_TYPE_RE.fullmatch(hook_type):
+        typer.echo(
+            translate_func(
+                "Error: invalid hook type '{}'. Use a plain git hook name such as pre-commit or pre-push."
+            ).format(hook_type),
+            err=True,
+        )
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+    try:
+        engine_tokens = shlex.split(engines)
+    except ValueError:
+        engine_tokens = []
+    if not engine_tokens or not all(
+        _HOOK_ENGINE_TOKEN_RE.fullmatch(tok) for tok in engine_tokens
+    ):
+        typer.echo(
+            translate_func(
+                'Error: --engines must contain only scan flags and simple values (e.g. "--regex --ner"), got: {}'
+            ).format(engines),
+            err=True,
+        )
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+    engines = " ".join(shlex.quote(tok) for tok in engine_tokens)
 
     hooks_dir = os.path.join(git_dir, ".git", "hooks")
     if not os.path.isdir(hooks_dir):
@@ -1901,6 +1972,15 @@ def test_pattern(
                 typer.echo(sep)
 
 
+_SECRET_FIELD_MARKERS = ("api_key", "token", "password", "secret")
+
+
+def _is_secret_field(name: str) -> bool:
+    """Return True for config field names that carry credentials."""
+    lowered = name.lower()
+    return any(marker in lowered for marker in _SECRET_FIELD_MARKERS)
+
+
 @app.command("export-config")
 def export_config(
     output_path: str | None = typer.Argument(
@@ -1957,10 +2037,20 @@ def export_config(
                 err=True,
             )
 
-    # Serialise sub-configs to nested dicts, skipping non-serialisable fields
+    # Serialise sub-configs to nested dicts, skipping non-serialisable fields.
+    # Secret-bearing fields are omitted entirely (not written as a placeholder):
+    # an exported file is meant to be committed/shared, and a placeholder value
+    # would be picked up as the literal API key when the file is loaded again.
+    # Keys are resolved at scan time from the CLI flag or the environment.
+    dropped_secrets: list[str] = []
+
     def _to_dict(dc_instance) -> dict:
         result = {}
         for f in dataclasses.fields(dc_instance):
+            if _is_secret_field(f.name):
+                if getattr(dc_instance, f.name):
+                    dropped_secrets.append(f.name)
+                continue
             val = getattr(dc_instance, f.name)
             if isinstance(val, (str, int, float, bool, list, dict, type(None))):
                 result[f.name] = val
@@ -1971,6 +2061,13 @@ def export_config(
         "engine": _to_dict(cfg.engine),
         "output": _to_dict(cfg.output),
     }
+    if dropped_secrets:
+        typer.echo(
+            translate_func(
+                "Note: secret fields were not exported ({}). Pass them via CLI flags or environment variables instead."
+            ).format(", ".join(sorted(dropped_secrets))),
+            err=True,
+        )
 
     if output_format.lower() == "json":
         serialized = _json.dumps(export_data, indent=2, ensure_ascii=False)

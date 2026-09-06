@@ -11,11 +11,15 @@ hermetic and needs no optional ML/LLM dependencies.
 
 from __future__ import annotations
 
+import pytest
+
 from analytics.queries import AnalyticsQueries
 from analytics.store import AnalyticsStore
 from api.scanner_service import ScannerService
 from core.scanner import ScanResult
 from core.statistics import Statistics
+
+pytestmark = pytest.mark.integration
 
 
 def test_run_scan_pipeline_completes(tmp_path):
@@ -97,3 +101,106 @@ def test_statistics_maps_scan_result_fields():
     assert stats.total_files_found == 7
     assert stats.files_processed == 5
     assert stats.extension_counts == {".txt": 5}
+
+
+def test_run_scan_applies_profile_values(tmp_path, monkeypatch):
+    """Regression: the API accepted ``profile`` but never applied it.
+
+    Profile 'ci' sets ``fail_on_severity: HIGH``; the ScanRequest handed to the
+    runner must carry it.  Explicit request values (deduplicate=True) must survive
+    the merge.
+    """
+    from types import SimpleNamespace
+
+    from core.scan_runner import ScanRunner
+
+    scan_dir = tmp_path / "data"
+    scan_dir.mkdir()
+    (scan_dir / "sample.txt").write_text("nothing to see\n")
+
+    captured: dict[str, object] = {}
+
+    def fake_run(self, request):
+        captured["request"] = request
+        stats = SimpleNamespace(
+            total_files_found=0,
+            files_processed=0,
+            matches_found=0,
+            total_errors=0,
+            duration_seconds=0.0,
+            matches_by_engine={},
+            extension_counts={},
+        )
+        return SimpleNamespace(statistics=stats)
+
+    monkeypatch.setattr(ScanRunner, "run", fake_run)
+
+    store = AnalyticsStore(db_path=str(tmp_path / "analytics.db"))
+    service = ScannerService(store, allowed_scan_roots=[str(scan_dir)])
+    try:
+        session_id = service.start_scan(
+            str(scan_dir), engines=["regex"], profile="ci", deduplicate=True
+        )
+        service.shutdown()
+        session = AnalyticsQueries(store._db).get_session_detail(session_id)
+    finally:
+        store.close()
+
+    request = captured["request"]
+    assert request.fail_on_severity == "HIGH"
+    assert request.config.fail_on_severity == "HIGH"
+    assert request.enable_deduplication is True
+    assert session is not None and session["status"] == "completed"
+
+
+def test_start_scan_uses_the_resolved_path(tmp_path):
+    """The validated realpath, not the caller's string, is what gets scanned.
+
+    Validating one string and scanning another would leave a window in which a
+    symlink can be re-pointed outside the allowed roots.
+    """
+    import os
+
+    root = tmp_path / "root"
+    real = root / "real"
+    real.mkdir(parents=True)
+    (real / "a.txt").write_text("nothing")
+    link = root / "link"
+    os.symlink(real, link)
+
+    store = AnalyticsStore(db_path=str(tmp_path / "analytics.db"))
+    service = ScannerService(store, allowed_scan_roots=[str(root)])
+    try:
+        session_id = service.start_scan(str(link), engines=["regex"])
+        service.shutdown()
+        session = AnalyticsQueries(store._db).get_session_detail(session_id)
+    finally:
+        store.close()
+
+    assert session is not None
+    assert session["scan_path"] == os.path.realpath(real)
+    assert "link" not in session["scan_path"]
+
+
+def test_symlink_escaping_the_root_is_rejected_without_listing_roots(tmp_path):
+    import os
+
+    import pytest
+
+    root = tmp_path / "root"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    os.symlink(outside, root / "escape")
+
+    store = AnalyticsStore(db_path=str(tmp_path / "analytics.db"))
+    service = ScannerService(store, allowed_scan_roots=[str(root)])
+    try:
+        with pytest.raises(ValueError) as excinfo:
+            service.start_scan(str(root / "escape"), engines=["regex"])
+    finally:
+        service.shutdown()
+        store.close()
+    # The caller's own path may be echoed; the configured roots must not be.
+    assert "Allowed roots" not in str(excinfo.value)
+    assert str(service._allowed_roots) not in str(excinfo.value)

@@ -36,7 +36,8 @@ class ConfigLoader:
 
     # Shadow of Typer's own defaults.  Used by ``merge_with_args`` to decide whether
     # a CLI value was explicitly set by the user or is just the framework's default.
-    # Must be kept in sync when new CLI flags are added to cli.py.
+    # Must be kept in sync when new CLI flags are added to cli.py --
+    # tests/test_config_sync.py fails if a ``scan`` option is missing here.
     _TYPER_DEFAULTS: dict[str, Any] = {
         # Methods / engines
         "regex": False,
@@ -59,6 +60,15 @@ class ConfigLoader:
         "pydantic_ai_model": None,
         "pydantic_ai_api_key": None,
         "pydantic_ai_base_url": None,
+        # Vector search
+        "vector_search": False,
+        "vector_triage": False,
+        "vector_model": "sentence-transformers/all-MiniLM-L6-v2",
+        "vector_threshold": 0.75,
+        "vector_save_index": None,
+        "vector_load_index": None,
+        "vector_index_no_text": False,
+        "vector_custom_exemplars": None,
         # File type detection
         "use_magic_detection": False,
         "magic_fallback": True,
@@ -69,14 +79,125 @@ class ConfigLoader:
         "output_dir": "./output/",
         "format": "csv",
         "summary_format": "human",
+        "exclude": [],
         # Performance / execution
         "mode": "balanced",
         "jobs": None,
         "no_header": False,
         "statistics_mode": False,
+        "statistics_strict": False,
         "statistics_output": None,
         "verbose": False,
         "quiet": False,
+        # Post-processing / quality
+        "deduplicate": False,
+        "confidence_fusion": False,
+        "structured_validation": True,
+        "text_chunk_size": 0,
+        "text_chunk_overlap": 200,
+        "min_confidence": 0.0,
+        "context_chars": 0,
+        "min_severity": None,
+        "fail_on_severity": None,
+        # Incremental scanning
+        "incremental": False,
+        "cache_path": None,
+        # Redaction / pseudonymisation
+        "redact": False,
+        "redact_dir": None,
+        "pseudonymize": False,
+        "pseudonymize_dir": None,
+        "pseudonymize_key_file": None,
+        # Integrations
+        "webhook_url": None,
+        "analytics": False,
+        "analytics_db": ".pbd_analytics.db",
+    }
+
+    # Config-file / profile key -> CLI argument name.  Every ``scan`` option
+    # that may be set from a config file or a profile must be listed here;
+    # ``merge_with_args`` silently ignores unknown keys, so an omission means
+    # the value is dropped without any warning (tests/test_config_sync.py guards
+    # against this).
+    CONFIG_MAPPING: dict[str, str] = {
+        # NOTE: `path` is currently a required positional CLI argument in Typer.
+        # We still accept it in the mapping for completeness, but it will not
+        # override an explicitly provided CLI path.
+        "path": "path",
+        # Methods / engines
+        "regex": "regex",
+        "ner": "ner",
+        "spacy_ner": "spacy_ner",
+        "spacy_model": "spacy_model",
+        "ollama": "ollama",
+        "ollama_url": "ollama_url",
+        "ollama_model": "ollama_model",
+        "openai_compatible": "openai_compatible",
+        "openai_api_base": "openai_api_base",
+        "openai_api_key": "openai_api_key",
+        "openai_model": "openai_model",
+        "multimodal": "multimodal",
+        "multimodal_api_base": "multimodal_api_base",
+        "multimodal_api_key": "multimodal_api_key",
+        "multimodal_model": "multimodal_model",
+        "multimodal_timeout": "multimodal_timeout",
+        "pydantic_ai": "pydantic_ai",
+        "pydantic_ai_provider": "pydantic_ai_provider",
+        "pydantic_ai_model": "pydantic_ai_model",
+        "pydantic_ai_api_key": "pydantic_ai_api_key",
+        "pydantic_ai_base_url": "pydantic_ai_base_url",
+        # Vector search
+        "vector_search": "vector_search",
+        "vector_triage": "vector_triage",
+        "vector_model": "vector_model",
+        "vector_threshold": "vector_threshold",
+        "vector_save_index": "vector_save_index",
+        "vector_load_index": "vector_load_index",
+        "vector_index_no_text": "vector_index_no_text",
+        "vector_custom_exemplars": "vector_custom_exemplars",
+        # File type detection
+        "use_magic_detection": "use_magic_detection",
+        "magic_fallback": "magic_fallback",
+        # Output / misc
+        "outname": "outname",
+        "whitelist": "whitelist",
+        "stop_count": "stop_count",
+        "output_dir": "output_dir",
+        "format": "format",
+        "no_header": "no_header",
+        "verbose": "verbose",
+        "quiet": "quiet",
+        "summary_format": "summary_format",
+        "exclude": "exclude",
+        # Performance / execution
+        "mode": "mode",
+        "jobs": "jobs",
+        "statistics_mode": "statistics_mode",
+        "statistics_strict": "statistics_strict",
+        "statistics_output": "statistics_output",
+        # Post-processing / quality
+        "deduplicate": "deduplicate",
+        "confidence_fusion": "confidence_fusion",
+        "structured_validation": "structured_validation",
+        "text_chunk_size": "text_chunk_size",
+        "text_chunk_overlap": "text_chunk_overlap",
+        "min_confidence": "min_confidence",
+        "context_chars": "context_chars",
+        "min_severity": "min_severity",
+        "fail_on_severity": "fail_on_severity",
+        # Incremental scanning
+        "incremental": "incremental",
+        "cache_path": "cache_path",
+        # Redaction / pseudonymisation
+        "redact": "redact",
+        "redact_dir": "redact_dir",
+        "pseudonymize": "pseudonymize",
+        "pseudonymize_dir": "pseudonymize_dir",
+        "pseudonymize_key_file": "pseudonymize_key_file",
+        # Integrations
+        "webhook_url": "webhook_url",
+        "analytics": "analytics",
+        "analytics_db": "analytics_db",
     }
 
     @staticmethod
@@ -169,53 +290,7 @@ class ConfigLoader:
         Returns:
             The mutated *args* object.
         """
-        # Map config keys to argument names
-        config_mapping = {
-            # NOTE: `path` is currently a required positional CLI argument in Typer.
-            # We still accept it in the mapping for completeness, but it will not
-            # override an explicitly provided CLI path.
-            "path": "path",
-            # Methods / engines
-            "regex": "regex",
-            "ner": "ner",
-            "spacy_ner": "spacy_ner",
-            "spacy_model": "spacy_model",
-            "ollama": "ollama",
-            "ollama_url": "ollama_url",
-            "ollama_model": "ollama_model",
-            "openai_compatible": "openai_compatible",
-            "openai_api_base": "openai_api_base",
-            "openai_api_key": "openai_api_key",
-            "openai_model": "openai_model",
-            "multimodal": "multimodal",
-            "multimodal_api_base": "multimodal_api_base",
-            "multimodal_api_key": "multimodal_api_key",
-            "multimodal_model": "multimodal_model",
-            "multimodal_timeout": "multimodal_timeout",
-            "pydantic_ai": "pydantic_ai",
-            "pydantic_ai_provider": "pydantic_ai_provider",
-            "pydantic_ai_model": "pydantic_ai_model",
-            "pydantic_ai_api_key": "pydantic_ai_api_key",
-            "pydantic_ai_base_url": "pydantic_ai_base_url",
-            # File type detection
-            "use_magic_detection": "use_magic_detection",
-            "magic_fallback": "magic_fallback",
-            # Output / misc
-            "outname": "outname",
-            "whitelist": "whitelist",
-            "stop_count": "stop_count",
-            "output_dir": "output_dir",
-            "format": "format",
-            "no_header": "no_header",
-            "verbose": "verbose",
-            "quiet": "quiet",
-            "summary_format": "summary_format",
-            # Performance / execution
-            "mode": "mode",
-            "jobs": "jobs",
-            "statistics_mode": "statistics_mode",
-            "statistics_output": "statistics_output",
-        }
+        config_mapping = ConfigLoader.CONFIG_MAPPING
 
         def _cli_value_is_default(arg_name: str, cli_value: Any) -> bool:
             """Return True if cli_value equals the Typer default for arg_name."""

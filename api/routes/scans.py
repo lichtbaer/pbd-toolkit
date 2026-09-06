@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -13,6 +14,8 @@ from api.models import (
     ScanStatusResponse,
     SessionListResponse,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/scans", tags=["scans"])
 
@@ -33,6 +36,7 @@ def create_scan(body: ScanRequest, request: Request) -> ScanResponse:
 
     try:
         engines = body.validated_engines
+        profile = body.validated_profile
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -40,7 +44,7 @@ def create_scan(body: ScanRequest, request: Request) -> ScanResponse:
         session_id = service.start_scan(
             path=body.path,
             engines=engines,
-            profile=body.profile,
+            profile=profile,
             deduplicate=body.deduplicate,
             incremental=body.incremental,
             text_chunk_size=body.text_chunk_size,
@@ -49,8 +53,10 @@ def create_scan(body: ScanRequest, request: Request) -> ScanResponse:
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to start scan: {exc}")
+    except Exception:
+        # Log the traceback server-side; clients get no internal detail.
+        logger.exception("Failed to start scan for %r", body.path)
+        raise HTTPException(status_code=500, detail="Failed to start scan")
 
     return ScanResponse(session_id=session_id, status="running", message="Scan started")
 

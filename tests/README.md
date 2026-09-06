@@ -9,9 +9,14 @@ This directory contains the test suite for the pbD Toolkit.
 pytest
 ```
 
-### Run with coverage report
+### Run with coverage report (not on by default; CI passes these flags)
 ```bash
-pytest --cov=. --cov-report=html
+pytest --cov=. --cov=scripts --cov-report=term-missing
+```
+
+### Reproduce an order-dependent failure (pytest-randomly prints the seed)
+```bash
+pytest -p randomly --randomly-seed=12345
 ```
 
 ### Run specific test file
@@ -24,9 +29,9 @@ pytest tests/test_file_processors.py
 pytest -v
 ```
 
-### Run only fast tests (exclude slow/integration tests)
+### Run only unit tests (exclude integration tests)
 ```bash
-pytest -m "not slow and not integration"
+pytest -m "not integration"
 ```
 
 ## Test Structure
@@ -34,7 +39,9 @@ pytest -m "not slow and not integration"
 - `test_file_processors.py` - Tests for file processors (PDF, DOCX, HTML, TXT)
 - `test_matches.py` - Tests for PII matching functionality
 - `test_integration.py` - Integration tests
-- `conftest.py` - Shared fixtures and pytest configuration
+- `test_validators.py` - Hypothesis property tests for IBAN / Luhn / BIC / tax-ID checksums
+- `test_scan_cache.py` - Incremental-scan cache invalidation contract
+- `conftest.py` - Shared fixtures; use `make_config` / `real_config` (real `Config`) in new tests
 - `fixtures/` - Test data files (if needed)
 
 ## Test Coverage

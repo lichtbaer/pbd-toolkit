@@ -42,6 +42,7 @@ def create_app(
     scan_rate_limit: int = 5,
     allow_unauthenticated: bool = False,
     scan_workers: int | None = None,
+    trust_proxy_headers: bool | None = None,
 ) -> FastAPI:
     """Create and configure the FastAPI application.
 
@@ -57,6 +58,10 @@ def create_app(
             Without this (or an API key), ``create_app`` refuses to start.
         scan_workers: Worker-thread count for background scans. Defaults to
             ``PBD_SCAN_WORKERS`` env var, then 2.
+        trust_proxy_headers: Key the rate limiter on the left-most
+            ``X-Forwarded-For`` address instead of the socket peer. Only for
+            deployments behind a proxy you control. Defaults to
+            ``PBD_TRUST_PROXY_HEADERS``.
 
     Raises:
         UnauthenticatedAPIError: If no API key is configured and neither
@@ -80,6 +85,11 @@ def create_app(
 
     effective_scan_workers = scan_workers or int(
         os.environ.get("PBD_SCAN_WORKERS", _DEFAULT_SCAN_WORKERS)
+    )
+    effective_trust_proxy = (
+        trust_proxy_headers
+        if trust_proxy_headers is not None
+        else _env_flag("PBD_TRUST_PROXY_HEADERS")
     )
 
     # Shared state --------------------------------------------------------
@@ -121,6 +131,7 @@ def create_app(
         RateLimitMiddleware,
         requests_per_minute=rate_limit,
         scan_requests_per_minute=scan_rate_limit,
+        trust_proxy_headers=effective_trust_proxy,
     )
 
     # CORS – use safe defaults instead of wildcard

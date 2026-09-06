@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: pbd-toolkit VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-07-21 21:00+0000\n"
+"POT-Creation-Date: 2026-09-06 07:08+0000\n"
 "PO-Revision-Date: 2026-07-21 20:48+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: de\n"
@@ -53,6 +53,9 @@ msgstr "  Unverändert:         {}"
 #, python-brace-format
 msgid "#{}  Score: {:.4f}  │  File: {}  │  Chunk #{}"
 msgstr "#{}  Score: {:.4f}  │  Datei: {}  │  Chunk #{}"
+
+msgid "(text not stored in index; saved with --vector-index-no-text)"
+msgstr "(Text nicht im Index gespeichert; gespeichert mit --vector-index-no-text)"
 
 msgid ""
 "--> see *_findings.csv\n"
@@ -150,6 +153,14 @@ msgstr "Fehler beim Schreiben der Konfiguration: {}"
 
 #, python-brace-format
 msgid ""
+"Error: --engines must contain only scan flags and simple values (e.g. \""
+"--regex --ner\"), got: {}"
+msgstr ""
+"Fehler: --engines darf nur Scan-Flags und einfache Werte enthalten (z. B."
+" \"--regex --ner\"), erhalten: {}"
+
+#, python-brace-format
+msgid ""
 "Error: .git/hooks directory not found in '{}'. Make sure you are inside a"
 " git repository."
 msgstr ""
@@ -178,6 +189,14 @@ msgstr "Fehler: Datensatzdatei nicht gefunden: {}"
 #, python-brace-format
 msgid "Error: invalid dataset: {}"
 msgstr "Fehler: ungültiger Datensatz: {}"
+
+#, python-brace-format
+msgid ""
+"Error: invalid hook type '{}'. Use a plain git hook name such as pre-"
+"commit or pre-push."
+msgstr ""
+"Fehler: ungültiger Hook-Typ '{}'. Verwenden Sie einen einfachen Git-Hook-"
+"Namen wie pre-commit oder pre-push."
 
 #, python-brace-format
 msgid "Error: invalid manifest: {}"
@@ -334,6 +353,14 @@ msgstr "Keine Ergebnisse oberhalb des Schwellwerts {} gefunden."
 msgid "No scan sessions found."
 msgstr "Keine Scans gefunden."
 
+#, python-brace-format
+msgid ""
+"Note: secret fields were not exported ({}). Pass them via CLI flags or "
+"environment variables instead."
+msgstr ""
+"Hinweis: Geheimnis-Felder wurden nicht exportiert ({}). Übergeben Sie sie"
+" stattdessen per CLI-Flag oder Umgebungsvariable."
+
 msgid "OK"
 msgstr "OK"
 
@@ -456,6 +483,13 @@ msgstr "Häufigste PII-Typen (alle Scans):"
 #, python-brace-format
 msgid "Total NER processing time: {:.2f}s"
 msgstr "Gesamte NER-Verarbeitungszeit: {:.2f}s"
+
+msgid ""
+"Warning: --api-key is deprecated because the key is visible in the "
+"process list; set PBD_API_KEY instead."
+msgstr ""
+"Warnung: --api-key ist veraltet, weil der Schlüssel in der Prozessliste "
+"sichtbar ist; setzen Sie stattdessen PBD_API_KEY."
 
 msgid ""
 "Warning: --ollama is deprecated. Use --pydantic-ai --pydantic-ai-provider"

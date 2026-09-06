@@ -22,7 +22,7 @@ import logging
 import os
 import threading
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -32,6 +32,26 @@ if TYPE_CHECKING:
     import faiss
 
 logger = logging.getLogger(__name__)
+
+
+def _restrict_permissions(path: str) -> None:
+    """Best-effort chmod 0600: index files may contain scanned document text."""
+    try:
+        os.chmod(path, 0o600)
+    except OSError as exc:  # pragma: no cover - platform specific
+        logger.debug("[vector] Could not restrict permissions on %s: %s", path, exc)
+
+
+def _write_meta_file(path: str, meta: list[dict[str, Any]]) -> None:
+    """Write the index metadata JSON with owner-only permissions."""
+    import json
+
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        json.dump(meta, fh)
+    # O_CREAT mode is masked by umask and ignored for existing files.
+    _restrict_permissions(path)
+
 
 # Disable HuggingFace telemetry (consistent with the rest of the project)
 os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
@@ -94,6 +114,7 @@ class DocumentIndexer:
         load_index_path: str | None = None,
         custom_exemplars_path: str | None = None,
         verbose: bool = False,
+        store_text: bool = True,
     ) -> None:
         self.model_name = model_name
         self.threshold = threshold
@@ -101,6 +122,10 @@ class DocumentIndexer:
         self.load_index_path = load_index_path
         self.custom_exemplars_path = custom_exemplars_path
         self.verbose = verbose
+        # When False, the persisted ``.meta`` file carries no chunk text (only
+        # file path, chunk index and file hash); ``query`` previews are then
+        # unavailable but the index no longer duplicates the scanned PII.
+        self.store_text = store_text
 
         self._embed_lock = threading.Lock()
         self._model: object | None = None  # sentence-transformers SentenceTransformer
@@ -444,6 +469,12 @@ class DocumentIndexer:
         Returns:
             List of (similarity_score, IndexedChunk) sorted by score descending.
         """
+        if self.load_index_path and not self._initialized:
+            # A freshly constructed indexer with a configured on-disk index has
+            # nothing in ``_chunks`` yet: the index is only read during lazy
+            # initialisation. Without this, the empty-chunks short-circuit
+            # below made ``pbd-toolkit query`` always report zero results.
+            self._ensure_initialized()
         if not self._chunks:
             return []
         query_emb = self.embed_text(text)
@@ -514,8 +545,6 @@ class DocumentIndexer:
         if not target or not self._chunks:
             return
         try:
-            import json
-
             import faiss
 
             os.makedirs(os.path.dirname(os.path.abspath(target)), exist_ok=True)
@@ -528,27 +557,37 @@ class DocumentIndexer:
             idx = faiss.IndexFlatIP(matrix.shape[1])
             idx.add(matrix)
             faiss.write_index(idx, target + ".faiss")
+            _restrict_permissions(target + ".faiss")
 
-            meta = [
-                {
-                    "file_path": c.file_path,
-                    "chunk_idx": c.chunk_idx,
-                    "text": c.text,
-                    "file_hash": c.file_hash,
-                }
-                for c in self._chunks
-            ]
-            with open(target + ".meta", "w", encoding="utf-8") as fh:
-                json.dump(meta, fh)
+            _write_meta_file(target + ".meta", self._build_meta())
 
             if self.verbose:
                 logger.debug(
                     f"[vector] Index saved to {target} ({len(self._chunks)} chunks)"
                 )
+            if self.store_text:
+                logger.warning(
+                    "[vector] %s.meta contains the raw text of every indexed chunk "
+                    "(including any PII found). Protect it like scan output, or "
+                    "use --vector-index-no-text.",
+                    target,
+                )
         except ImportError:
             logger.warning("[vector] faiss-cpu not installed; index not saved.")
         except Exception as exc:
             logger.warning(f"[vector] Failed to save index: {exc}")
+
+    def _build_meta(self) -> list[dict[str, Any]]:
+        """Return the per-chunk metadata persisted next to the FAISS index."""
+        return [
+            {
+                "file_path": c.file_path,
+                "chunk_idx": c.chunk_idx,
+                "text": c.text if self.store_text else "",
+                "file_hash": c.file_hash,
+            }
+            for c in self._chunks
+        ]
 
     def _load_faiss_index(self, path: str) -> None:
         """Load a previously saved FAISS index from *path*."""

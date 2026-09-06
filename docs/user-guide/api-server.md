@@ -4,7 +4,7 @@
 analytics, backed by the same scan pipeline as the CLI.
 
 ```bash
-pbd-toolkit serve --api-key "$(openssl rand -hex 32)" --port 8000
+PBD_API_KEY="$(openssl rand -hex 32)" pbd-toolkit serve --port 8000
 ```
 
 ## Authentication is required by default
@@ -19,10 +19,16 @@ Error: Refusing to start the API without authentication: no API key was
 configured (--api-key / PBD_API_KEY). ...
 ```
 
-Configure a key with `--api-key` or the `PBD_API_KEY` environment variable.
-Requests must then send `Authorization: Bearer <key>`. The `/api/v1/health`,
-`/docs`, `/openapi.json`, and `/redoc` endpoints remain reachable without a
-key so load balancers can probe the service.
+Configure a key with the `PBD_API_KEY` environment variable. (`--api-key` still
+works but is deprecated: command-line arguments are visible to every local
+user in the process list.) Requests must then send
+`Authorization: Bearer <key>`. Only `/api/v1/health` is reachable without a
+key so load balancers can probe the service; the OpenAPI schema and the
+interactive docs (`/docs`, `/openapi.json`, `/redoc`) require the key too.
+
+Error responses never include server-side detail: a path outside the allowed
+roots is reported as such without listing the roots, and unexpected failures
+return a generic `500` while the traceback goes to the server log.
 
 If you deliberately want to run without authentication — for example behind
 a reverse proxy on a locked-down internal network — opt out explicitly with
@@ -36,6 +42,13 @@ general limit (60/min) and a stricter limit for scan creation (5/min). These
 are not yet exposed as `serve` flags; embed `api.app.create_app(rate_limit=...,
 scan_rate_limit=...)` directly if you need different values. Idle client
 buckets are evicted automatically so memory stays bounded under IP churn.
+
+**Behind a reverse proxy** every request arrives from the proxy's address, so
+all clients share one bucket. If (and only if) a proxy you control sets
+`X-Forwarded-For`, start with `--trust-proxy-headers` (or
+`PBD_TRUST_PROXY_HEADERS=1`) to key the limiter on the left-most forwarded
+address. Never enable this on a directly exposed server: clients could forge
+the header to escape the limit.
 
 **Rate limits are per-process.** Running `uvicorn --workers N` or multiple
 replicas behind a load balancer multiplies the effective limit by the number
@@ -62,7 +75,8 @@ concurrent scan requests, keeping in mind each scan is itself CPU/IO bound.
 
 | Flag | Env var | Default | Purpose |
 |------|---------|---------|---------|
-| `--api-key` | `PBD_API_KEY` | unset | Bearer token required on protected endpoints |
+| `--api-key` (deprecated) | `PBD_API_KEY` | unset | Bearer token required on protected endpoints; prefer the env var |
+| `--trust-proxy-headers` | `PBD_TRUST_PROXY_HEADERS` | `false` | Rate-limit by `X-Forwarded-For` (only behind a trusted proxy) |
 | `--allow-unauthenticated` | `PBD_ALLOW_UNAUTHENTICATED` | `false` | Opt out of the no-key startup refusal |
 | `--allowed-scan-roots` | — | current directory | Directories the scan API may access |
 | `--cors-origins` | — | `localhost:3000`, `localhost:8080` | Allowed CORS origins |

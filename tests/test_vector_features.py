@@ -501,3 +501,49 @@ class TestSaveLoadQueryRoundTrip:
         recovered_b = resaved.reconstruct(1)
         np.testing.assert_allclose(recovered_a, emb_a, atol=1e-6)
         np.testing.assert_allclose(recovered_b, emb_b, atol=1e-6)
+
+
+class TestIndexMetadataProtection:
+    """The .meta sidecar carries scanned text: it must be private and optional."""
+
+    def test_meta_file_is_written_owner_only(self, tmp_path):
+        import stat
+
+        from core.indexer.document_indexer import _write_meta_file
+
+        path = tmp_path / "idx.meta"
+        _write_meta_file(str(path), [{"file_path": "a", "chunk_idx": 0, "text": "x"}])
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
+        assert json.loads(path.read_text())[0]["text"] == "x"
+
+        # Re-writing an existing, more permissive file tightens it again.
+        path.chmod(0o644)
+        _write_meta_file(str(path), [])
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+    def test_build_meta_omits_text_when_store_text_disabled(self):
+        indexer = _make_indexer(store_text=False)
+        _inject_chunks(
+            indexer, [_make_chunk("secret text", file_path="doc.txt", file_hash="h")]
+        )
+        meta = indexer._build_meta()
+        assert meta == [
+            {"file_path": "doc.txt", "chunk_idx": 0, "text": "", "file_hash": "h"}
+        ]
+
+    def test_build_meta_keeps_text_by_default(self):
+        indexer = _make_indexer()
+        _inject_chunks(indexer, [_make_chunk("secret text")])
+        assert indexer._build_meta()[0]["text"] == "secret text"
+
+    def test_engine_passes_store_text_from_config(self):
+        from types import SimpleNamespace
+
+        from core.engines.vector_engine import VectorEngine
+
+        cfg = SimpleNamespace(
+            use_vector_search=True, vector_index_store_text=False, logger=None
+        )
+        assert VectorEngine(cfg)._indexer.store_text is False
+        cfg.vector_index_store_text = True
+        assert VectorEngine(cfg)._indexer.store_text is True

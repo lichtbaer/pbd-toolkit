@@ -190,6 +190,7 @@ class EngineConfig:
     vector_save_index: str | None = None
     vector_load_index: str | None = None
     vector_custom_exemplars: str | None = None
+    vector_index_store_text: bool = True
 
     # Concurrency
     engine_concurrency_limits: dict[str, int] = field(default_factory=dict)
@@ -375,6 +376,7 @@ class Config:
     vector_custom_exemplars: str | None = (
         None  # Path to YAML/JSON with custom PII exemplar categories
     )
+    vector_index_store_text: bool = True  # False: saved .meta keeps no chunk text
 
     # Text chunking: split large texts into overlapping segments for NER.
     # 0 disables chunking (default). Recommended value: 2000 characters.
@@ -571,6 +573,8 @@ class Config:
             config.vector_load_index = args.vector_load_index
         if hasattr(args, "vector_custom_exemplars") and args.vector_custom_exemplars:
             config.vector_custom_exemplars = args.vector_custom_exemplars
+        if getattr(args, "vector_index_no_text", False):
+            config.vector_index_store_text = False
 
         # PydanticAI configuration
         if hasattr(args, "pydantic_ai_provider"):

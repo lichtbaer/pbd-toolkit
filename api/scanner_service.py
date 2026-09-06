@@ -80,10 +80,15 @@ class ScannerService:
         for root in self._allowed_roots:
             if resolved == root or resolved.startswith(root + os.sep):
                 return resolved
-        raise ValueError(
-            f"Path '{path}' is outside the allowed scan roots. "
-            f"Allowed roots: {self._allowed_roots}"
+        # Do not echo the configured roots: the message reaches API clients and
+        # would disclose the server's directory layout.
+        logger.warning(
+            "Rejected scan path %r (resolved %r): outside allowed roots %s",
+            path,
+            resolved,
+            self._allowed_roots,
         )
+        raise ValueError(f"Path '{path}' is outside the allowed scan roots.")
 
     def start_scan(
         self,
@@ -97,8 +102,10 @@ class ScannerService:
         context_chars: int = 0,
     ) -> str:
         """Submit a scan job and return the session ID immediately."""
-        # Validate path before starting the scan.
-        self._validate_scan_path(path)
+        # Validate the path and continue with the *resolved* path: validating
+        # one string and scanning another would let a symlink be re-pointed
+        # outside the allowed roots between the check and the scan.
+        path = self._validate_scan_path(path)
 
         config_summary = {
             "engines": engines or ["regex"],
@@ -208,6 +215,21 @@ class ScannerService:
                 cache_path=None,
             )
 
+            # Apply the scan profile with the same semantics as the CLI: a
+            # profile value only fills in request values that are still at
+            # their default, explicit request values win.  Profile keys that
+            # have no meaning for an API scan (output format, summary format,
+            # quiet, statistics_mode, mode) are merged but not acted upon.
+            if profile:
+                from core.config_loader import ConfigLoader
+                from core.profiles import get_profile
+
+                args = ConfigLoader.merge_with_args(get_profile(profile), args)
+                deduplicate = bool(getattr(args, "deduplicate", deduplicate))
+                text_chunk_size = int(getattr(args, "text_chunk_size", text_chunk_size))
+                context_chars = int(getattr(args, "context_chars", context_chars))
+                min_confidence = float(getattr(args, "min_confidence", min_confidence))
+
             scan_logger = logging.getLogger(f"scan.{session_id[:8]}")
 
             from core.config import Config
@@ -223,8 +245,18 @@ class ScannerService:
             )
             config_obj.enable_deduplication = deduplicate
             config_obj.text_chunk_size = text_chunk_size
+            config_obj.text_chunk_overlap = int(
+                getattr(args, "text_chunk_overlap", 200)
+            )
             config_obj.context_chars = context_chars
             config_obj.min_confidence = min_confidence
+            min_severity = getattr(args, "min_severity", None)
+            if min_severity:
+                config_obj.min_severity = str(min_severity).upper()
+            fail_on_severity = getattr(args, "fail_on_severity", None)
+            if fail_on_severity:
+                fail_on_severity = str(fail_on_severity).upper()
+                config_obj.fail_on_severity = fail_on_severity
 
             # Delegate to the shared ScanRunner so the API and the CLI exercise
             # one orchestration path (issue #76). The API runs each scan inside
@@ -239,6 +271,7 @@ class ScannerService:
                     output_format="json",
                     enable_deduplication=deduplicate,
                     min_confidence=min_confidence,
+                    fail_on_severity=fail_on_severity,
                     worker_count=1,
                     analytics_store=self._store,
                     analytics_session_id=session_id,

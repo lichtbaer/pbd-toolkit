@@ -1,6 +1,6 @@
 # License
 
-This fork maintains the same license as the original HBDI pbD Toolkit project.
+This project is licensed under the **European Union Public Licence v1.2 (EUPL-1.2)**. It maintains the same license as the original HBDI pbD Toolkit project; the package metadata (`pyproject.toml`) declares the SPDX identifier `EUPL-1.2`.
 
 Please refer to the [LICENSE](../LICENSE) file in the repository root for the complete license text.
 

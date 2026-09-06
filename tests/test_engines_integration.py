@@ -2,9 +2,13 @@
 
 from unittest.mock import Mock, patch
 
+import pytest
+
 from core.config import Config, NerStats
 from core.matches import PiiMatchContainer
 from core.processor import TextProcessor
+
+pytestmark = pytest.mark.integration
 
 
 class TestMultipleEnginesIntegration:

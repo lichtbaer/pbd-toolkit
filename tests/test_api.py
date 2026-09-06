@@ -230,6 +230,44 @@ class TestPathTraversal:
             assert resp.status_code == 202
 
 
+class TestScanProfiles:
+    """``profile`` in the scan request is validated against core.profiles."""
+
+    @pytest.fixture
+    def scan_client(self, tmp_path):
+        safe = tmp_path / "safe"
+        safe.mkdir()
+        app = create_app(
+            analytics_db_path=str(tmp_path / "profiles.db"),
+            allowed_scan_roots=[str(safe)],
+            allow_unauthenticated=True,
+        )
+        with TestClient(app) as c:
+            yield c, safe
+
+    def test_unknown_profile_is_rejected(self, scan_client):
+        c, safe = scan_client
+        resp = c.post(
+            "/api/v1/scans", json={"path": str(safe), "profile": "no-such-profile"}
+        )
+        assert resp.status_code == 400
+        assert "profile" in resp.json()["detail"].lower()
+
+    def test_known_profile_is_accepted(self, scan_client):
+        c, safe = scan_client
+        resp = c.post("/api/v1/scans", json={"path": str(safe), "profile": "quick"})
+        assert resp.status_code == 202
+
+    def test_profiles_endpoint_lists_every_core_profile_with_description(self, client):
+        from core.profiles import PROFILES
+
+        resp = client.get("/api/v1/system/profiles")
+        assert resp.status_code == 200
+        listed = {p["name"]: p["description"] for p in resp.json()}
+        assert set(listed) == set(PROFILES)
+        assert all(listed.values()), "every profile should carry a description"
+
+
 class TestAPIKeyAuth:
     """Verify Bearer token authentication middleware."""
 
@@ -431,3 +469,121 @@ class TestScanWorkers:
         app = create_app(analytics_db_path=db_path, allow_unauthenticated=True)
         scanner_service = app.state.scanner_service
         assert scanner_service._executor._max_workers == 7
+
+
+class TestDocsRequireAuth:
+    """OpenAPI schema and interactive docs are not public on an authenticated API."""
+
+    @pytest.fixture
+    def auth_client(self, tmp_path):
+        app = create_app(
+            analytics_db_path=str(tmp_path / "docs.db"), api_key="test-secret-key"
+        )
+        with TestClient(app) as c:
+            yield c
+
+    @pytest.mark.parametrize("path", ["/docs", "/openapi.json", "/redoc"])
+    def test_docs_paths_need_a_key(self, auth_client, path):
+        assert auth_client.get(path).status_code == 401
+        resp = auth_client.get(
+            path, headers={"Authorization": "Bearer test-secret-key"}
+        )
+        assert resp.status_code == 200
+
+
+class TestErrorDetailLeakage:
+    def test_outside_root_error_does_not_list_allowed_roots(self, tmp_path):
+        safe = tmp_path / "safe"
+        safe.mkdir()
+        app = create_app(
+            analytics_db_path=str(tmp_path / "leak.db"),
+            allowed_scan_roots=[str(safe)],
+            allow_unauthenticated=True,
+        )
+        with TestClient(app) as c:
+            resp = c.post("/api/v1/scans", json={"path": str(tmp_path)})
+        assert resp.status_code == 400
+        assert str(safe) not in resp.json()["detail"]
+        assert "Allowed roots" not in resp.json()["detail"]
+
+    def test_internal_errors_are_not_echoed_to_clients(self, tmp_path):
+        safe = tmp_path / "safe"
+        safe.mkdir()
+        app = create_app(
+            analytics_db_path=str(tmp_path / "leak2.db"),
+            allowed_scan_roots=[str(safe)],
+            allow_unauthenticated=True,
+        )
+
+        def boom(*_args, **_kwargs):
+            raise RuntimeError("secret internal state /srv/data")
+
+        with TestClient(app) as c:
+            app.state.scanner_service.start_scan = boom
+            resp = c.post("/api/v1/scans", json={"path": str(safe)})
+        assert resp.status_code == 500
+        assert resp.json()["detail"] == "Failed to start scan"
+
+
+class TestTrustedProxyRateLimit:
+    def _app(self, tmp_path, name, trust):
+        safe = tmp_path / "safe"
+        safe.mkdir(exist_ok=True)
+        return (
+            create_app(
+                analytics_db_path=str(tmp_path / f"{name}.db"),
+                allowed_scan_roots=[str(safe)],
+                scan_rate_limit=1,
+                allow_unauthenticated=True,
+                trust_proxy_headers=trust,
+            ),
+            safe,
+        )
+
+    def test_forwarded_for_is_ignored_by_default(self, tmp_path):
+        app, safe = self._app(tmp_path, "rl_default", trust=False)
+        with TestClient(app) as c:
+            first = c.post(
+                "/api/v1/scans",
+                json={"path": str(safe)},
+                headers={"X-Forwarded-For": "10.0.0.1"},
+            )
+            second = c.post(
+                "/api/v1/scans",
+                json={"path": str(safe)},
+                headers={"X-Forwarded-For": "10.0.0.2"},
+            )
+        assert first.status_code == 202
+        assert second.status_code == 429
+
+    def test_forwarded_for_separates_clients_when_trusted(self, tmp_path):
+        app, safe = self._app(tmp_path, "rl_trusted", trust=True)
+        with TestClient(app) as c:
+            first = c.post(
+                "/api/v1/scans",
+                json={"path": str(safe)},
+                headers={"X-Forwarded-For": "10.0.0.1, 192.168.0.1"},
+            )
+            second = c.post(
+                "/api/v1/scans",
+                json={"path": str(safe)},
+                headers={"X-Forwarded-For": "10.0.0.2"},
+            )
+            third = c.post(
+                "/api/v1/scans",
+                json={"path": str(safe)},
+                headers={"X-Forwarded-For": "10.0.0.1"},
+            )
+        assert (first.status_code, second.status_code, third.status_code) == (
+            202,
+            202,
+            429,
+        )
+
+    def test_env_var_enables_trusted_proxy(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("PBD_TRUST_PROXY_HEADERS", "1")
+        app, _ = self._app(tmp_path, "rl_env", trust=None)
+        from api.middleware import RateLimitMiddleware
+
+        stack = [m for m in app.user_middleware if m.cls is RateLimitMiddleware]
+        assert stack and stack[0].kwargs["trust_proxy_headers"] is True

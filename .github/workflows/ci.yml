@@ -5,44 +5,71 @@ on:
   push:
     branches: ["**"]
 
+# The workflow only reads the repository; no job writes to GitHub.
+permissions:
+  contents: read
+
+env:
+  # uv.lock is the single source of truth for what CI installs. `--frozen`
+  # refuses to resolve anything that is not in the lockfile, so a dependency
+  # bump has to come with a regenerated lock (`uv lock`). Bump UV_VERSION
+  # together with the local toolchain.
+  UV_VERSION: "0.8.17"
+  # Extras that make up the CI baseline (mirrors docs/about/contributing.md).
+  SYNC_EXTRAS: "--extra dev --extra office --extra images --extra magic --extra llm --extra api"
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Keep in sync with requires-python / classifiers in pyproject.toml.
+        python-version: ["3.10", "3.11", "3.12"]
+    name: test (py${{ matrix.python-version }})
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
+      - name: Install uv
+        run: python -m pip install "uv==${UV_VERSION}"
+
+      - name: Install locked dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,office,images,magic,llm]"
-          python -m pip check
+          uv sync --frozen --python "${{ matrix.python-version }}" ${SYNC_EXTRAS}
+          uv pip check --python .venv/bin/python
 
       - name: Run tests
         run: |
-          python -m pytest -q
+          # Coverage flags live here rather than in pyproject addopts so local
+          # runs stay fast; fail_under comes from [tool.coverage.report].
+          # pytest-randomly shuffles test order and prints the seed; rerun a
+          # failure with `-p randomly --randomly-seed=<seed>` to reproduce it.
+          # --cov=scripts: scripts/ is not a package, so coverage would not
+          # list its files (one of them is the i18n CI gate) without it.
+          uv run --frozen python -m pytest -q --cov=. --cov=scripts --cov-report=term-missing:skip-covered
 
       - name: Detection-quality gate (regex, hermetic)
         run: |
           # Deterministic, offline regression gate on the synthetic ground truth.
           # Regex-only requires no model downloads. A drop below the threshold means
           # a regex pattern or the validation/context-gating pipeline regressed.
-          python -m core.cli evaluate eval/datasets/synthetic_de.json \
+          uv run --frozen python -m core.cli evaluate eval/datasets/synthetic_de.json \
             --engines regex --fail-under 0.80
           # English dataset exercises non-DE formats (e.g. IBANs containing letters).
-          python -m core.cli evaluate eval/datasets/synthetic_en.json \
+          uv run --frozen python -m core.cli evaluate eval/datasets/synthetic_en.json \
             --engines regex --fail-under 0.95
 
       - name: Extraction-quality gate
         run: |
           # Verifies the file processors still pull the expected text (e.g. CSV
           # column-header context) out of the sample documents.
-          python -m core.cli eval-extraction eval/datasets/extraction/manifest.json \
+          uv run --frozen python -m core.cli eval-extraction eval/datasets/extraction/manifest.json \
             --fail-under 1.0
 
   lint:
@@ -56,15 +83,22 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install lint tools
+      - name: Install uv
+        run: python -m pip install "uv==${UV_VERSION}"
+
+      - name: Lockfile is in sync with pyproject.toml
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install "ruff>=0.8.0"
+          # Fails fast with a clear message when pyproject.toml changed
+          # without `uv lock`; every other job would otherwise fail on --frozen.
+          uv lock --check
+
+      - name: Install locked dev tools
+        run: uv sync --frozen --python 3.12 --extra dev
 
       - name: Ruff
         run: |
-          python -m ruff check core file_processors validators api analytics scripts tests eval
-          python -m ruff format --check core file_processors validators api analytics scripts tests eval
+          uv run --frozen ruff check core file_processors validators api analytics scripts tests eval
+          uv run --frozen ruff format --check core file_processors validators api analytics scripts tests eval
 
   typecheck:
     runs-on: ubuntu-latest
@@ -77,14 +111,15 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,office,images,magic,llm]"
+      - name: Install uv
+        run: python -m pip install "uv==${UV_VERSION}"
+
+      - name: Install locked dependencies
+        run: uv sync --frozen --python 3.12 ${SYNC_EXTRAS}
 
       - name: mypy
         run: |
-          python -m mypy
+          uv run --frozen python -m mypy
 
   i18n:
     runs-on: ubuntu-latest
@@ -97,17 +132,18 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install babel
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install "babel>=2.14.0"
+      - name: Install uv
+        run: python -m pip install "uv==${UV_VERSION}"
+
+      - name: Install locked dev tools (babel)
+        run: uv sync --frozen --python 3.12 --extra dev
 
       - name: Catalog drift + completeness gate
         run: |
           # Fails if core/cli.py or core/scan_reporting.py contain strings not yet
           # extracted into locales/base.pot, or if the de/en catalogs have
           # fuzzy/untranslated entries.
-          python scripts/update_catalog.py check
+          uv run --frozen python scripts/update_catalog.py check
 
   security:
     runs-on: ubuntu-latest
@@ -120,22 +156,19 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install security tools
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install bandit pip-audit
-          python -m pip install --upgrade setuptools wheel
-          python -m pip install -e ".[office,images,magic,llm]"
-          python -m pip check
+      - name: Install uv
+        run: python -m pip install "uv==${UV_VERSION}"
 
       - name: Bandit
         run: |
           # Fail on medium+ severity and confidence findings.
-          bandit -q -r core file_processors validators api analytics -x tests --severity-level medium --confidence-level medium
+          uvx bandit==1.9.4 -q -r core file_processors validators api analytics -x tests \
+            --severity-level medium --confidence-level medium
 
-      - name: pip-audit
+      - name: pip-audit (locked dependency set)
         run: |
-          # Audit installed dependencies in this job's environment.
-          # Skip editable installs (this repository) to avoid "not on PyPI" noise.
-          pip-audit -l --skip-editable --progress-spinner off
-
+          # Audit exactly what uv.lock pins for the CI baseline, hashes included.
+          # --no-deps: the export is already a complete, resolved set.
+          uv export --frozen --format requirements-txt --no-emit-project ${SYNC_EXTRAS} \
+            -o requirements-lock.txt
+          uvx pip-audit==2.10.1 -r requirements-lock.txt --no-deps --progress-spinner off

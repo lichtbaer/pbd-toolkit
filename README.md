@@ -135,7 +135,7 @@ This fork is provided "as is" without warranty of any kind. The maintainers of t
 
 ## License
 
-Please refer to the [LICENSE](LICENSE) file for license information.
+This project is licensed under the **European Union Public Licence v1.2 (EUPL-1.2)**, the same licence as the original HBDI pbD-Toolkit. See the [LICENSE](LICENSE) file for the full text.
 
 ## Contributing
 

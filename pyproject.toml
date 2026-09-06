@@ -9,11 +9,14 @@ description = "Scan directories for personally identifiable information"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "PII Toolkit Contributors" }]
-license = { text = "MIT" }
+# SPDX expression (PEP 639). The repository ships the EUPL v1.2 text in LICENSE;
+# the previous "MIT" declaration was wrong. Keep the license classifier out:
+# PEP 639 deprecates it in favour of this field and setuptools warns on both.
+license = "EUPL-1.2"
+license-files = ["LICENSE"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -50,6 +53,14 @@ dev = [
   "pytest>=9.0.3,<9.2.0",
   "pytest-cov~=7.1.0",
   "pytest-mock~=3.15.1",
+  # Property-based tests for the checksum validators (tests/test_validators.py).
+  "hypothesis>=6.100",
+  # Shuffles test order per run to surface inter-test coupling; prints the seed.
+  "pytest-randomly>=3.15",
+  # Hard per-test wall-clock limit so a hung engine/thread fails instead of stalling CI.
+  "pytest-timeout>=2.3",
+  # Optional local parallelism: `pytest -n auto` (not used in CI).
+  "pytest-xdist>=3.6",
   "ruff>=0.8.0",
   # numpy>=2.5.0's bundled __init__.pyi uses PEP 695 `type` aliases, which is a
   # hard syntax error for mypy's python_version=3.10 target (see [tool.mypy]).
@@ -126,23 +137,33 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+# Coverage is deliberately *not* in addopts: tracing slows every local run and
+# makes single-test iteration expensive. CI passes --cov explicitly (see
+# .github/workflows/ci.yml); locally run `pytest --cov=. --cov-report=term-missing`.
 addopts = [
-  "-v",
   "--strict-markers",
   "--tb=short",
-  "--cov=.",
-  "--cov-report=term-missing",
-  "--cov-report=html",
 ]
+# Fail any single test that runs longer than this (pytest-timeout).
+timeout = 120
 markers = [
-  "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-  "integration: marks tests as integration tests",
+  "slow: takes noticeably longer than a unit test (deselect with '-m \"not slow\"')",
+  "integration: exercises several real components end to end rather than one unit",
 ]
 
 [tool.coverage.run]
+source = ["."]
 omit = [
   "tests/*",
   "*/__pycache__/*",
+  ".venv*/*",
+  "htmlcov/*",
+  "site/*",
+  "output/*",
+  "build/*",
+  "dist/*",
+  "docs/*",
+  "examples/*",
 ]
 
 [tool.coverage.report]
@@ -150,11 +171,14 @@ exclude_lines = [
   "pragma: no cover",
   "if __name__ == .__main__.:",
 ]
-# Ratchet floor: measured total was ~67% after the #93 coverage push (previously
-# 61% with no gate at all). Set a few points below that measurement so minor
+# Ratchet floor: measured total was 86.1% on Python 3.10/3.11/3.12 after the
+# Phase 2 test push (September 2026; 73% before it, ~67% after #93, 61% with
+# no gate at all). Set two points below that measurement so minor
 # environment/version drift doesn't flake CI; raise this as coverage improves,
 # never lower it without an explicit justification in the PR description.
-fail_under = 65
+# Measured with the CI flags: --cov=. --cov=scripts (scripts/ is included on
+# purpose even though check_licenses.py is still at 0%).
+fail_under = 84
 
 [tool.mypy]
 # Pragmatic baseline: catch real bugs (undefined names, bad calls, obvious type

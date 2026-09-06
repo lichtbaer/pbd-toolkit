@@ -1,12 +1,69 @@
 """Pytest configuration and shared fixtures."""
 
+import logging
 import os
 import tempfile
+import uuid
 from unittest.mock import Mock
 
 import pytest
 
 from core.config import Config, NerStats, RuntimeConfig, ScanConfig
+
+
+class RecordingHandler(logging.Handler):
+    """Collects log records in memory.
+
+    Used by ``make_config`` so tests can assert on what a component logged
+    without depending on ``caplog``, whose visibility depends on the logging
+    tree (other tests install handlers / set ``propagate=False``), which made
+    such assertions order-dependent.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.DEBUG)
+        self.records: list[logging.LogRecord] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(record)
+
+    def messages(self, level: int | None = None) -> list[str]:
+        return [
+            r.getMessage() for r in self.records if level is None or r.levelno == level
+        ]
+
+
+def build_config(**overrides) -> Config:
+    """Return a real ``Config`` with a real, recording logger.
+
+    Preferred over the ``mock_config`` fixture for new tests: a ``Mock(spec=Config)``
+    with hand-wired attributes drifts from the real 400-line dataclass, and the
+    ``__setattr__`` mirroring into ``config.scan`` / ``config.runtime`` only
+    works on the real object. Any Config field can be overridden by keyword;
+    ``config.logger.handlers[0]`` is a :class:`RecordingHandler`.
+    """
+    logger = logging.getLogger(f"pbd.test.{uuid.uuid4().hex}")
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+    logger.addHandler(RecordingHandler())
+    config = Config(logger=logger)
+    for name, value in overrides.items():
+        if not hasattr(config, name):
+            raise AttributeError(f"Config has no field {name!r}")
+        setattr(config, name, value)
+    return config
+
+
+@pytest.fixture
+def make_config():
+    """Factory fixture: ``make_config(path=tmp, use_regex=True, ...)`` -> real Config."""
+    return build_config
+
+
+@pytest.fixture
+def real_config(make_config, temp_dir):
+    """A real Config rooted at ``temp_dir`` (so path validation passes for files in it)."""
+    return make_config(path=temp_dir)
 
 
 @pytest.fixture
@@ -59,7 +116,11 @@ def sample_whitelist():
 
 @pytest.fixture
 def mock_config():
-    """Create a mock Config object for testing."""
+    """Create a mock Config object for testing.
+
+    Legacy fixture. Prefer ``make_config`` / ``real_config`` (a real ``Config``)
+    in new tests; this Mock must be kept in sync with ``Config`` by hand.
+    """
     config = Mock(spec=Config)
     config.verbose = False
     config.stop_count = None

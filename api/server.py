@@ -32,7 +32,20 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--api-key",
         default=None,
-        help="API key for Bearer authentication (or set PBD_API_KEY)",
+        help=(
+            "DEPRECATED: API key for Bearer authentication. Command-line "
+            "arguments are visible to every local user via the process list; "
+            "set PBD_API_KEY instead."
+        ),
+    )
+    parser.add_argument(
+        "--trust-proxy-headers",
+        action="store_true",
+        help=(
+            "Rate-limit by the left-most X-Forwarded-For address instead of the "
+            "socket peer (or set PBD_TRUST_PROXY_HEADERS=1). Only behind a "
+            "reverse proxy you control."
+        ),
     )
     parser.add_argument(
         "--allowed-scan-roots",
@@ -75,7 +88,14 @@ def main(argv: list[str] | None = None) -> None:
     # or build the app directly when using non-string config.
     os.environ.setdefault("PBD_ANALYTICS_DB", args.analytics_db)
     if args.api_key:
+        print(
+            "Warning: --api-key is deprecated because the key is visible in the "
+            "process list; set the PBD_API_KEY environment variable instead.",
+            file=sys.stderr,
+        )
         os.environ["PBD_API_KEY"] = args.api_key
+    if args.trust_proxy_headers:
+        os.environ["PBD_TRUST_PROXY_HEADERS"] = "1"
     if args.allowed_scan_roots:
         os.environ["PBD_ALLOWED_SCAN_ROOTS"] = args.allowed_scan_roots
     if args.cors_origins:
@@ -107,6 +127,7 @@ def main(argv: list[str] | None = None) -> None:
             allowed_scan_roots=allowed_roots,
             allow_unauthenticated=args.allow_unauthenticated,
             scan_workers=args.scan_workers,
+            trust_proxy_headers=args.trust_proxy_headers or None,
         )
     except UnauthenticatedAPIError as exc:
         print(f"Error: {exc}", file=sys.stderr)

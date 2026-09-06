@@ -107,11 +107,8 @@ def available_engines() -> list[EngineInfo]:
 def available_profiles() -> list[dict[str, str]]:
     """List available scan profiles."""
     try:
-        from core.profiles import PROFILES
+        from core.profiles import list_profiles
 
-        return [
-            {"name": name, "description": p.get("description", "")}
-            for name, p in PROFILES.items()
-        ]
+        return list_profiles()
     except ImportError:
         return []

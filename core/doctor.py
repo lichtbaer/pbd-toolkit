@@ -121,8 +121,9 @@ def run_benchmark(
         labels = [c["term"] for c in cfg2.get("ai-ner", [])]
         if labels:
             try:
-                import constants
                 from gliner import GLiNER
+
+                from core import constants
 
                 model = GLiNER.from_pretrained(constants.NER_MODEL_NAME)
                 t0 = time.perf_counter()
@@ -150,7 +151,7 @@ def run_benchmark(
         import spacy  # noqa: F401
 
         try:
-            import constants as _const
+            from core import constants as _const
 
             model_name = getattr(_const, "SPACY_MODEL_NAME", "de_core_news_lg")
             nlp = spacy.load(model_name)

@@ -1,6 +1,10 @@
 """Integration tests for the PII toolkit."""
 
+import pytest
+
 from core.matches import PiiMatchContainer
+
+pytestmark = pytest.mark.integration
 
 
 class TestIntegration:

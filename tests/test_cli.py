@@ -5,6 +5,7 @@ import os
 import stat
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from core import constants
@@ -124,6 +125,52 @@ class TestCliScan:
         data = json.loads(out_files[0].read_text())
         files_hit = {f["file"] for f in data["findings"]}
         assert not any("skip.txt" in f for f in files_hit)
+
+    def test_scan_profile_ci_applies_severity_gate(self, temp_dir):
+        """Regression: the 'ci' profile's fail_on_severity used to be dropped.
+
+        An IBAN is a HIGH-severity finding, so ``--profile ci`` (which sets
+        ``fail_on_severity: HIGH``) must exit with EXIT_FINDINGS_ABOVE_THRESHOLD.
+        """
+        (Path(temp_dir) / "bank.txt").write_text("IBAN DE89 3704 0044 0532 0130 00")
+        out_dir = Path(temp_dir) / "out"
+        result = runner.invoke(
+            app,
+            [
+                "scan",
+                temp_dir,
+                "--profile",
+                "ci",
+                "--quiet",
+                "--output-dir",
+                str(out_dir),
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == constants.EXIT_FINDINGS_ABOVE_THRESHOLD, (
+            result.output
+        )
+
+    def test_scan_explicit_flag_overrides_profile(self, temp_dir):
+        """An explicit --fail-on-severity beats the profile's value."""
+        (Path(temp_dir) / "bank.txt").write_text("IBAN DE89 3704 0044 0532 0130 00")
+        out_dir = Path(temp_dir) / "out"
+        result = runner.invoke(
+            app,
+            [
+                "scan",
+                temp_dir,
+                "--profile",
+                "ci",
+                "--fail-on-severity",
+                "CRITICAL",
+                "--quiet",
+                "--output-dir",
+                str(out_dir),
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == constants.EXIT_SUCCESS, result.output
 
 
 class TestCliQuery:
@@ -410,11 +457,37 @@ class TestCliServe:
         assert result.exit_code == 0
         assert "api" in result.output.lower()
 
-    def test_serve_missing_api_extra(self):
-        """Without fastapi/uvicorn installed, serve exits gracefully (not a raw traceback)."""
+    def test_serve_missing_api_extra(self, monkeypatch):
+        """Without fastapi/uvicorn installed, serve exits gracefully (not a raw traceback).
+
+        The import failure is simulated so the test behaves the same whether or
+        not the ``api`` extra happens to be installed in the test environment.
+        """
+        import builtins
+        import sys
+
+        real_import = builtins.__import__
+
+        def fail_api_import(name, *args, **kwargs):
+            if name == "api.server" or name.startswith("api.server."):
+                raise ImportError("No module named 'fastapi'")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.delitem(sys.modules, "api.server", raising=False)
+        monkeypatch.setattr(builtins, "__import__", fail_api_import)
+
+        result = runner.invoke(app, ["serve"], catch_exceptions=False)
+        assert result.exit_code == constants.EXIT_CONFIGURATION_ERROR
+        assert "pip install 'pbd-toolkit[api]'" in result.output
+
+    def test_serve_refuses_to_start_unauthenticated(self, monkeypatch):
+        """With the api extra installed, serve without a key must fail closed."""
+        pytest.importorskip("fastapi")
+        monkeypatch.delenv("PBD_API_KEY", raising=False)
+        monkeypatch.delenv("PBD_ALLOW_UNAUTHENTICATED", raising=False)
         result = runner.invoke(app, ["serve"], catch_exceptions=False)
         assert result.exit_code != 0
-        assert "pip install 'pbd-toolkit[api]'" in result.output
+        assert "authentication" in result.output.lower()
 
 
 class TestCliInstallHook:
@@ -546,3 +619,134 @@ class TestCliExportConfig:
             catch_exceptions=False,
         )
         assert result.exit_code == constants.EXIT_GENERAL_ERROR
+
+    def test_export_config_never_writes_api_keys(self, temp_dir):
+        """Secret fields loaded from a base config must not end up in the export."""
+        base = Path(temp_dir) / "base.json"
+        base.write_text(
+            json.dumps(
+                {
+                    "openai_api_key": "sk-super-secret",
+                    "pydantic_ai_api_key": "pai-super-secret",
+                    "openai_model": "gpt-4o-mini",
+                }
+            )
+        )
+        result = runner.invoke(
+            app,
+            ["export-config", "--format", "json", "--config", str(base)],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert "sk-super-secret" not in result.output
+        assert "pai-super-secret" not in result.output
+        # The JSON document is the stdout part; the note goes to stderr but the
+        # CliRunner merges both, so isolate the JSON object first.
+        json_text = result.output[result.output.index("{") :]
+        json_text = json_text[: json_text.rindex("}") + 1]
+        payload = json.loads(json_text)
+        for section in payload.values():
+            assert not any("api_key" in k for k in section), section.keys()
+        assert payload["engine"]["openai_model"] == "gpt-4o-mini"
+        assert "not exported" in result.output
+
+
+class TestCliInstallHookInputValidation:
+    """Values interpolated into the generated hook script are validated."""
+
+    def _git_repo(self, temp_dir):
+        (Path(temp_dir) / ".git" / "hooks").mkdir(parents=True)
+        return temp_dir
+
+    def test_shell_metacharacters_in_engines_are_rejected(self, temp_dir):
+        repo = self._git_repo(temp_dir)
+        result = runner.invoke(
+            app,
+            ["install-hook", "--git-dir", repo, "--engines", "--regex; rm -rf /"],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == constants.EXIT_INVALID_ARGUMENTS
+        assert not (Path(repo) / ".git" / "hooks" / "pre-commit").exists()
+
+    def test_hook_type_with_path_separator_is_rejected(self, temp_dir):
+        repo = self._git_repo(temp_dir)
+        result = runner.invoke(
+            app,
+            ["install-hook", "--git-dir", repo, "--hook-type", "../evil"],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == constants.EXIT_INVALID_ARGUMENTS
+        assert not (Path(repo) / "evil").exists()
+
+    def test_valid_engines_are_quoted_per_token(self, temp_dir):
+        repo = self._git_repo(temp_dir)
+        result = runner.invoke(
+            app,
+            [
+                "install-hook",
+                "--git-dir",
+                repo,
+                "--force",
+                "--engines",
+                "--regex --spacy-model de_core_news_sm",
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0, result.output
+        script = (Path(repo) / ".git" / "hooks" / "pre-commit").read_text()
+        assert "--regex --spacy-model de_core_news_sm" in script
+
+
+class TestCliStatisticsPrivacy:
+    def _scan(self, temp_dir, *extra):
+        (Path(temp_dir) / "doc.txt").write_text("Mail: user@example.com")
+        out_dir = Path(temp_dir) / "out"
+        result = runner.invoke(
+            app,
+            [
+                "scan",
+                temp_dir,
+                "--regex",
+                "--quiet",
+                "--statistics-mode",
+                "--output-dir",
+                str(out_dir),
+                "--outname",
+                "stats",
+                *extra,
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0, result.output
+        stats_files = list(out_dir.glob("*stats_statistics.json"))
+        assert len(stats_files) == 1
+        return json.loads(stats_files[0].read_text())
+
+    def test_strict_statistics_do_not_record_the_scan_path(self, temp_dir):
+        payload = self._scan(temp_dir, "--statistics-strict")
+        assert payload["metadata"]["statistics_strict"] is True
+        assert payload["metadata"]["scan_path"] is None
+        assert temp_dir not in json.dumps(payload)
+
+    def test_non_strict_statistics_keep_the_scan_path(self, temp_dir):
+        payload = self._scan(temp_dir)
+        assert payload["metadata"]["scan_path"] == temp_dir
+
+
+class TestCliServeOptions:
+    def test_api_key_flag_warns_and_proxy_flag_is_forwarded(self, monkeypatch):
+        import api.server
+
+        captured: dict[str, list[str]] = {}
+        monkeypatch.setattr(
+            api.server, "main", lambda argv: captured.setdefault("argv", argv)
+        )
+        result = runner.invoke(
+            app,
+            ["serve", "--api-key", "k", "--trust-proxy-headers"],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0, result.output
+        assert "deprecated" in result.output.lower()
+        assert "--trust-proxy-headers" in captured["argv"]
+        assert "--api-key" in captured["argv"]

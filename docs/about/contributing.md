@@ -31,7 +31,14 @@ python3 -m venv .venv
 source .venv/bin/activate
 
 # Recommended: install dev + feature extras (same baseline as CI)
-pip install -e ".[dev,office,images,magic,llm]"
+pip install -e ".[dev,office,images,magic,llm,api]"
+
+# Or reproduce CI exactly from the lockfile with uv (https://docs.astral.sh/uv/):
+#   uv sync --extra dev --extra office --extra images --extra magic --extra llm --extra api
+#   uv run python -m pytest -q
+# CI installs with `uv sync --frozen`, so a change to dependencies in
+# pyproject.toml must be accompanied by a regenerated lockfile: run `uv lock`
+# and commit uv.lock (the lint job fails with `uv lock --check` otherwise).
 
 # Optional: enable additional local NER engines
 # pip install -e ".[gliner,spacy]"

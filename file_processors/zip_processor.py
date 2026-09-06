@@ -21,12 +21,40 @@ _MAX_SINGLE_FILE_BYTES = 100 * 1024 * 1024  # 100 MB
 # entry as a potential ZIP bomb.  Legitimate text files rarely exceed 20:1.
 _MAX_COMPRESSION_RATIO = 100
 
+# Chunk size for the bounded read below.
+_READ_CHUNK = 1024 * 1024
+
+
+def _read_bounded(stream, limit: int) -> bytes | None:
+    """Read at most *limit* bytes from *stream*; return ``None`` if it has more.
+
+    The declared ``ZipInfo.file_size`` comes from the archive itself and is
+    therefore attacker-controlled.  CPython's ``zipfile`` does stop at the
+    declared size and raises on a CRC mismatch, but that is an implementation
+    detail we do not want the memory bound to depend on: this helper enforces
+    the limit on the bytes actually produced, independent of any header field.
+    """
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = stream.read(min(_READ_CHUNK, limit + 1 - total))
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > limit:
+            return None
+        chunks.append(chunk)
+    return b"".join(chunks)
+
 
 class ZipProcessor(BaseFileProcessor):
     """Processor for ZIP archive files.
 
-    Extracts ZIP contents and processes files recursively.
-    Handles nested archives and password-protected archives.
+    Extracts the text of every decodable entry.  Entry names are only used as
+    labels in the yielded text, never as filesystem paths, so ``../`` names
+    cannot escape anywhere.  Nested archives are not recursed into: an inner
+    ZIP is binary and is skipped like any other undecodable entry.
+    Password-protected entries are skipped with a warning.
     """
 
     def extract_text(self, file_path: str) -> Iterator[str]:
@@ -89,8 +117,9 @@ class ZipProcessor(BaseFileProcessor):
                         )
                         continue
 
-                    total_uncompressed += info.file_size
-                    if total_uncompressed > _MAX_UNCOMPRESSED_BYTES:
+                    # Cheap pre-check on the declared size; the authoritative
+                    # accounting below uses the bytes actually read.
+                    if total_uncompressed + info.file_size > _MAX_UNCOMPRESSED_BYTES:
                         _logger.warning(
                             "ZIP archive total uncompressed size exceeds %d MB limit, stopping: %s",
                             _MAX_UNCOMPRESSED_BYTES // (1024 * 1024),
@@ -103,7 +132,26 @@ class ZipProcessor(BaseFileProcessor):
                         with zip_ref.open(filename) as file_in_zip:
                             # Try to read as text
                             try:
-                                content = file_in_zip.read()
+                                remaining_budget = min(
+                                    _MAX_SINGLE_FILE_BYTES,
+                                    _MAX_UNCOMPRESSED_BYTES - total_uncompressed,
+                                )
+                                content = _read_bounded(file_in_zip, remaining_budget)
+                                if content is None:
+                                    _logger.warning(
+                                        "Skipping ZIP entry whose actual size exceeds "
+                                        "the declared size / read budget: %s/%s",
+                                        file_path,
+                                        filename,
+                                    )
+                                    # Anything over budget counts against the
+                                    # archive total so a series of liars cannot
+                                    # keep the loop busy.
+                                    total_uncompressed += remaining_budget
+                                    if total_uncompressed >= _MAX_UNCOMPRESSED_BYTES:
+                                        break
+                                    continue
+                                total_uncompressed += len(content)
                                 try:
                                     text = decode_with_fallback(content)
                                 except UnicodeDecodeError:

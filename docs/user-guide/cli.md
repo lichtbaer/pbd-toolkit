@@ -158,7 +158,11 @@ pbd-toolkit scan /data --vector-search --vector-save-index ./output/my_index
 | `--vector-threshold` | `0.75` | Cosine similarity cut-off (0.0 – 1.0) |
 | `--vector-save-index` | – | Path prefix to save FAISS index |
 | `--vector-load-index` | – | Path prefix to load a saved FAISS index |
+| `--vector-index-no-text` | off | Do not store chunk text in `<index>.meta` |
 | `--vector-custom-exemplars` | – | Path to custom exemplar file (YAML or JSON) |
+
+!!! warning "A saved index contains your documents"
+    `--vector-save-index` writes two files. `<index>.faiss` holds the embeddings; `<index>.meta` holds the **raw text of every indexed chunk**, i.e. the PII the scan found, in plain JSON. Both are written with mode `0600`, and a warning is logged on save. Treat them like scan output. Pass `--vector-index-no-text` to keep only file path, chunk index and file hash in `.meta`; `pbd-toolkit query` then reports scores and file locations but no text previews.
 
 **Installation**: `pip install sentence-transformers` (or `pip install "pbd-toolkit[vector]"`)
 
@@ -193,13 +197,13 @@ Enable OpenAI-compatible API detection.
 ```bash
 pbd-toolkit scan /data --openai-compatible \
     --openai-api-key YOUR_KEY \
-    --openai-model gpt-3.5-turbo
+    --openai-model gpt-4o-mini
 ```
 
 **Options**:
 - `--openai-api-base`: API base URL (default: `https://api.openai.com/v1`)
 - `--openai-api-key`: API key (or set `OPENAI_API_KEY` environment variable)
-- `--openai-model`: Model to use (default: `gpt-3.5-turbo`)
+- `--openai-model`: Model to use (default: `gpt-4o-mini`)
 
 !!! note "Legacy flags"
     `--ollama` and `--openai-compatible` are legacy LLM flags kept for compatibility. Prefer `--pydantic-ai` for new usage.
@@ -305,7 +309,7 @@ pbd-toolkit scan /data --regex --ner --statistics-mode
 
 ### `--statistics-strict`
 
-Strict privacy statistics mode: do not keep file paths in memory (some unique-file metrics become `null`).
+Strict privacy statistics mode: do not keep file paths in memory (some unique-file metrics become `null`), and do not record the scan root in the statistics file (`metadata.scan_path` is `null`).
 
 ```bash
 pbd-toolkit scan /data --regex --ner --statistics-mode --statistics-strict
@@ -383,6 +387,51 @@ verbose: false
 ```
 
 **Note**: CLI arguments take precedence over config file values. The scan path can be provided as positional `<path>`, via `--path`, or inside the config file as `path: ...`.
+
+### `--redact`, `--redact-dir`
+
+Write a redacted copy of every file that contains findings (PII replaced by `[REDACTED:TYPE]`). Text formats are rewritten; binary formats get a `.redacted.txt` companion. Output goes to `--redact-dir` (default: `<output-dir>/redacted/`).
+
+### `--pseudonymize`, `--pseudonymize-dir`, `--pseudonymize-key-file`
+
+Like `--redact`, but findings are replaced with realistic-looking fake values (names, e-mail addresses, IBAN-shaped strings, ...) so documents stay readable and usable as test data. Output goes to `--pseudonymize-dir` (default: `<output-dir>/pseudonymized/`).
+
+Pseudonyms are derived from `HMAC-SHA256(key, type || text)`:
+
+- **Without `--pseudonymize-key-file`** every run uses a fresh random key. The same value is replaced consistently *within* the run, but two runs produce different pseudonyms. Nobody can confirm a guess ("is this pseudonym Anna Müller?") because the key is never stored.
+- **With `--pseudonymize-key-file PATH`** the key is read from `PATH` (hex-encoded) and created there with mode `0600` on first use. Reusing the file keeps pseudonyms stable across scans. Whoever holds the key can confirm guesses against the output, so keep it outside the output directory and out of version control.
+
+```bash
+pbd-toolkit scan /data --regex --pseudonymize \
+    --pseudonymize-key-file ~/.config/pbd-toolkit/pseudonym.key
+```
+
+!!! warning "Behaviour change"
+    Earlier versions seeded pseudonyms from an unkeyed `md5(text)`, which made them globally stable but trivially reversible by dictionary attack. If you relied on cross-run stability, pass a key file.
+
+### `--profile`
+
+Load a built-in scan profile. Profile values are applied first; any flag you pass explicitly on the command line overrides the profile, and a `--config` file overrides the profile as well.
+
+```bash
+pbd-toolkit scan /data --profile ci
+```
+
+Available profiles: `quick`, `standard`, `deep`, `gdpr-audit`, `ci`, `medical`, `credentials` (see `core/profiles.py` for the exact values, or `GET /api/v1/system/profiles` on the API server).
+
+### `--min-severity`
+
+Only include findings at or above this severity in the output: `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`.
+
+### `--fail-on-severity`
+
+Exit with code `5` (`EXIT_FINDINGS_ABOVE_THRESHOLD`) if any finding at or above the given severity is present. The scan still completes and writes its output; the exit code is meant as a CI/CD gate.
+
+```bash
+pbd-toolkit scan ./src --regex --fail-on-severity HIGH --quiet
+```
+
+The `ci` and `credentials` profiles set `fail_on_severity: HIGH`.
 
 ### `--summary-format`
 
@@ -498,6 +547,7 @@ The tool uses standardized exit codes for automation and scripting:
 - `2` (`EXIT_INVALID_ARGUMENTS`): Invalid command-line arguments
 - `3` (`EXIT_FILE_ACCESS_ERROR`): File access error (reserved for future use)
 - `4` (`EXIT_CONFIGURATION_ERROR`): Configuration error or NER model loading failed
+- `5` (`EXIT_FINDINGS_ABOVE_THRESHOLD`): Scan succeeded, but findings at or above the `--fail-on-severity` level were found
 
 See [Exit Codes Documentation](../EXIT_CODES.md) for detailed information and usage examples.
 

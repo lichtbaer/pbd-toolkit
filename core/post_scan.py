@@ -70,9 +70,15 @@ class RedactionHandler:
 
 @dataclass
 class PseudonymizationHandler:
-    """Writes pseudo-anonymized copies of scanned files that contain PII matches."""
+    """Writes pseudo-anonymized copies of scanned files that contain PII matches.
+
+    ``key_file`` optionally points to a hex-encoded key (created on first use
+    with mode 0600) so pseudonyms stay stable across runs. Without it every run
+    uses a fresh random key.
+    """
 
     output_dir: str
+    key_file: str | None = None
 
     def handle(
         self, result: ScanRunResult, logger: logging.Logger | None = None
@@ -80,12 +86,14 @@ class PseudonymizationHandler:
         if not result.matches_by_file:
             return {}
 
-        from core.pseudonymizer import pseudonymize_files
+        from core.pseudonymizer import load_or_create_key, pseudonymize_files
 
+        key = load_or_create_key(self.key_file) if self.key_file else None
         return pseudonymize_files(
             matches_by_file=result.matches_by_file,
             output_dir=self.output_dir,
             logger=logger or _logger,
+            key=key,
         )
 
 
@@ -154,9 +162,10 @@ def build_redaction_handler(
 
 
 def build_pseudonymization_handler(
-    output_dir: str | None, base_output_dir: str
+    output_dir: str | None, base_output_dir: str, key_file: str | None = None
 ) -> PseudonymizationHandler:
     """Resolve the pseudonymization output directory the same way the CLI always has."""
     return PseudonymizationHandler(
-        output_dir=output_dir or os.path.join(base_output_dir, "pseudonymized")
+        output_dir=output_dir or os.path.join(base_output_dir, "pseudonymized"),
+        key_file=key_file,
     )

@@ -86,6 +86,7 @@ class VectorEngine:
             load_index_path=load_index,
             custom_exemplars_path=custom_exemplars,
             verbose=bool(getattr(config, "verbose", False)),
+            store_text=bool(getattr(config, "vector_index_store_text", True)),
         )
 
         self._chunk_counter: int = 0
