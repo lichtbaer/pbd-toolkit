@@ -206,6 +206,17 @@ passes; `pip install . && pip show pbd-toolkit` reports EUPL.
 
 ### Phase 1: security and data protection (M, ~1 week)
 
+Status: **done** (commits da5f850..HEAD on the same branch), with these deviations:
+
+- The ZIP finding was overstated: CPython's `zipfile` already stops at the declared size
+  and fails the CRC check, so a lying header cannot inflate memory. The bounded reader was
+  added anyway as defence in depth, and the previously untested guards now have tests.
+- GitHub Actions are still pinned to major tags, not commit SHAs (needs the upstream
+  tag-to-SHA mapping; do it once, Dependabot keeps SHA pins current).
+- Interactive API docs are behind the API key rather than disabled.
+- `uv.lock` was regenerated with `uv lock --upgrade`; the old lock pinned a starlette with
+  known advisories that pip-audit never saw because CI did not install from the lock.
+
 1. **Pseudonymizer**: seed with `HMAC-SHA256(salt, type || text)`; salt is generated per run
    (or read from `--pseudonymize-key-file` for stable cross-run mappings); never written to
    output. Document the change as breaking for anyone relying on cross-run stability.
