@@ -1611,7 +1611,14 @@ def serve(
         False, "--reload", help="Auto-reload on code changes (dev only)"
     ),
     api_key: str | None = typer.Option(
-        None, "--api-key", help="API key for Bearer auth (or PBD_API_KEY env)"
+        None,
+        "--api-key",
+        help="DEPRECATED: API key for Bearer auth. Visible in the process list; set PBD_API_KEY instead.",
+    ),
+    trust_proxy_headers: bool = typer.Option(
+        False,
+        "--trust-proxy-headers",
+        help="Rate-limit by the left-most X-Forwarded-For address (or PBD_TRUST_PROXY_HEADERS=1). Only behind a reverse proxy you control.",
     ),
     allowed_scan_roots: str | None = typer.Option(
         None,
@@ -1653,7 +1660,15 @@ def serve(
     if reload:
         argv.append("--reload")
     if api_key:
+        typer.echo(
+            translate_func(
+                "Warning: --api-key is deprecated because the key is visible in the process list; set PBD_API_KEY instead."
+            ),
+            err=True,
+        )
         argv.extend(["--api-key", api_key])
+    if trust_proxy_headers:
+        argv.append("--trust-proxy-headers")
     if allowed_scan_roots:
         argv.extend(["--allowed-scan-roots", allowed_scan_roots])
     if cors_origins:

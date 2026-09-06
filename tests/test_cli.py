@@ -731,3 +731,22 @@ class TestCliStatisticsPrivacy:
     def test_non_strict_statistics_keep_the_scan_path(self, temp_dir):
         payload = self._scan(temp_dir)
         assert payload["metadata"]["scan_path"] == temp_dir
+
+
+class TestCliServeOptions:
+    def test_api_key_flag_warns_and_proxy_flag_is_forwarded(self, monkeypatch):
+        import api.server
+
+        captured: dict[str, list[str]] = {}
+        monkeypatch.setattr(
+            api.server, "main", lambda argv: captured.setdefault("argv", argv)
+        )
+        result = runner.invoke(
+            app,
+            ["serve", "--api-key", "k", "--trust-proxy-headers"],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0, result.output
+        assert "deprecated" in result.output.lower()
+        assert "--trust-proxy-headers" in captured["argv"]
+        assert "--api-key" in captured["argv"]

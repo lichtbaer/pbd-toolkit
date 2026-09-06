@@ -147,3 +147,56 @@ def test_run_scan_applies_profile_values(tmp_path, monkeypatch):
     assert request.config.fail_on_severity == "HIGH"
     assert request.enable_deduplication is True
     assert session is not None and session["status"] == "completed"
+
+
+def test_start_scan_uses_the_resolved_path(tmp_path):
+    """The validated realpath, not the caller's string, is what gets scanned.
+
+    Validating one string and scanning another would leave a window in which a
+    symlink can be re-pointed outside the allowed roots.
+    """
+    import os
+
+    root = tmp_path / "root"
+    real = root / "real"
+    real.mkdir(parents=True)
+    (real / "a.txt").write_text("nothing")
+    link = root / "link"
+    os.symlink(real, link)
+
+    store = AnalyticsStore(db_path=str(tmp_path / "analytics.db"))
+    service = ScannerService(store, allowed_scan_roots=[str(root)])
+    try:
+        session_id = service.start_scan(str(link), engines=["regex"])
+        service.shutdown()
+        session = AnalyticsQueries(store._db).get_session_detail(session_id)
+    finally:
+        store.close()
+
+    assert session is not None
+    assert session["scan_path"] == os.path.realpath(real)
+    assert "link" not in session["scan_path"]
+
+
+def test_symlink_escaping_the_root_is_rejected_without_listing_roots(tmp_path):
+    import os
+
+    import pytest
+
+    root = tmp_path / "root"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    os.symlink(outside, root / "escape")
+
+    store = AnalyticsStore(db_path=str(tmp_path / "analytics.db"))
+    service = ScannerService(store, allowed_scan_roots=[str(root)])
+    try:
+        with pytest.raises(ValueError) as excinfo:
+            service.start_scan(str(root / "escape"), engines=["regex"])
+    finally:
+        service.shutdown()
+        store.close()
+    # The caller's own path may be echoed; the configured roots must not be.
+    assert "Allowed roots" not in str(excinfo.value)
+    assert str(service._allowed_roots) not in str(excinfo.value)

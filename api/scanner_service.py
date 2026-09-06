@@ -80,10 +80,15 @@ class ScannerService:
         for root in self._allowed_roots:
             if resolved == root or resolved.startswith(root + os.sep):
                 return resolved
-        raise ValueError(
-            f"Path '{path}' is outside the allowed scan roots. "
-            f"Allowed roots: {self._allowed_roots}"
+        # Do not echo the configured roots: the message reaches API clients and
+        # would disclose the server's directory layout.
+        logger.warning(
+            "Rejected scan path %r (resolved %r): outside allowed roots %s",
+            path,
+            resolved,
+            self._allowed_roots,
         )
+        raise ValueError(f"Path '{path}' is outside the allowed scan roots.")
 
     def start_scan(
         self,
@@ -97,8 +102,10 @@ class ScannerService:
         context_chars: int = 0,
     ) -> str:
         """Submit a scan job and return the session ID immediately."""
-        # Validate path before starting the scan.
-        self._validate_scan_path(path)
+        # Validate the path and continue with the *resolved* path: validating
+        # one string and scanning another would let a symlink be re-pointed
+        # outside the allowed roots between the check and the scan.
+        path = self._validate_scan_path(path)
 
         config_summary = {
             "engines": engines or ["regex"],

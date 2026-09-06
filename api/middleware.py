@@ -18,11 +18,14 @@ logger = logging.getLogger(__name__)
 class APIKeyMiddleware(BaseHTTPMiddleware):
     """Validate ``Authorization: Bearer <key>`` on every request.
 
-    The health endpoint is exempt so load-balancers can probe without credentials.
+    Only the health endpoint is exempt so load-balancers can probe without
+    credentials. The OpenAPI schema and the interactive docs are protected as
+    well: they describe the full API surface and are of no use to anonymous
+    callers of an authenticated API.
     """
 
     # Paths that do not require authentication.
-    _PUBLIC_PATHS = frozenset({"/api/v1/health", "/docs", "/openapi.json", "/redoc"})
+    _PUBLIC_PATHS = frozenset({"/api/v1/health"})
 
     def __init__(self, app: Callable, api_key: str) -> None:
         super().__init__(app)
@@ -58,6 +61,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     Idle client buckets are evicted after ``eviction_ttl`` seconds of
     inactivity so memory does not grow unbounded under IP churn (e.g. behind
     a reverse proxy rotating through many client addresses).
+
+    Behind a reverse proxy every request arrives from the proxy's address, so
+    all clients would share one bucket. Set ``trust_proxy_headers=True`` only
+    when a proxy you control sets ``X-Forwarded-For``; the left-most address
+    is then used as the client key. Never enable it on a directly exposed
+    server, because clients can forge that header to escape the limit.
     """
 
     def __init__(
@@ -67,12 +76,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         scan_requests_per_minute: int = 5,
         eviction_ttl: float = 300.0,
         sweep_interval: float = 60.0,
+        trust_proxy_headers: bool = False,
     ) -> None:
         super().__init__(app)
         self.general_limit = requests_per_minute
         self.scan_limit = scan_requests_per_minute
         self.eviction_ttl = eviction_ttl
         self.sweep_interval = sweep_interval
+        self.trust_proxy_headers = trust_proxy_headers
         self._general_counts: dict[str, list[float]] = {}
         self._scan_counts: dict[str, list[float]] = {}
         self._last_seen: dict[str, float] = {}
@@ -127,8 +138,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 self._general_counts.pop(key, None)
                 self._scan_counts.pop(key, None)
 
+    def _client_key(self, request: Request) -> str:
+        if self.trust_proxy_headers:
+            forwarded = request.headers.get("X-Forwarded-For", "")
+            first = forwarded.split(",")[0].strip()
+            if first:
+                return first
+        return request.client.host if request.client else "unknown"
+
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        client_ip = request.client.host if request.client else "unknown"
+        client_ip = self._client_key(request)
         self._touch(client_ip)
         self._evict_idle_buckets()
 

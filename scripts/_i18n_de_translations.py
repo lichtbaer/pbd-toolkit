@@ -22,6 +22,7 @@ DE_TRANSLATIONS = {
     "Configuration error: {}": "Konfigurationsfehler: {}",
     "Configuration error: {}: {}": "Konfigurationsfehler: {}: {}",
     "Configuration exported to: {}": "Konfiguration exportiert nach: {}",
+    "Warning: --api-key is deprecated because the key is visible in the process list; set PBD_API_KEY instead.": "Warnung: --api-key ist veraltet, weil der Schlüssel in der Prozessliste sichtbar ist; setzen Sie stattdessen PBD_API_KEY.",
     "(text not stored in index; saved with --vector-index-no-text)": "(Text nicht im Index gespeichert; gespeichert mit --vector-index-no-text)",
     "Error: invalid hook type '{}'. Use a plain git hook name such as pre-commit or pre-push.": "Fehler: ungültiger Hook-Typ '{}'. Verwenden Sie einen einfachen Git-Hook-Namen wie pre-commit oder pre-push.",
     'Error: --engines must contain only scan flags and simple values (e.g. "--regex --ner"), got: {}': 'Fehler: --engines darf nur Scan-Flags und einfache Werte enthalten (z. B. "--regex --ner"), erhalten: {}',

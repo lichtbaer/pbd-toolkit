@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: pbd-toolkit VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-06 07:00+0000\n"
+"POT-Creation-Date: 2026-09-06 07:08+0000\n"
 "PO-Revision-Date: 2026-07-21 20:48+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -53,6 +53,9 @@ msgstr "  Unchanged:           {}"
 #, python-brace-format
 msgid "#{}  Score: {:.4f}  │  File: {}  │  Chunk #{}"
 msgstr "#{}  Score: {:.4f}  │  File: {}  │  Chunk #{}"
+
+msgid "(text not stored in index; saved with --vector-index-no-text)"
+msgstr "(text not stored in index; saved with --vector-index-no-text)"
 
 msgid ""
 "--> see *_findings.csv\n"
@@ -477,6 +480,13 @@ msgstr "Top PII types (all sessions):"
 #, python-brace-format
 msgid "Total NER processing time: {:.2f}s"
 msgstr "Total NER processing time: {:.2f}s"
+
+msgid ""
+"Warning: --api-key is deprecated because the key is visible in the "
+"process list; set PBD_API_KEY instead."
+msgstr ""
+"Warning: --api-key is deprecated because the key is visible in the "
+"process list; set PBD_API_KEY instead."
 
 msgid ""
 "Warning: --ollama is deprecated. Use --pydantic-ai --pydantic-ai-provider"
