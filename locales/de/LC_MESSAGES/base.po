@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: pbd-toolkit VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-07-21 21:00+0000\n"
+"POT-Creation-Date: 2026-09-06 06:48+0000\n"
 "PO-Revision-Date: 2026-07-21 20:48+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: de\n"
@@ -333,6 +333,14 @@ msgstr "Keine Ergebnisse oberhalb des Schwellwerts {} gefunden."
 
 msgid "No scan sessions found."
 msgstr "Keine Scans gefunden."
+
+#, python-brace-format
+msgid ""
+"Note: secret fields were not exported ({}). Pass them via CLI flags or "
+"environment variables instead."
+msgstr ""
+"Hinweis: Geheimnis-Felder wurden nicht exportiert ({}). Übergeben Sie sie"
+" stattdessen per CLI-Flag oder Umgebungsvariable."
 
 msgid "OK"
 msgstr "OK"

@@ -592,3 +592,33 @@ class TestCliExportConfig:
             catch_exceptions=False,
         )
         assert result.exit_code == constants.EXIT_GENERAL_ERROR
+
+    def test_export_config_never_writes_api_keys(self, temp_dir):
+        """Secret fields loaded from a base config must not end up in the export."""
+        base = Path(temp_dir) / "base.json"
+        base.write_text(
+            json.dumps(
+                {
+                    "openai_api_key": "sk-super-secret",
+                    "pydantic_ai_api_key": "pai-super-secret",
+                    "openai_model": "gpt-4o-mini",
+                }
+            )
+        )
+        result = runner.invoke(
+            app,
+            ["export-config", "--format", "json", "--config", str(base)],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert "sk-super-secret" not in result.output
+        assert "pai-super-secret" not in result.output
+        # The JSON document is the stdout part; the note goes to stderr but the
+        # CliRunner merges both, so isolate the JSON object first.
+        json_text = result.output[result.output.index("{") :]
+        json_text = json_text[: json_text.rindex("}") + 1]
+        payload = json.loads(json_text)
+        for section in payload.values():
+            assert not any("api_key" in k for k in section), section.keys()
+        assert payload["engine"]["openai_model"] == "gpt-4o-mini"
+        assert "not exported" in result.output

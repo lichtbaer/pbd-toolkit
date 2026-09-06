@@ -1902,6 +1902,15 @@ def test_pattern(
                 typer.echo(sep)
 
 
+_SECRET_FIELD_MARKERS = ("api_key", "token", "password", "secret")
+
+
+def _is_secret_field(name: str) -> bool:
+    """Return True for config field names that carry credentials."""
+    lowered = name.lower()
+    return any(marker in lowered for marker in _SECRET_FIELD_MARKERS)
+
+
 @app.command("export-config")
 def export_config(
     output_path: str | None = typer.Argument(
@@ -1958,10 +1967,20 @@ def export_config(
                 err=True,
             )
 
-    # Serialise sub-configs to nested dicts, skipping non-serialisable fields
+    # Serialise sub-configs to nested dicts, skipping non-serialisable fields.
+    # Secret-bearing fields are omitted entirely (not written as a placeholder):
+    # an exported file is meant to be committed/shared, and a placeholder value
+    # would be picked up as the literal API key when the file is loaded again.
+    # Keys are resolved at scan time from the CLI flag or the environment.
+    dropped_secrets: list[str] = []
+
     def _to_dict(dc_instance) -> dict:
         result = {}
         for f in dataclasses.fields(dc_instance):
+            if _is_secret_field(f.name):
+                if getattr(dc_instance, f.name):
+                    dropped_secrets.append(f.name)
+                continue
             val = getattr(dc_instance, f.name)
             if isinstance(val, (str, int, float, bool, list, dict, type(None))):
                 result[f.name] = val
@@ -1972,6 +1991,13 @@ def export_config(
         "engine": _to_dict(cfg.engine),
         "output": _to_dict(cfg.output),
     }
+    if dropped_secrets:
+        typer.echo(
+            translate_func(
+                "Note: secret fields were not exported ({}). Pass them via CLI flags or environment variables instead."
+            ).format(", ".join(sorted(dropped_secrets))),
+            err=True,
+        )
 
     if output_format.lower() == "json":
         serialized = _json.dumps(export_data, indent=2, ensure_ascii=False)

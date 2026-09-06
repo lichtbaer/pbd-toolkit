@@ -22,6 +22,7 @@ DE_TRANSLATIONS = {
     "Configuration error: {}": "Konfigurationsfehler: {}",
     "Configuration error: {}: {}": "Konfigurationsfehler: {}: {}",
     "Configuration exported to: {}": "Konfiguration exportiert nach: {}",
+    "Note: secret fields were not exported ({}). Pass them via CLI flags or environment variables instead.": "Hinweis: Geheimnis-Felder wurden nicht exportiert ({}). Übergeben Sie sie stattdessen per CLI-Flag oder Umgebungsvariable.",
     "Configuration file error: {}": "Fehler in der Konfigurationsdatei: {}",
     "Dataset:   {}  ({} documents)": "Datensatz:  {}  ({} Dokumente)",
     "Doctor: {}": "Doctor: {}",
