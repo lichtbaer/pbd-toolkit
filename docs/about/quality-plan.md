@@ -243,6 +243,18 @@ covers the new guards; `SECURITY.md` present.
 
 ### Phase 2: test suite as a real safety net (M, ~1-2 weeks, parallelisable with Phase 1)
 
+Status: **done** (commits 92e1c5b..HEAD). Measured afterwards: 1 388 tests, 86.1 % line
+coverage on 3.10/3.11/3.12 (was 73 %), stable under `pytest-randomly` across seeds,
+`fail_under` raised to 84. Every module in `core/` and `file_processors/` is above 60 %
+except `core/globals.py` (dead code, Phase 3 deletes it); `scripts/check_licenses.py` is
+measured but still untested. Deviations: the `Mock(spec=Config)` fixture is replaced by
+the `make_config` / `real_config` factory only for new tests and `test_scanner.py`; the
+other six files still use the Mock. `slow` is applied nowhere because no test needs it.
+Writing the tests surfaced and fixed two real bugs (`pbd-toolkit query` never loaded its
+index; `doctor --benchmark` could never run a model) and pinned a list of smaller
+behaviours in the test docstrings for later passes (ical/vcf folded lines and parametrised
+properties dropped, silent CSV fallback for unknown formats, diff ignores `.JSONL`).
+
 1. `tests/test_validators.py` with Hypothesis: generate valid IBAN/Luhn/BIC/tax-IDs → accept;
    mutate one character → reject. Add `hypothesis` to the `dev` extra.
 2. `tests/test_scan_cache.py`: hit/miss, mtime/size invalidation, corrupt file, concurrency.

@@ -171,12 +171,14 @@ exclude_lines = [
   "pragma: no cover",
   "if __name__ == .__main__.:",
 ]
-# Ratchet floor: measured total was ~73% on Python 3.10/3.11/3.12 (September
-# 2026; previously ~67% after the #93 coverage push, and 61% with no gate at
-# all). Set one point below that measurement so minor environment/version
-# drift doesn't flake CI; raise this as coverage improves, never lower it
-# without an explicit justification in the PR description.
-fail_under = 72
+# Ratchet floor: measured total was 86.1% on Python 3.10/3.11/3.12 after the
+# Phase 2 test push (September 2026; 73% before it, ~67% after #93, 61% with
+# no gate at all). Set two points below that measurement so minor
+# environment/version drift doesn't flake CI; raise this as coverage improves,
+# never lower it without an explicit justification in the PR description.
+# Measured with the CI flags: --cov=. --cov=scripts (scripts/ is included on
+# purpose even though check_licenses.py is still at 0%).
+fail_under = 84
 
 [tool.mypy]
 # Pragmatic baseline: catch real bugs (undefined names, bad calls, obvious type
