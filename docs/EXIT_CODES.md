@@ -11,6 +11,7 @@ The pbD Toolkit uses standardized exit codes to indicate the result of execution
 | 2 | `EXIT_INVALID_ARGUMENTS` | Invalid arguments - Command-line arguments are invalid or missing |
 | 3 | `EXIT_FILE_ACCESS_ERROR` | File access error - Cannot access files or directories |
 | 4 | `EXIT_CONFIGURATION_ERROR` | Configuration error - Configuration is invalid or NER model failed to load |
+| 5 | `EXIT_FINDINGS_ABOVE_THRESHOLD` | Findings gate - at least one finding at or above the `--fail-on-severity` level was found (the scan itself succeeded) |
 
 ## Usage Examples
 
@@ -25,13 +26,15 @@ case $? in
     2) echo "Invalid arguments" ;;
     3) echo "File access error" ;;
     4) echo "Configuration error" ;;
+    5) echo "Findings at or above the severity threshold" ;;
 esac
 ```
 
 ### Python Script
 ```python
 import subprocess
-import sys
+
+from core import constants
 
 result = subprocess.run(
     ["pbd-toolkit", "scan", "/data", "--regex", "--ner"],
@@ -42,6 +45,8 @@ if result.returncode == 0:
     print("Success")
 elif result.returncode == constants.EXIT_CONFIGURATION_ERROR:
     print("Configuration error")
+elif result.returncode == constants.EXIT_FINDINGS_ABOVE_THRESHOLD:
+    print("PII above the configured severity threshold was found")
 else:
     print(f"Error: {result.returncode}")
 ```
@@ -74,9 +79,14 @@ else:
 - Invalid configuration settings
 - Missing required dependencies
 
+### EXIT_FINDINGS_ABOVE_THRESHOLD (5)
+- Only when `--fail-on-severity <LEVEL>` is given (directly or via a profile such as `ci` or `credentials`)
+- The scan completed and output was written, but at least one finding has severity `LEVEL` or higher
+- Intended as a CI/CD gate: treat it as "PII found", not as a tool failure
+
 ## Implementation
 
-Exit codes are defined in `constants.py`:
+Exit codes are defined in `core/constants.py`:
 
 ```python
 EXIT_SUCCESS = 0
@@ -84,13 +94,15 @@ EXIT_GENERAL_ERROR = 1
 EXIT_INVALID_ARGUMENTS = 2
 EXIT_FILE_ACCESS_ERROR = 3
 EXIT_CONFIGURATION_ERROR = 4
+EXIT_FINDINGS_ABOVE_THRESHOLD = 5
 ```
 
 And used in `core/cli.py` via Typer:
 
 ```python
 import typer
-import constants
+
+from core import constants
 
 # On error:
 raise typer.Exit(code=constants.EXIT_CONFIGURATION_ERROR)

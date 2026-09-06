@@ -46,7 +46,7 @@ ollama_model: "llama3.2"
 openai_compatible: false
 openai_api_base: "https://api.openai.com/v1"
 openai_api_key: null
-openai_model: "gpt-3.5-turbo"
+openai_model: "gpt-4o-mini"
 
 # Recommended unified LLM engine:
 pydantic_ai: false
@@ -59,7 +59,7 @@ pydantic_ai_base_url: null
 multimodal: false
 multimodal_api_base: null
 multimodal_api_key: null
-multimodal_model: "gpt-4o-mini"
+multimodal_model: "gpt-4-vision-preview"  # default; any vision-capable model works
 multimodal_timeout: 60
 
 # Vector search:

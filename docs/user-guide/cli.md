@@ -193,13 +193,13 @@ Enable OpenAI-compatible API detection.
 ```bash
 pbd-toolkit scan /data --openai-compatible \
     --openai-api-key YOUR_KEY \
-    --openai-model gpt-3.5-turbo
+    --openai-model gpt-4o-mini
 ```
 
 **Options**:
 - `--openai-api-base`: API base URL (default: `https://api.openai.com/v1`)
 - `--openai-api-key`: API key (or set `OPENAI_API_KEY` environment variable)
-- `--openai-model`: Model to use (default: `gpt-3.5-turbo`)
+- `--openai-model`: Model to use (default: `gpt-4o-mini`)
 
 !!! note "Legacy flags"
     `--ollama` and `--openai-compatible` are legacy LLM flags kept for compatibility. Prefer `--pydantic-ai` for new usage.
@@ -384,6 +384,30 @@ verbose: false
 
 **Note**: CLI arguments take precedence over config file values. The scan path can be provided as positional `<path>`, via `--path`, or inside the config file as `path: ...`.
 
+### `--profile`
+
+Load a built-in scan profile. Profile values are applied first; any flag you pass explicitly on the command line overrides the profile, and a `--config` file overrides the profile as well.
+
+```bash
+pbd-toolkit scan /data --profile ci
+```
+
+Available profiles: `quick`, `standard`, `deep`, `gdpr-audit`, `ci`, `medical`, `credentials` (see `core/profiles.py` for the exact values, or `GET /api/v1/system/profiles` on the API server).
+
+### `--min-severity`
+
+Only include findings at or above this severity in the output: `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`.
+
+### `--fail-on-severity`
+
+Exit with code `5` (`EXIT_FINDINGS_ABOVE_THRESHOLD`) if any finding at or above the given severity is present. The scan still completes and writes its output; the exit code is meant as a CI/CD gate.
+
+```bash
+pbd-toolkit scan ./src --regex --fail-on-severity HIGH --quiet
+```
+
+The `ci` and `credentials` profiles set `fail_on_severity: HIGH`.
+
 ### `--summary-format`
 
 Format for summary output. Use `json` for machine-readable output.
@@ -498,6 +522,7 @@ The tool uses standardized exit codes for automation and scripting:
 - `2` (`EXIT_INVALID_ARGUMENTS`): Invalid command-line arguments
 - `3` (`EXIT_FILE_ACCESS_ERROR`): File access error (reserved for future use)
 - `4` (`EXIT_CONFIGURATION_ERROR`): Configuration error or NER model loading failed
+- `5` (`EXIT_FINDINGS_ABOVE_THRESHOLD`): Scan succeeded, but findings at or above the `--fail-on-severity` level were found
 
 See [Exit Codes Documentation](../EXIT_CODES.md) for detailed information and usage examples.
 
