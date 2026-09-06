@@ -469,6 +469,12 @@ class DocumentIndexer:
         Returns:
             List of (similarity_score, IndexedChunk) sorted by score descending.
         """
+        if self.load_index_path and not self._initialized:
+            # A freshly constructed indexer with a configured on-disk index has
+            # nothing in ``_chunks`` yet: the index is only read during lazy
+            # initialisation. Without this, the empty-chunks short-circuit
+            # below made ``pbd-toolkit query`` always report zero results.
+            self._ensure_initialized()
         if not self._chunks:
             return []
         query_emb = self.embed_text(text)
