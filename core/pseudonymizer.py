@@ -5,18 +5,30 @@ plausible substitute values so that documents remain readable and usable as
 test data while no longer containing real PII.
 
 Consistency guarantee: the same input text always maps to the same fake
-replacement within a single ``Pseudonymizer`` instance (deterministic mapping
-seeded from the input hash).
+replacement within a single ``Pseudonymizer`` instance.
+
+Security model: the mapping is seeded from ``HMAC-SHA256(key, type || text)``.
+The key is random per instance unless one is supplied (see
+``load_or_create_key``), so a pseudonymised document cannot be reversed by
+guessing candidate plaintexts and recomputing the pseudonym — which was possible
+with the previous unkeyed ``md5(text)`` seed. Supply the same key file to keep
+pseudonyms stable across scans; never ship the key with the output.
 """
 
 from __future__ import annotations
 
 import hashlib
+import hmac
+import logging
+import os
 import random
 import re
+import secrets
 from pathlib import Path
 
 from core.matches import PiiMatch
+
+_logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Fake-value pools
@@ -114,12 +126,55 @@ _COUNTRIES = ["DE", "AT", "CH", "NL", "FR"]
 _IBAN_LENGTHS = {"DE": 22, "AT": 20, "CH": 21, "NL": 18, "FR": 27}
 
 
-def _seed_rng(text: str) -> random.Random:
-    """Return a seeded Random instance deterministic for *text*."""
-    digest = int(
-        hashlib.md5(text.encode("utf-8"), usedforsecurity=False).hexdigest(), 16
-    )  # noqa: S324
-    return random.Random(digest)
+_KEY_BYTES = 32
+
+
+def _seed_rng(text: str, key: bytes) -> random.Random:
+    """Return a Random instance seeded from ``HMAC-SHA256(key, text)``.
+
+    Deterministic for the same ``(key, text)`` pair; without the key the seed
+    cannot be recomputed, so the pseudonyms are not confirmable by dictionary
+    attack on the plaintext.
+    """
+    digest = hmac.new(key, text.encode("utf-8"), hashlib.sha256).digest()
+    return random.Random(int.from_bytes(digest, "big"))
+
+
+def generate_key() -> bytes:
+    """Return a fresh random pseudonymisation key."""
+    return secrets.token_bytes(_KEY_BYTES)
+
+
+def load_or_create_key(path: str | os.PathLike[str]) -> bytes:
+    """Read the pseudonymisation key from *path*, creating it if missing.
+
+    The file holds the key hex-encoded. A newly created file is written with
+    mode 0600 and never overwritten. Keep it out of the scan output directory
+    and out of version control: whoever holds the key can confirm guesses
+    against pseudonymised output.
+    """
+    key_path = Path(path)
+    if key_path.exists():
+        raw = key_path.read_text(encoding="utf-8").strip()
+        try:
+            key = bytes.fromhex(raw)
+        except ValueError as exc:
+            raise ValueError(
+                f"Pseudonymisation key file {key_path} is not hex-encoded"
+            ) from exc
+        if len(key) < 16:
+            raise ValueError(
+                f"Pseudonymisation key in {key_path} is too short ({len(key)} bytes)"
+            )
+        return key
+
+    key = generate_key()
+    key_path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(str(key_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(key.hex() + "\n")
+    _logger.info("Created new pseudonymisation key file: %s", key_path)
+    return key
 
 
 def _fake_name(rng: random.Random) -> str:
@@ -227,18 +282,22 @@ class Pseudonymizer:
 
     Each unique (text, type) pair always maps to the same fake value within
     this instance, enabling consistent replacement across multiple files.
+    Two instances agree only if they share the same ``key``.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, key: bytes | None = None) -> None:
+        self._key = key if key is not None else generate_key()
         self._cache: dict[tuple[str, str], str] = {}
 
     def fake_value(self, text: str, pii_type: str) -> str:
         """Return a deterministic fake value for *text* of *pii_type*."""
-        key = (text, pii_type)
-        if key not in self._cache:
-            rng = _seed_rng(text + pii_type)
-            self._cache[key] = _fake_for_type(pii_type, rng)
-        return self._cache[key]
+        cache_key = (text, pii_type)
+        if cache_key not in self._cache:
+            # Type is prefixed with a separator so ("ab", "c") and ("a", "bc")
+            # cannot collide.
+            rng = _seed_rng(f"{pii_type}\x00{text}", self._key)
+            self._cache[cache_key] = _fake_for_type(pii_type, rng)
+        return self._cache[cache_key]
 
     def pseudonymize_text(self, text: str, matches: list[PiiMatch]) -> str:
         """Replace all PII matches in *text* with fake values.
@@ -292,6 +351,7 @@ def pseudonymize_files(
     matches_by_file: dict[str, list[PiiMatch]],
     output_dir: str,
     logger=None,
+    key: bytes | None = None,
 ) -> dict[str, str]:
     """Create pseudo-anonymized copies of files containing PII.
 
@@ -299,14 +359,18 @@ def pseudonymize_files(
     Binary formats receive a ``.pseudo.txt`` companion with the pseudonymized
     extracted text summary (same approach as the redactor for binary files).
 
+    Args:
+        key: Pseudonymisation key. ``None`` uses a fresh random key for this
+            run, so pseudonyms are consistent within the run but not across
+            runs; pass the same key (see ``load_or_create_key``) for stable
+            cross-run mappings.
+
     Returns:
         Dict mapping original file paths to pseudo-anonymized output paths.
     """
-    import os
-
     os.makedirs(output_dir, exist_ok=True)
     output_paths: dict[str, str] = {}
-    pseudonymizer = Pseudonymizer()
+    pseudonymizer = Pseudonymizer(key=key)
 
     TEXT_EXTENSIONS = {
         ".txt",

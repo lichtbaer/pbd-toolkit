@@ -7,6 +7,7 @@ have replaced.
 
 import os
 import re
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -37,16 +38,37 @@ def _match(text, type_="REGEX_EMAIL", offset=None, engine="regex"):
     )
 
 
+_KEY = b"k" * 32
+
+
 class TestSeedRng:
-    def test_same_text_yields_same_sequence(self):
-        rng1 = _seed_rng("Anna Müller")
-        rng2 = _seed_rng("Anna Müller")
+    def test_same_text_and_key_yield_same_sequence(self):
+        rng1 = _seed_rng("Anna Müller", _KEY)
+        rng2 = _seed_rng("Anna Müller", _KEY)
         assert [rng1.random() for _ in range(5)] == [rng2.random() for _ in range(5)]
 
     def test_different_text_yields_different_sequence(self):
-        rng1 = _seed_rng("Anna Müller")
-        rng2 = _seed_rng("Ben Fischer")
+        rng1 = _seed_rng("Anna Müller", _KEY)
+        rng2 = _seed_rng("Ben Fischer", _KEY)
         assert rng1.random() != rng2.random()
+
+    def test_different_key_yields_different_sequence(self):
+        """The seed must depend on the key, otherwise pseudonyms are guessable."""
+        rng1 = _seed_rng("Anna Müller", _KEY)
+        rng2 = _seed_rng("Anna Müller", b"other-key" * 4)
+        assert rng1.random() != rng2.random()
+
+    def test_seed_is_not_the_old_unkeyed_md5(self):
+        import hashlib
+        import random
+
+        legacy = random.Random(
+            int(
+                hashlib.md5(b"Anna M\xc3\xbcller", usedforsecurity=False).hexdigest(),
+                16,
+            )
+        )
+        assert _seed_rng("Anna Müller", _KEY).random() != legacy.random()
 
 
 class TestFakeGenerators:
@@ -68,17 +90,19 @@ class TestFakeGenerators:
         ],
     )
     def test_generator_is_deterministic_for_same_seed(self, generator):
-        assert generator(_seed_rng("seed-a")) == generator(_seed_rng("seed-a"))
+        assert generator(_seed_rng("seed-a", _KEY)) == generator(
+            _seed_rng("seed-a", _KEY)
+        )
 
     def test_fake_email_looks_like_an_email(self):
-        value = _fake_email(_seed_rng("x"))
+        value = _fake_email(_seed_rng("x", _KEY))
         assert re.match(r"^[\w.]+@[\w.]+\.\w+$", value)
 
     def test_fake_credit_card_has_visa_shape(self):
         """Fake credit card numbers are 16 digits, grouped in 4s, starting with 4
         (Visa-style), regardless of whether they happen to pass a Luhn check."""
         for i in range(20):
-            value = _fake_credit_card(_seed_rng(f"seed-{i}"))
+            value = _fake_credit_card(_seed_rng(f"seed-{i}", _KEY))
             digits = value.replace(" ", "")
             assert len(digits) == 16
             assert digits.isdigit()
@@ -89,19 +113,19 @@ class TestFakeGenerators:
         from core.pseudonymizer import _IBAN_LENGTHS
 
         for _ in range(20):
-            value = _fake_iban(_seed_rng(str(_)))
+            value = _fake_iban(_seed_rng(str(_), _KEY))
             country = value[:2]
             assert len(value) == _IBAN_LENGTHS[country]
 
     def test_fake_date_is_within_declared_range(self):
-        value = _fake_date(_seed_rng("bday"))
+        value = _fake_date(_seed_rng("bday", _KEY))
         day, month, year = (int(p) for p in value.split("."))
         assert 1 <= day <= 28
         assert 1 <= month <= 12
         assert 1950 <= year <= 2005
 
     def test_fake_ip_is_in_private_10_range(self):
-        value = _fake_ip(_seed_rng("host"))
+        value = _fake_ip(_seed_rng("host", _KEY))
         assert value.startswith("10.")
         parts = [int(p) for p in value.split(".")]
         assert len(parts) == 4
@@ -132,13 +156,79 @@ class TestPseudonymizerFakeValue:
         assert value.startswith("FAKE-")
 
     def test_cache_is_scoped_to_the_instance(self):
-        p1 = Pseudonymizer()
-        p2 = Pseudonymizer()
+        p1 = Pseudonymizer(key=_KEY)
+        p2 = Pseudonymizer(key=_KEY)
         assert p1.fake_value("x", "y") == p2.fake_value("x", "y")
-        # Same deterministic seed -> same value across independent instances,
-        # but each instance's cache is independent state.
+        # Same key -> same value across independent instances, but each
+        # instance's cache is independent state.
         assert ("x", "y") in p1._cache
         assert p1._cache is not p2._cache
+
+    def test_instances_without_explicit_key_do_not_agree(self):
+        """Each run gets a fresh random key; pseudonyms are not globally stable."""
+        values = {
+            Pseudonymizer().fake_value("Anna Müller", "NER_PERSON") for _ in range(8)
+        }
+        assert len(values) > 1
+
+    def test_type_text_boundary_cannot_collide(self):
+        p = Pseudonymizer(key=_KEY)
+        assert p.fake_value("bc", "a") != p.fake_value("c", "ab")
+
+
+class TestKeyFile:
+    def test_creates_key_file_with_owner_only_permissions(self, tmp_path):
+        import stat
+
+        from core.pseudonymizer import load_or_create_key
+
+        key_path = tmp_path / "keys" / "pseudo.key"
+        key = load_or_create_key(key_path)
+        assert len(key) == 32
+        assert key_path.exists()
+        assert stat.S_IMODE(key_path.stat().st_mode) == 0o600
+        assert bytes.fromhex(key_path.read_text().strip()) == key
+
+    def test_reuses_existing_key_file(self, tmp_path):
+        from core.pseudonymizer import load_or_create_key
+
+        key_path = tmp_path / "pseudo.key"
+        first = load_or_create_key(key_path)
+        second = load_or_create_key(key_path)
+        assert first == second
+        assert Pseudonymizer(key=first).fake_value("a@b.de", "EMAIL") == Pseudonymizer(
+            key=second
+        ).fake_value("a@b.de", "EMAIL")
+
+    def test_rejects_non_hex_or_short_keys(self, tmp_path):
+        from core.pseudonymizer import load_or_create_key
+
+        bad = tmp_path / "bad.key"
+        bad.write_text("not hex at all")
+        with pytest.raises(ValueError):
+            load_or_create_key(bad)
+        short = tmp_path / "short.key"
+        short.write_text("abcd")
+        with pytest.raises(ValueError):
+            load_or_create_key(short)
+
+    def test_pseudonymize_files_is_stable_across_runs_with_same_key(self, temp_dir):
+        from core.pseudonymizer import load_or_create_key, pseudonymize_files
+
+        src = Path(temp_dir) / "doc.txt"
+        src.write_text("Mail: test@example.com")
+        key = load_or_create_key(Path(temp_dir) / "k.key")
+        outputs = []
+        for i in range(2):
+            out_dir = Path(temp_dir) / f"out{i}"
+            paths = pseudonymize_files(
+                {str(src): [_match("test@example.com", offset=6)]},
+                str(out_dir),
+                key=key,
+            )
+            outputs.append(Path(paths[str(src)]).read_text())
+        assert outputs[0] == outputs[1]
+        assert "test@example.com" not in outputs[0]
 
 
 class TestPseudonymizeText:

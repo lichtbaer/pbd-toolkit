@@ -348,6 +348,11 @@ def scan(
         "--pseudonymize-dir",
         help="Directory for pseudo-anonymized output files (default: output_dir/pseudonymized/)",
     ),
+    pseudonymize_key_file: str | None = typer.Option(
+        None,
+        "--pseudonymize-key-file",
+        help="Hex key file that keeps pseudonyms stable across scans (created with mode 0600 if missing). Without it each run uses a fresh random key. Keep it out of the output directory.",
+    ),
     # Webhook notification
     webhook_url: str | None = typer.Option(
         None,
@@ -506,6 +511,7 @@ def scan(
         "redact_dir": redact_dir,
         "pseudonymize": pseudonymize,
         "pseudonymize_dir": pseudonymize_dir,
+        "pseudonymize_key_file": pseudonymize_key_file,
         "webhook_url": webhook_url,
         "context_chars": context_chars,
         "min_confidence": min_confidence,
@@ -881,7 +887,9 @@ def scan(
     # Pseudo-anonymization: create files with realistic fake replacements
     if getattr(args, "pseudonymize", False) and matches_by_file:
         _pseudo_handler = build_pseudonymization_handler(
-            getattr(args, "pseudonymize_dir", None), output_dir
+            getattr(args, "pseudonymize_dir", None),
+            output_dir,
+            key_file=getattr(args, "pseudonymize_key_file", None),
         )
         pseudo_paths = _pseudo_handler.handle(run_result, logger=context.logger)
         if pseudo_paths and not _quiet:

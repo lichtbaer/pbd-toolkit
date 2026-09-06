@@ -384,6 +384,27 @@ verbose: false
 
 **Note**: CLI arguments take precedence over config file values. The scan path can be provided as positional `<path>`, via `--path`, or inside the config file as `path: ...`.
 
+### `--redact`, `--redact-dir`
+
+Write a redacted copy of every file that contains findings (PII replaced by `[REDACTED:TYPE]`). Text formats are rewritten; binary formats get a `.redacted.txt` companion. Output goes to `--redact-dir` (default: `<output-dir>/redacted/`).
+
+### `--pseudonymize`, `--pseudonymize-dir`, `--pseudonymize-key-file`
+
+Like `--redact`, but findings are replaced with realistic-looking fake values (names, e-mail addresses, IBAN-shaped strings, ...) so documents stay readable and usable as test data. Output goes to `--pseudonymize-dir` (default: `<output-dir>/pseudonymized/`).
+
+Pseudonyms are derived from `HMAC-SHA256(key, type || text)`:
+
+- **Without `--pseudonymize-key-file`** every run uses a fresh random key. The same value is replaced consistently *within* the run, but two runs produce different pseudonyms. Nobody can confirm a guess ("is this pseudonym Anna Müller?") because the key is never stored.
+- **With `--pseudonymize-key-file PATH`** the key is read from `PATH` (hex-encoded) and created there with mode `0600` on first use. Reusing the file keeps pseudonyms stable across scans. Whoever holds the key can confirm guesses against the output, so keep it outside the output directory and out of version control.
+
+```bash
+pbd-toolkit scan /data --regex --pseudonymize \
+    --pseudonymize-key-file ~/.config/pbd-toolkit/pseudonym.key
+```
+
+!!! warning "Behaviour change"
+    Earlier versions seeded pseudonyms from an unkeyed `md5(text)`, which made them globally stable but trivially reversible by dictionary attack. If you relied on cross-run stability, pass a key file.
+
 ### `--profile`
 
 Load a built-in scan profile. Profile values are applied first; any flag you pass explicitly on the command line overrides the profile, and a `--config` file overrides the profile as well.

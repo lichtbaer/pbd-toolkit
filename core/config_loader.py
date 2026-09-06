@@ -106,6 +106,7 @@ class ConfigLoader:
         "redact_dir": None,
         "pseudonymize": False,
         "pseudonymize_dir": None,
+        "pseudonymize_key_file": None,
         # Integrations
         "webhook_url": None,
         "analytics": False,
@@ -190,6 +191,7 @@ class ConfigLoader:
         "redact_dir": "redact_dir",
         "pseudonymize": "pseudonymize",
         "pseudonymize_dir": "pseudonymize_dir",
+        "pseudonymize_key_file": "pseudonymize_key_file",
         # Integrations
         "webhook_url": "webhook_url",
         "analytics": "analytics",

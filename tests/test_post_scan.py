@@ -221,3 +221,28 @@ class TestWebhookHandler:
     def test_timeout_defaults_to_ten_seconds(self):
         handler = WebhookHandler(url="https://example.com/hook", scan_path="/x")
         assert handler.timeout == 10.0
+
+
+class TestPseudonymizationKeyFile:
+    def test_handler_creates_and_reuses_key_file(self, tmp_path):
+        src = tmp_path / "doc.txt"
+        src.write_text("Contact me at test@example.com today")
+        key_file = tmp_path / "secrets" / "pseudo.key"
+        result = _make_result(
+            matches_by_file={str(src): [_match("test@example.com", offset=14)]}
+        )
+
+        outputs = []
+        for i in range(2):
+            handler = PseudonymizationHandler(
+                output_dir=str(tmp_path / f"pseudo{i}"), key_file=str(key_file)
+            )
+            paths = handler.handle(result)
+            outputs.append(open(paths[str(src)]).read())
+
+        assert key_file.exists()
+        assert outputs[0] == outputs[1]
+
+    def test_build_helper_passes_key_file(self):
+        handler = build_pseudonymization_handler(None, "/scan/output", key_file="/k")
+        assert handler.key_file == "/k"
