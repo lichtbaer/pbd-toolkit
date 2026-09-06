@@ -184,6 +184,8 @@ checkable in CI or by a one-line command. Effort is a rough size for one person.
 
 ### Phase 0: stop the bleeding (S, ~1-2 days)
 
+Status: **done** (branch `claude/project-quality-plan-6jk9p4`, commits 19a9529..11ec3be). Item 3 applies the profile in the API with CLI semantics; profile keys that have no meaning for an API scan (output format, summary format, quiet, statistics_mode, mode) are merged but not acted upon. `uv.lock` was found to be stale on `main` already and is left for Phase 1 step 7.
+
 1. Fix the license metadata to EUPL-1.2 (`pyproject.toml` `license`, classifier,
    `docs/about/license.md`, README). Add the EUPL notice line to `README.md`.
 2. Add the missing keys to `config_mapping` / `_TYPER_DEFAULTS` and add
