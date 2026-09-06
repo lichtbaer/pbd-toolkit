@@ -11,11 +11,15 @@ hermetic and needs no optional ML/LLM dependencies.
 
 from __future__ import annotations
 
+import pytest
+
 from analytics.queries import AnalyticsQueries
 from analytics.store import AnalyticsStore
 from api.scanner_service import ScannerService
 from core.scanner import ScanResult
 from core.statistics import Statistics
+
+pytestmark = pytest.mark.integration
 
 
 def test_run_scan_pipeline_completes(tmp_path):

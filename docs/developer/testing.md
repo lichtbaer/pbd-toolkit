@@ -14,6 +14,40 @@ Test files follow the naming convention `test_*.py`:
 - `test_matches.py`: PII match container tests
 - `test_setup.py`: Setup and initialization tests
 
+## Test tooling
+
+The `dev` extra installs, besides pytest and pytest-cov:
+
+- **pytest-randomly**: shuffles test order on every run and prints the seed.
+  A failure that only appears with a certain order is a real bug (shared
+  state, a leaked monkeypatch, logging configuration); reproduce it with
+  `pytest -p randomly --randomly-seed=<seed>`, disable shuffling with
+  `-p no:randomly`.
+- **pytest-timeout**: every test is killed after 120 s (`timeout` in
+  `pyproject.toml`) so a hung thread fails instead of stalling CI.
+- **pytest-xdist**: `pytest -n auto` for local parallel runs (not used in CI).
+- **hypothesis**: property-based tests, currently for the checksum validators
+  (`tests/test_validators.py`).
+
+### Markers
+
+- `integration`: tests that drive several real components end to end
+  (`test_integration.py`, `test_engines_integration.py`,
+  `test_magic_detection_integration.py`, `test_api_scan.py`,
+  `test_extraction_quality.py`). `pytest -m "not integration"` runs the unit
+  tests only.
+- `slow`: reserved for tests that take noticeably longer than a unit test;
+  nothing currently needs it (the whole suite runs in ~10 s).
+
+### Config in tests
+
+Prefer the `make_config(**overrides)` / `real_config` fixtures from
+`tests/conftest.py`, which build a **real** `Config` with a recording logger
+(`config.logger.handlers[0].messages(logging.WARNING)`), over the legacy
+`mock_config` fixture. The Mock has to be kept in sync with `Config` by hand
+and silently drifts; the real object also exercises the `__setattr__`
+mirroring into `config.scan` / `config.runtime`.
+
 ## Running Tests
 
 ### All Tests
@@ -36,7 +70,12 @@ pytest tests/test_config.py::test_config_creation
 
 ### With Coverage
 
+Coverage is not switched on by default (it slows every local run); pass the
+flags explicitly, exactly as CI does. The floor is `fail_under` in
+`pyproject.toml` (`[tool.coverage.report]`).
+
 ```bash
+pytest --cov=. --cov=scripts --cov-report=term-missing
 pytest --cov=. --cov-report=html
 ```
 

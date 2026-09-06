@@ -20,6 +20,9 @@ MANIFEST = (
 )
 
 
+pytestmark = pytest.mark.integration
+
+
 class TestExtractionManifest:
     def test_shipped_manifest_full_recall(self):
         """Every expected snippet in the shipped manifest must be extracted.

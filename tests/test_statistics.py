@@ -43,15 +43,14 @@ class TestStatistics:
         assert stats.duration == datetime.timedelta(0)
         assert stats.duration_seconds == 0.001
 
-        # After start/stop
+        # After start/stop: pin the clock instead of sleeping so the test is
+        # deterministic and does not depend on scheduler latency.
         stats.start()
-        import time
-
-        time.sleep(0.1)  # Small delay
         stats.stop()
+        stats.end_time = stats.start_time + datetime.timedelta(milliseconds=250)
 
-        assert stats.duration.total_seconds() > 0
-        assert stats.duration_seconds > 0
+        assert stats.duration == datetime.timedelta(milliseconds=250)
+        assert stats.duration_seconds == 0.25
 
     def test_files_per_second(self):
         """Test files per second calculation."""

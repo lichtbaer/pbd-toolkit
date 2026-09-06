@@ -46,7 +46,13 @@ jobs:
 
       - name: Run tests
         run: |
-          uv run --frozen python -m pytest -q
+          # Coverage flags live here rather than in pyproject addopts so local
+          # runs stay fast; fail_under comes from [tool.coverage.report].
+          # pytest-randomly shuffles test order and prints the seed; rerun a
+          # failure with `-p randomly --randomly-seed=<seed>` to reproduce it.
+          # --cov=scripts: scripts/ is not a package, so coverage would not
+          # list its files (one of them is the i18n CI gate) without it.
+          uv run --frozen python -m pytest -q --cov=. --cov=scripts --cov-report=term-missing:skip-covered
 
       - name: Detection-quality gate (regex, hermetic)
         run: |

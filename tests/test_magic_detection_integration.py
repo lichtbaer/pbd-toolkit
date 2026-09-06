@@ -8,6 +8,8 @@ import pytest
 from core.config import Config, RuntimeConfig, ScanConfig
 from core.scanner import FileInfo, FileScanner
 
+pytestmark = pytest.mark.integration
+
 
 class TestMagicDetectionIntegration:
     """Integration tests for magic number detection."""

@@ -53,6 +53,14 @@ dev = [
   "pytest>=9.0.3,<9.2.0",
   "pytest-cov~=7.1.0",
   "pytest-mock~=3.15.1",
+  # Property-based tests for the checksum validators (tests/test_validators.py).
+  "hypothesis>=6.100",
+  # Shuffles test order per run to surface inter-test coupling; prints the seed.
+  "pytest-randomly>=3.15",
+  # Hard per-test wall-clock limit so a hung engine/thread fails instead of stalling CI.
+  "pytest-timeout>=2.3",
+  # Optional local parallelism: `pytest -n auto` (not used in CI).
+  "pytest-xdist>=3.6",
   "ruff>=0.8.0",
   # numpy>=2.5.0's bundled __init__.pyi uses PEP 695 `type` aliases, which is a
   # hard syntax error for mypy's python_version=3.10 target (see [tool.mypy]).
@@ -129,23 +137,33 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+# Coverage is deliberately *not* in addopts: tracing slows every local run and
+# makes single-test iteration expensive. CI passes --cov explicitly (see
+# .github/workflows/ci.yml); locally run `pytest --cov=. --cov-report=term-missing`.
 addopts = [
-  "-v",
   "--strict-markers",
   "--tb=short",
-  "--cov=.",
-  "--cov-report=term-missing",
-  "--cov-report=html",
 ]
+# Fail any single test that runs longer than this (pytest-timeout).
+timeout = 120
 markers = [
-  "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-  "integration: marks tests as integration tests",
+  "slow: takes noticeably longer than a unit test (deselect with '-m \"not slow\"')",
+  "integration: exercises several real components end to end rather than one unit",
 ]
 
 [tool.coverage.run]
+source = ["."]
 omit = [
   "tests/*",
   "*/__pycache__/*",
+  ".venv*/*",
+  "htmlcov/*",
+  "site/*",
+  "output/*",
+  "build/*",
+  "dist/*",
+  "docs/*",
+  "examples/*",
 ]
 
 [tool.coverage.report]
