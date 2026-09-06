@@ -29,6 +29,12 @@ except ImportError as _exc:
         pass
 
 
+# Maximum element nesting depth walked by the extractor.  Python's default
+# recursion limit is 1000 frames; a deliberately deep document must degrade to
+# "text below this depth is skipped" rather than a RecursionError.
+_MAX_ELEMENT_DEPTH = 500
+
+
 class XmlProcessor(BaseFileProcessor):
     """Processor for XML files.
 
@@ -82,7 +88,7 @@ class XmlProcessor(BaseFileProcessor):
         return " ".join(text_parts)
 
     def _extract_text_from_element(
-        self, element: Element, text_parts: list[str]
+        self, element: Element, text_parts: list[str], depth: int = 0
     ) -> None:
         """Recursively extract text from an XML element.
 
@@ -91,10 +97,26 @@ class XmlProcessor(BaseFileProcessor):
         - Text from all child elements
         - Values from all attributes
 
+        Elements nested deeper than ``_MAX_ELEMENT_DEPTH`` are not walked.
+
         Args:
             element: XML element to extract text from
             text_parts: List to accumulate extracted strings
+            depth: Current nesting depth (root is 0)
         """
+        if depth > _MAX_ELEMENT_DEPTH:
+            if depth == _MAX_ELEMENT_DEPTH + 1:
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "XML nesting deeper than %d levels; deeper content skipped",
+                    _MAX_ELEMENT_DEPTH,
+                )
+                from core import skip_counters
+
+                skip_counters.record_skip("xml_depth_exceeded")
+            return
+
         # Extract text directly in this element (before first child)
         if element.text and element.text.strip():
             text_parts.append(element.text.strip())
@@ -106,7 +128,7 @@ class XmlProcessor(BaseFileProcessor):
 
         # Recursively process child elements
         for child in element:
-            self._extract_text_from_element(child, text_parts)
+            self._extract_text_from_element(child, text_parts, depth + 1)
 
             # Extract tail text (text after the element, before next sibling)
             if child.tail and child.tail.strip():

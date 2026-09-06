@@ -1478,3 +1478,168 @@ class TestMboxProcessor:
             "Could not read file header" in record.getMessage()
             for record in caplog.records
         )
+
+
+class TestZipProcessorResourceGuards:
+    """ZIP bomb / hostile-archive guards (previously unexercised)."""
+
+    def _zip(self, temp_dir, name="guard.zip"):
+        return os.path.join(temp_dir, name)
+
+    def test_oversized_declared_entry_is_skipped(self, temp_dir, monkeypatch):
+        import file_processors.zip_processor as zp
+
+        monkeypatch.setattr(zp, "_MAX_SINGLE_FILE_BYTES", 100)
+        path = self._zip(temp_dir)
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as zf:
+            zf.writestr("big.txt", "x" * 200 + " big@example.com")
+            zf.writestr("small.txt", "small@example.com")
+        chunks = list(ZipProcessor().extract_text(path))
+        text = " ".join(chunks)
+        assert "small@example.com" in text
+        assert "big@example.com" not in text
+
+    def test_suspicious_compression_ratio_is_skipped(self, temp_dir):
+        path = self._zip(temp_dir)
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+            # 1 MB of a single byte deflates to ~1 KB: ratio ~1000:1.
+            zf.writestr("bomb.txt", "0" * (1024 * 1024))
+            zf.writestr("ok.txt", "ok@example.com")
+        chunks = list(ZipProcessor().extract_text(path))
+        text = " ".join(chunks)
+        assert "ok@example.com" in text
+        assert "bomb.txt" not in text
+
+    def test_cumulative_limit_stops_the_archive(self, temp_dir, monkeypatch):
+        import file_processors.zip_processor as zp
+
+        monkeypatch.setattr(zp, "_MAX_UNCOMPRESSED_BYTES", 150)
+        path = self._zip(temp_dir)
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as zf:
+            for i in range(3):
+                zf.writestr(f"f{i}.txt", f"{i}" * 100)
+        chunks = list(ZipProcessor().extract_text(path))
+        assert len(chunks) == 1
+        assert "f0.txt" in chunks[0]
+
+    def test_entry_lying_about_its_size_is_skipped_without_crashing(self, temp_dir):
+        """Declared size < actual size: CPython raises on CRC, we must skip cleanly."""
+        import io
+        import struct
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("liar.txt", "L" * 50_000 + " liar@example.com")
+            zf.writestr("honest.txt", "honest@example.com")
+        data = bytearray(buf.getvalue())
+        # Patch the uncompressed-size field (offset 22 in the local header,
+        # 24 in the central directory record) of the first entry to 1024.
+        struct.pack_into("<I", data, data.find(b"PK\x03\x04") + 22, 1024)
+        struct.pack_into("<I", data, data.find(b"PK\x01\x02") + 24, 1024)
+        path = self._zip(temp_dir)
+        with open(path, "wb") as f:
+            f.write(data)
+
+        chunks = list(ZipProcessor().extract_text(path))
+        text = " ".join(chunks)
+        assert "honest@example.com" in text
+        assert "liar@example.com" not in text
+
+    def test_read_bounded_rejects_streams_over_limit(self):
+        import io
+
+        from file_processors.zip_processor import _read_bounded
+
+        assert _read_bounded(io.BytesIO(b"a" * 10), 10) == b"a" * 10
+        assert _read_bounded(io.BytesIO(b"a" * 11), 10) is None
+
+    def test_traversal_names_are_labels_only(self, temp_dir):
+        """Entry names are never used as filesystem paths."""
+        path = self._zip(temp_dir)
+        with zipfile.ZipFile(path, "w") as zf:
+            zf.writestr("../../escape.txt", "escape@example.com")
+        before = set(os.listdir(temp_dir))
+        chunks = list(ZipProcessor().extract_text(path))
+        assert "escape@example.com" in " ".join(chunks)
+        assert set(os.listdir(temp_dir)) == before
+        assert not os.path.exists(os.path.join(temp_dir, "..", "..", "escape.txt"))
+
+    def test_nested_archive_is_not_recursed(self, temp_dir):
+        """An inner ZIP is treated as an opaque entry (decoded as raw bytes at
+        best), never opened as an archive, so a zip-in-zip chain cannot recurse."""
+        import io
+
+        inner = io.BytesIO()
+        with zipfile.ZipFile(inner, "w") as zf:
+            zf.writestr("inner.txt", "inner@example.com")
+        path = self._zip(temp_dir)
+        with zipfile.ZipFile(path, "w") as zf:
+            zf.writestr("inner.zip", inner.getvalue())
+            zf.writestr("outer.txt", "outer@example.com")
+        chunks = list(ZipProcessor().extract_text(path))
+        text = " ".join(chunks)
+        assert "outer@example.com" in text
+        # No entry of the inner archive is surfaced as its own labelled chunk.
+        assert "[File in ZIP: inner.txt]" not in text
+        assert len(chunks) <= 2
+
+
+class TestMboxProcessorResourceGuards:
+    def _mbox(self, temp_dir, messages):
+        path = os.path.join(temp_dir, "guard.mbox")
+        with open(path, "wb") as f:
+            for i, body in enumerate(messages):
+                f.write(
+                    b"From sender%d@example.com Mon Jan 01 00:00:00 2024\n" % i
+                    + b"From: sender%d@example.com\nSubject: m%d\n\n" % (i, i)
+                    + body
+                    + b"\n"
+                )
+        return path
+
+    def test_oversized_message_is_skipped_but_neighbours_survive(
+        self, temp_dir, monkeypatch
+    ):
+        import file_processors.mbox_processor as mp
+
+        monkeypatch.setattr(mp, "_MAX_MESSAGE_BYTES", 300)
+        path = self._mbox(
+            temp_dir,
+            [
+                b"first@example.com",
+                b"X" * 1000 + b" huge@example.com",
+                b"third@example.com",
+            ],
+        )
+        text = " ".join(MboxProcessor().extract_text(path))
+        assert "first@example.com" in text
+        assert "third@example.com" in text
+        assert "huge@example.com" not in text
+
+    def test_message_count_cap_stops_the_mailbox(self, temp_dir, monkeypatch):
+        import file_processors.mbox_processor as mp
+
+        monkeypatch.setattr(mp, "_MAX_MESSAGES", 2)
+        path = self._mbox(
+            temp_dir, [b"a@example.com", b"b@example.com", b"c@example.com"]
+        )
+        chunks = list(MboxProcessor().extract_text(path))
+        assert len(chunks) == 2
+        assert "c@example.com" not in " ".join(chunks)
+
+
+class TestXmlProcessorDepthGuard:
+    def test_deeply_nested_xml_does_not_recurse_forever(self, temp_dir):
+        import file_processors.xml_processor as xp
+
+        depth = xp._MAX_ELEMENT_DEPTH + 200
+        path = os.path.join(temp_dir, "deep.xml")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("<root>shallow@example.com")
+            f.write("<a>" * depth)
+            f.write("deep@example.com")
+            f.write("</a>" * depth)
+            f.write("</root>")
+        text = XmlProcessor().extract_text(path)
+        assert "shallow@example.com" in text
+        assert "deep@example.com" not in text

@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import re
 from pathlib import Path
 
 import typer
@@ -1646,6 +1647,13 @@ def serve(
     serve_main(argv)
 
 
+# Allowed shapes for values interpolated into the generated git hook script.
+_HOOK_TYPE_RE = re.compile(r"[A-Za-z][A-Za-z0-9_-]{0,63}")
+_HOOK_ENGINE_TOKEN_RE = re.compile(
+    r"(--?[A-Za-z][A-Za-z0-9_-]*(=[A-Za-z0-9_.,:/@+-]*)?|[A-Za-z0-9_.,:/@+-]+)"
+)
+
+
 @app.command("install-hook")
 def install_hook(
     hook_type: str = typer.Option(
@@ -1678,9 +1686,38 @@ def install_hook(
 
         pbd-toolkit install-hook --engines "--regex --ner" --force
     """
+    import shlex
     import stat
 
     translate_func = i18n.get_translator()
+
+    # Both values are interpolated into a shell script that is later executed
+    # with the user's privileges, so restrict them to option-like tokens and
+    # shell-quote every token individually.  Quoting the whole ``engines``
+    # string would turn "--regex --ner" into a single argument, hence per-token.
+    if not _HOOK_TYPE_RE.fullmatch(hook_type):
+        typer.echo(
+            translate_func(
+                "Error: invalid hook type '{}'. Use a plain git hook name such as pre-commit or pre-push."
+            ).format(hook_type),
+            err=True,
+        )
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+    try:
+        engine_tokens = shlex.split(engines)
+    except ValueError:
+        engine_tokens = []
+    if not engine_tokens or not all(
+        _HOOK_ENGINE_TOKEN_RE.fullmatch(tok) for tok in engine_tokens
+    ):
+        typer.echo(
+            translate_func(
+                'Error: --engines must contain only scan flags and simple values (e.g. "--regex --ner"), got: {}'
+            ).format(engines),
+            err=True,
+        )
+        raise typer.Exit(code=constants.EXIT_INVALID_ARGUMENTS)
+    engines = " ".join(shlex.quote(tok) for tok in engine_tokens)
 
     hooks_dir = os.path.join(git_dir, ".git", "hooks")
     if not os.path.isdir(hooks_dir):

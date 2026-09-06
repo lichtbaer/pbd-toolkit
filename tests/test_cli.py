@@ -649,3 +649,49 @@ class TestCliExportConfig:
             assert not any("api_key" in k for k in section), section.keys()
         assert payload["engine"]["openai_model"] == "gpt-4o-mini"
         assert "not exported" in result.output
+
+
+class TestCliInstallHookInputValidation:
+    """Values interpolated into the generated hook script are validated."""
+
+    def _git_repo(self, temp_dir):
+        (Path(temp_dir) / ".git" / "hooks").mkdir(parents=True)
+        return temp_dir
+
+    def test_shell_metacharacters_in_engines_are_rejected(self, temp_dir):
+        repo = self._git_repo(temp_dir)
+        result = runner.invoke(
+            app,
+            ["install-hook", "--git-dir", repo, "--engines", "--regex; rm -rf /"],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == constants.EXIT_INVALID_ARGUMENTS
+        assert not (Path(repo) / ".git" / "hooks" / "pre-commit").exists()
+
+    def test_hook_type_with_path_separator_is_rejected(self, temp_dir):
+        repo = self._git_repo(temp_dir)
+        result = runner.invoke(
+            app,
+            ["install-hook", "--git-dir", repo, "--hook-type", "../evil"],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == constants.EXIT_INVALID_ARGUMENTS
+        assert not (Path(repo) / "evil").exists()
+
+    def test_valid_engines_are_quoted_per_token(self, temp_dir):
+        repo = self._git_repo(temp_dir)
+        result = runner.invoke(
+            app,
+            [
+                "install-hook",
+                "--git-dir",
+                repo,
+                "--force",
+                "--engines",
+                "--regex --spacy-model de_core_news_sm",
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0, result.output
+        script = (Path(repo) / ".git" / "hooks" / "pre-commit").read_text()
+        assert "--regex --spacy-model de_core_news_sm" in script

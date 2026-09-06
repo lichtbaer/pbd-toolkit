@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: pbd-toolkit VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-06 06:48+0000\n"
+"POT-Creation-Date: 2026-09-06 07:00+0000\n"
 "PO-Revision-Date: 2026-07-21 20:48+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -149,6 +149,14 @@ msgstr "Error writing config: {}"
 
 #, python-brace-format
 msgid ""
+"Error: --engines must contain only scan flags and simple values (e.g. \""
+"--regex --ner\"), got: {}"
+msgstr ""
+"Error: --engines must contain only scan flags and simple values (e.g. \""
+"--regex --ner\"), got: {}"
+
+#, python-brace-format
+msgid ""
 "Error: .git/hooks directory not found in '{}'. Make sure you are inside a"
 " git repository."
 msgstr ""
@@ -177,6 +185,14 @@ msgstr "Error: dataset file not found: {}"
 #, python-brace-format
 msgid "Error: invalid dataset: {}"
 msgstr "Error: invalid dataset: {}"
+
+#, python-brace-format
+msgid ""
+"Error: invalid hook type '{}'. Use a plain git hook name such as pre-"
+"commit or pre-push."
+msgstr ""
+"Error: invalid hook type '{}'. Use a plain git hook name such as pre-"
+"commit or pre-push."
 
 #, python-brace-format
 msgid "Error: invalid manifest: {}"
