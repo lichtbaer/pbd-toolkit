@@ -408,6 +408,7 @@ def write_statistics_output(
         statistics_file_path = output_dir + outslug + "_statistics.json"
 
     aggregated_stats = statistics_aggregator.get_statistics()
+    strict = bool(getattr(args, "statistics_strict", False))
 
     scan_metadata = {
         "scan_id": outslug,
@@ -422,7 +423,8 @@ def write_statistics_output(
             else None
         ),
         "duration_seconds": round(context.statistics.duration_seconds, 2),
-        "scan_path": context.config.path,
+        # Strict mode promises "no file paths"; the scan root is one too.
+        "scan_path": None if strict else context.config.path,
         "detection_methods": {
             "regex": context.config.use_regex,
             "ner": context.config.use_ner,
@@ -437,7 +439,7 @@ def write_statistics_output(
         "total_files_scanned": context.statistics.total_files_found,
         "total_files_analyzed": context.statistics.files_processed,
         "total_matches_found": context.statistics.matches_found,
-        "statistics_strict": bool(getattr(args, "statistics_strict", False)),
+        "statistics_strict": strict,
     }
 
     performance_metrics: dict[str, Any] = {

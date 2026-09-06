@@ -158,7 +158,11 @@ pbd-toolkit scan /data --vector-search --vector-save-index ./output/my_index
 | `--vector-threshold` | `0.75` | Cosine similarity cut-off (0.0 – 1.0) |
 | `--vector-save-index` | – | Path prefix to save FAISS index |
 | `--vector-load-index` | – | Path prefix to load a saved FAISS index |
+| `--vector-index-no-text` | off | Do not store chunk text in `<index>.meta` |
 | `--vector-custom-exemplars` | – | Path to custom exemplar file (YAML or JSON) |
+
+!!! warning "A saved index contains your documents"
+    `--vector-save-index` writes two files. `<index>.faiss` holds the embeddings; `<index>.meta` holds the **raw text of every indexed chunk**, i.e. the PII the scan found, in plain JSON. Both are written with mode `0600`, and a warning is logged on save. Treat them like scan output. Pass `--vector-index-no-text` to keep only file path, chunk index and file hash in `.meta`; `pbd-toolkit query` then reports scores and file locations but no text previews.
 
 **Installation**: `pip install sentence-transformers` (or `pip install "pbd-toolkit[vector]"`)
 
@@ -305,7 +309,7 @@ pbd-toolkit scan /data --regex --ner --statistics-mode
 
 ### `--statistics-strict`
 
-Strict privacy statistics mode: do not keep file paths in memory (some unique-file metrics become `null`).
+Strict privacy statistics mode: do not keep file paths in memory (some unique-file metrics become `null`), and do not record the scan root in the statistics file (`metadata.scan_path` is `null`).
 
 ```bash
 pbd-toolkit scan /data --regex --ner --statistics-mode --statistics-strict

@@ -22,6 +22,7 @@ DE_TRANSLATIONS = {
     "Configuration error: {}": "Konfigurationsfehler: {}",
     "Configuration error: {}: {}": "Konfigurationsfehler: {}: {}",
     "Configuration exported to: {}": "Konfiguration exportiert nach: {}",
+    "(text not stored in index; saved with --vector-index-no-text)": "(Text nicht im Index gespeichert; gespeichert mit --vector-index-no-text)",
     "Error: invalid hook type '{}'. Use a plain git hook name such as pre-commit or pre-push.": "Fehler: ungültiger Hook-Typ '{}'. Verwenden Sie einen einfachen Git-Hook-Namen wie pre-commit oder pre-push.",
     'Error: --engines must contain only scan flags and simple values (e.g. "--regex --ner"), got: {}': 'Fehler: --engines darf nur Scan-Flags und einfache Werte enthalten (z. B. "--regex --ner"), erhalten: {}',
     "Note: secret fields were not exported ({}). Pass them via CLI flags or environment variables instead.": "Hinweis: Geheimnis-Felder wurden nicht exportiert ({}). Übergeben Sie sie stattdessen per CLI-Flag oder Umgebungsvariable.",

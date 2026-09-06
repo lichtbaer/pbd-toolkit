@@ -695,3 +695,39 @@ class TestCliInstallHookInputValidation:
         assert result.exit_code == 0, result.output
         script = (Path(repo) / ".git" / "hooks" / "pre-commit").read_text()
         assert "--regex --spacy-model de_core_news_sm" in script
+
+
+class TestCliStatisticsPrivacy:
+    def _scan(self, temp_dir, *extra):
+        (Path(temp_dir) / "doc.txt").write_text("Mail: user@example.com")
+        out_dir = Path(temp_dir) / "out"
+        result = runner.invoke(
+            app,
+            [
+                "scan",
+                temp_dir,
+                "--regex",
+                "--quiet",
+                "--statistics-mode",
+                "--output-dir",
+                str(out_dir),
+                "--outname",
+                "stats",
+                *extra,
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0, result.output
+        stats_files = list(out_dir.glob("*stats_statistics.json"))
+        assert len(stats_files) == 1
+        return json.loads(stats_files[0].read_text())
+
+    def test_strict_statistics_do_not_record_the_scan_path(self, temp_dir):
+        payload = self._scan(temp_dir, "--statistics-strict")
+        assert payload["metadata"]["statistics_strict"] is True
+        assert payload["metadata"]["scan_path"] is None
+        assert temp_dir not in json.dumps(payload)
+
+    def test_non_strict_statistics_keep_the_scan_path(self, temp_dir):
+        payload = self._scan(temp_dir)
+        assert payload["metadata"]["scan_path"] == temp_dir

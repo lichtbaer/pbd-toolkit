@@ -210,6 +210,11 @@ def scan(
         "--vector-load-index",
         help="Path prefix of a previously saved FAISS index to load before scanning",
     ),
+    vector_index_no_text: bool = typer.Option(
+        False,
+        "--vector-index-no-text",
+        help="Do not store chunk text in the saved index metadata (.meta). Query previews become unavailable, but the index no longer duplicates scanned PII.",
+    ),
     vector_custom_exemplars: str | None = typer.Option(
         None,
         "--vector-custom-exemplars",
@@ -482,6 +487,7 @@ def scan(
         "vector_threshold": vector_threshold,
         "vector_save_index": vector_save_index,
         "vector_load_index": vector_load_index,
+        "vector_index_no_text": vector_index_no_text,
         "vector_custom_exemplars": vector_custom_exemplars,
         "use_magic_detection": use_magic_detection,
         "magic_fallback": magic_fallback,
@@ -1106,7 +1112,11 @@ def query(
                     ).format(i, score, chunk.file_path, chunk.chunk_idx)
                 )
                 preview = chunk.text.replace("\n", " ").strip()
-                if len(preview) > 300:
+                if not preview:
+                    preview = translate_func(
+                        "(text not stored in index; saved with --vector-index-no-text)"
+                    )
+                elif len(preview) > 300:
                     preview = preview[:300] + " …"
                 typer.echo(f"    {preview}")
             typer.echo(sep)

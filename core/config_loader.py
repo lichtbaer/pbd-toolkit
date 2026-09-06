@@ -67,6 +67,7 @@ class ConfigLoader:
         "vector_threshold": 0.75,
         "vector_save_index": None,
         "vector_load_index": None,
+        "vector_index_no_text": False,
         "vector_custom_exemplars": None,
         # File type detection
         "use_magic_detection": False,
@@ -152,6 +153,7 @@ class ConfigLoader:
         "vector_threshold": "vector_threshold",
         "vector_save_index": "vector_save_index",
         "vector_load_index": "vector_load_index",
+        "vector_index_no_text": "vector_index_no_text",
         "vector_custom_exemplars": "vector_custom_exemplars",
         # File type detection
         "use_magic_detection": "use_magic_detection",
