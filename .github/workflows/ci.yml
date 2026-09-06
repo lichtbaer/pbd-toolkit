@@ -5,22 +5,32 @@ on:
   push:
     branches: ["**"]
 
+# The workflow only reads the repository; no job writes to GitHub.
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Keep in sync with requires-python / classifiers in pyproject.toml.
+        python-version: ["3.10", "3.11", "3.12"]
+    name: test (py${{ matrix.python-version }})
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,office,images,magic,llm]"
+          python -m pip install -e ".[dev,office,images,magic,llm,api]"
           python -m pip check
 
       - name: Run tests
@@ -80,7 +90,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,office,images,magic,llm]"
+          python -m pip install -e ".[dev,office,images,magic,llm,api]"
 
       - name: mypy
         run: |
@@ -125,7 +135,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install bandit pip-audit
           python -m pip install --upgrade setuptools wheel
-          python -m pip install -e ".[office,images,magic,llm]"
+          python -m pip install -e ".[office,images,magic,llm,api]"
           python -m pip check
 
       - name: Bandit

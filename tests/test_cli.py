@@ -5,6 +5,7 @@ import os
 import stat
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from core import constants
@@ -456,11 +457,37 @@ class TestCliServe:
         assert result.exit_code == 0
         assert "api" in result.output.lower()
 
-    def test_serve_missing_api_extra(self):
-        """Without fastapi/uvicorn installed, serve exits gracefully (not a raw traceback)."""
+    def test_serve_missing_api_extra(self, monkeypatch):
+        """Without fastapi/uvicorn installed, serve exits gracefully (not a raw traceback).
+
+        The import failure is simulated so the test behaves the same whether or
+        not the ``api`` extra happens to be installed in the test environment.
+        """
+        import builtins
+        import sys
+
+        real_import = builtins.__import__
+
+        def fail_api_import(name, *args, **kwargs):
+            if name == "api.server" or name.startswith("api.server."):
+                raise ImportError("No module named 'fastapi'")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.delitem(sys.modules, "api.server", raising=False)
+        monkeypatch.setattr(builtins, "__import__", fail_api_import)
+
+        result = runner.invoke(app, ["serve"], catch_exceptions=False)
+        assert result.exit_code == constants.EXIT_CONFIGURATION_ERROR
+        assert "pip install 'pbd-toolkit[api]'" in result.output
+
+    def test_serve_refuses_to_start_unauthenticated(self, monkeypatch):
+        """With the api extra installed, serve without a key must fail closed."""
+        pytest.importorskip("fastapi")
+        monkeypatch.delenv("PBD_API_KEY", raising=False)
+        monkeypatch.delenv("PBD_ALLOW_UNAUTHENTICATED", raising=False)
         result = runner.invoke(app, ["serve"], catch_exceptions=False)
         assert result.exit_code != 0
-        assert "pip install 'pbd-toolkit[api]'" in result.output
+        assert "authentication" in result.output.lower()
 
 
 class TestCliInstallHook:

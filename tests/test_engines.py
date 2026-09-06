@@ -411,9 +411,13 @@ class TestGLiNEREngine:
 class TestSpacyNEREngine:
     """Tests for SpacyNEREngine."""
 
-    @pytest.mark.skipif(True, reason="Requires spaCy to be installed")
     def test_spacy_engine_initialization(self):
-        """Test spaCy engine initialization."""
+        """Test spaCy engine initialization (runs whenever spaCy is importable).
+
+        The model itself need not be downloaded: a missing model is handled by
+        ``_load_model`` and leaves ``engine.model`` as ``None``.
+        """
+        pytest.importorskip("spacy")
         mock_config = Mock(spec=Config)
         mock_config.use_spacy_ner = True
         mock_config.spacy_model_name = "de_core_news_sm"
