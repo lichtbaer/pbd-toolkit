@@ -513,6 +513,7 @@ def scan(
         "min_severity": min_severity.upper() if min_severity else None,
         "fail_on_severity": fail_on_severity.upper() if fail_on_severity else None,
         "exclude": list(exclude),
+        "profile": profile,
     }
 
     args = _create_argparse_namespace_from_typer_args(**typer_args)

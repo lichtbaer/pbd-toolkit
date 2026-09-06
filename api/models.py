@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from core.profiles import PROFILES
+
 # ------------------------------------------------------------------
 # Scan request / response
 # ------------------------------------------------------------------
@@ -14,7 +16,8 @@ from pydantic import BaseModel, Field
 _VALID_ENGINES = frozenset(
     {"regex", "gliner", "spacy", "pydantic-ai", "vector", "ollama", "openai"}
 )
-_VALID_PROFILES = frozenset({"quick", "standard", "deep", "gdpr-audit", "ci"})
+# Single source of truth: whatever core.profiles ships is what the API accepts.
+_VALID_PROFILES = frozenset(PROFILES)
 
 
 class ScanRequest(BaseModel):
@@ -26,7 +29,11 @@ class ScanRequest(BaseModel):
         description="Detection engines to use (regex, gliner, spacy, pydantic-ai, vector)",
     )
     profile: str | None = Field(
-        None, description="Scan profile (quick, standard, deep, gdpr-audit, ci)"
+        None,
+        description=(
+            "Built-in scan profile applied before the explicit request values "
+            f"({', '.join(sorted(_VALID_PROFILES))})"
+        ),
     )
     deduplicate: bool = Field(False, description="Remove duplicate findings")
     incremental: bool = Field(False, description="Skip unchanged files")
@@ -47,6 +54,18 @@ class ScanRequest(BaseModel):
                 f"Unknown engine(s): {unknown}. Valid: {sorted(_VALID_ENGINES)}"
             )
         return self.engines
+
+    @property
+    def validated_profile(self) -> str | None:
+        """Return the profile name after validating it against known profiles."""
+        if self.profile is None:
+            return None
+        name = self.profile.lower()
+        if name not in _VALID_PROFILES:
+            raise ValueError(
+                f"Unknown profile: {self.profile!r}. Valid: {sorted(_VALID_PROFILES)}"
+            )
+        return name
 
 
 class ScanResponse(BaseModel):

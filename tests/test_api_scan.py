@@ -97,3 +97,53 @@ def test_statistics_maps_scan_result_fields():
     assert stats.total_files_found == 7
     assert stats.files_processed == 5
     assert stats.extension_counts == {".txt": 5}
+
+
+def test_run_scan_applies_profile_values(tmp_path, monkeypatch):
+    """Regression: the API accepted ``profile`` but never applied it.
+
+    Profile 'ci' sets ``fail_on_severity: HIGH``; the ScanRequest handed to the
+    runner must carry it.  Explicit request values (deduplicate=True) must survive
+    the merge.
+    """
+    from types import SimpleNamespace
+
+    from core.scan_runner import ScanRunner
+
+    scan_dir = tmp_path / "data"
+    scan_dir.mkdir()
+    (scan_dir / "sample.txt").write_text("nothing to see\n")
+
+    captured: dict[str, object] = {}
+
+    def fake_run(self, request):
+        captured["request"] = request
+        stats = SimpleNamespace(
+            total_files_found=0,
+            files_processed=0,
+            matches_found=0,
+            total_errors=0,
+            duration_seconds=0.0,
+            matches_by_engine={},
+            extension_counts={},
+        )
+        return SimpleNamespace(statistics=stats)
+
+    monkeypatch.setattr(ScanRunner, "run", fake_run)
+
+    store = AnalyticsStore(db_path=str(tmp_path / "analytics.db"))
+    service = ScannerService(store, allowed_scan_roots=[str(scan_dir)])
+    try:
+        session_id = service.start_scan(
+            str(scan_dir), engines=["regex"], profile="ci", deduplicate=True
+        )
+        service.shutdown()
+        session = AnalyticsQueries(store._db).get_session_detail(session_id)
+    finally:
+        store.close()
+
+    request = captured["request"]
+    assert request.fail_on_severity == "HIGH"
+    assert request.config.fail_on_severity == "HIGH"
+    assert request.enable_deduplication is True
+    assert session is not None and session["status"] == "completed"

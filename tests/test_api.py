@@ -230,6 +230,44 @@ class TestPathTraversal:
             assert resp.status_code == 202
 
 
+class TestScanProfiles:
+    """``profile`` in the scan request is validated against core.profiles."""
+
+    @pytest.fixture
+    def scan_client(self, tmp_path):
+        safe = tmp_path / "safe"
+        safe.mkdir()
+        app = create_app(
+            analytics_db_path=str(tmp_path / "profiles.db"),
+            allowed_scan_roots=[str(safe)],
+            allow_unauthenticated=True,
+        )
+        with TestClient(app) as c:
+            yield c, safe
+
+    def test_unknown_profile_is_rejected(self, scan_client):
+        c, safe = scan_client
+        resp = c.post(
+            "/api/v1/scans", json={"path": str(safe), "profile": "no-such-profile"}
+        )
+        assert resp.status_code == 400
+        assert "profile" in resp.json()["detail"].lower()
+
+    def test_known_profile_is_accepted(self, scan_client):
+        c, safe = scan_client
+        resp = c.post("/api/v1/scans", json={"path": str(safe), "profile": "quick"})
+        assert resp.status_code == 202
+
+    def test_profiles_endpoint_lists_every_core_profile_with_description(self, client):
+        from core.profiles import PROFILES
+
+        resp = client.get("/api/v1/system/profiles")
+        assert resp.status_code == 200
+        listed = {p["name"]: p["description"] for p in resp.json()}
+        assert set(listed) == set(PROFILES)
+        assert all(listed.values()), "every profile should carry a description"
+
+
 class TestAPIKeyAuth:
     """Verify Bearer token authentication middleware."""
 

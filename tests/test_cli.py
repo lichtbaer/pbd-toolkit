@@ -125,6 +125,52 @@ class TestCliScan:
         files_hit = {f["file"] for f in data["findings"]}
         assert not any("skip.txt" in f for f in files_hit)
 
+    def test_scan_profile_ci_applies_severity_gate(self, temp_dir):
+        """Regression: the 'ci' profile's fail_on_severity used to be dropped.
+
+        An IBAN is a HIGH-severity finding, so ``--profile ci`` (which sets
+        ``fail_on_severity: HIGH``) must exit with EXIT_FINDINGS_ABOVE_THRESHOLD.
+        """
+        (Path(temp_dir) / "bank.txt").write_text("IBAN DE89 3704 0044 0532 0130 00")
+        out_dir = Path(temp_dir) / "out"
+        result = runner.invoke(
+            app,
+            [
+                "scan",
+                temp_dir,
+                "--profile",
+                "ci",
+                "--quiet",
+                "--output-dir",
+                str(out_dir),
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == constants.EXIT_FINDINGS_ABOVE_THRESHOLD, (
+            result.output
+        )
+
+    def test_scan_explicit_flag_overrides_profile(self, temp_dir):
+        """An explicit --fail-on-severity beats the profile's value."""
+        (Path(temp_dir) / "bank.txt").write_text("IBAN DE89 3704 0044 0532 0130 00")
+        out_dir = Path(temp_dir) / "out"
+        result = runner.invoke(
+            app,
+            [
+                "scan",
+                temp_dir,
+                "--profile",
+                "ci",
+                "--fail-on-severity",
+                "CRITICAL",
+                "--quiet",
+                "--output-dir",
+                str(out_dir),
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == constants.EXIT_SUCCESS, result.output
+
 
 class TestCliQuery:
     """Tests for query command."""

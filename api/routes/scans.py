@@ -33,6 +33,7 @@ def create_scan(body: ScanRequest, request: Request) -> ScanResponse:
 
     try:
         engines = body.validated_engines
+        profile = body.validated_profile
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -40,7 +41,7 @@ def create_scan(body: ScanRequest, request: Request) -> ScanResponse:
         session_id = service.start_scan(
             path=body.path,
             engines=engines,
-            profile=body.profile,
+            profile=profile,
             deduplicate=body.deduplicate,
             incremental=body.incremental,
             text_chunk_size=body.text_chunk_size,
