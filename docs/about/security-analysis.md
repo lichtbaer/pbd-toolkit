@@ -53,7 +53,8 @@ The `serve` API and `--analytics` scan option persist scan sessions, findings me
 
 ## Known limitations / TODOs
 
-- This is a best-effort analysis; the project should add:
-  - CI security scanning (e.g. Bandit, dependency audit) and a documented disclosure process.
-  - An automated retention/expiry mechanism for the analytics database (currently manual, see guidance above).
+- This is a best-effort analysis. CI runs Bandit and audits the pinned
+  dependency set in `uv.lock` on every push; the disclosure process is
+  described in [SECURITY.md](https://github.com/lichtbaer/pbd-toolkit/blob/main/SECURITY.md).
+- Still missing: an automated retention/expiry mechanism for the analytics database (currently manual, see guidance above).
 

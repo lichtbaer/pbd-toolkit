@@ -1,5 +1,14 @@
 version: 2
 updates:
+  # Python dependencies: `uv` keeps uv.lock (the set CI installs) current;
+  # `pip` still covers requirements*.txt for users who install from those.
+  # Until requirements*.txt are retired the two may open overlapping PRs.
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
@@ -12,3 +21,9 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 10
 
+  # Keeps the digest-pinned base image in the Dockerfile current.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
