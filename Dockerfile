@@ -1,7 +1,7 @@
 # Pinned by digest so a rebuild reproduces the same base image; Dependabot
 # (package-ecosystem: docker) proposes digest bumps. Refresh manually with:
 #   docker buildx imagetools inspect python:3.12-slim   (multi-arch digest)
-FROM python:3.12-slim@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea
+FROM python:3.15-slim@sha256:94d3426f1def7db4a106a232ac121bfd975393e5dfd40a619b955fae45fe7913
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
